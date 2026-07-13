@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>financiALL - Importar nota fiscal</title>
+  <style>
+    body { font-family: sans-serif; max-width: 480px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.3rem; }
+    fieldset { margin-bottom: 1.5rem; }
+    input[type="text"] { width: 100%; padding: 0.5rem; box-sizing: border-box; }
+    button { padding: 0.6rem 1.2rem; }
+    #resultado { white-space: pre-wrap; background: #f2f2f2; padding: 0.8rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>financiALL - Importar nota fiscal</h1>
+
+  <fieldset>
+    <legend>URL do QR Code ou chave de acesso</legend>
+    <form id="form-entrada">
+      <input type="text" id="entrada" name="entrada" placeholder="Cole a URL do QR Code ou a chave de 44 dígitos" required>
+      <button type="submit">Importar</button>
+    </form>
+  </fieldset>
+
+  <fieldset>
+    <legend>Foto ou PDF do cupom fiscal</legend>
+    <form id="form-upload">
+      <input type="file" id="arquivo" name="arquivo" accept="image/*,application/pdf" capture="environment" required>
+      <button type="submit">Enviar</button>
+    </form>
+  </fieldset>
+
+  <div id="resultado"></div>
+
+  <script>
+    const resultado = document.getElementById("resultado");
+
+    document.getElementById("form-entrada").addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      const entrada = document.getElementById("entrada").value;
+      const resposta = await fetch("/notas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entrada }),
+      });
+      const corpo = await resposta.json();
+      resultado.textContent = JSON.stringify(corpo, null, 2);
+    });
+
+    document.getElementById("form-upload").addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      const arquivo = document.getElementById("arquivo").files[0];
+      const dados = new FormData();
+      dados.append("arquivo", arquivo);
+      const resposta = await fetch("/notas/upload", { method: "POST", body: dados });
+      const corpo = await resposta.json();
+      resultado.textContent = JSON.stringify(corpo, null, 2);
+    });
+  </script>
+</body>
+</html>

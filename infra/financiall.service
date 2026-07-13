@@ -1,0 +1,22 @@
+[Unit]
+Description=financiALL - servidor de importacao de notas fiscais
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=w3finall
+Group=w3finall
+WorkingDirectory=/home/w3finall/financiall
+Environment=FINANCIALL_DB_PATH=/home/w3finall/financiall/data/financiall.db
+Environment=FINANCIALL_UPLOAD_DIR=/home/w3finall/financiall/data/uploads
+ExecStart=/home/w3finall/financiall/.venv/bin/python -m src.main
+Restart=on-failure
+RestartSec=5
+
+# Hardening leve, compativel com acesso a arquivos em WorkingDirectory
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
