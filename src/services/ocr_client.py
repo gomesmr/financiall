@@ -20,12 +20,25 @@ def tesseract_disponivel() -> bool:
     return shutil.which("tesseract") is not None
 
 
+_DIMENSAO_MINIMA_PIXELS = 1500
+
+
 def _pre_processar(imagem: Image.Image) -> Image.Image:
-    """Escala de cinza + binarização simples (research.md #7): melhora a
-    taxa de reconhecimento sem custo de memória relevante no hardware do
-    Raspberry Pi."""
+    """Escala de cinza (research.md #7) e, quando a imagem é pequena
+    (fotos de celular de cupons compridos costumam vir com pouca
+    resolução por dimensão), amplia com reamostragem LANCZOS antes do
+    OCR. Testado contra cupom real: binarização com limiar fixo destrói
+    a legibilidade em fotos com iluminação desigual — a ampliação sozinha
+    é o que realmente melhora a taxa de reconhecimento, então essa etapa
+    de binarização foi removida."""
     cinza = ImageOps.grayscale(imagem)
-    return cinza.point(lambda pixel: 255 if pixel > 150 else 0)
+    menor_lado = min(cinza.width, cinza.height)
+    if menor_lado < _DIMENSAO_MINIMA_PIXELS:
+        fator = _DIMENSAO_MINIMA_PIXELS / menor_lado
+        nova_largura = round(cinza.width * fator)
+        nova_altura = round(cinza.height * fator)
+        cinza = cinza.resize((nova_largura, nova_altura), Image.LANCZOS)
+    return cinza
 
 
 def reconhecer_texto_de_imagem(imagem: Image.Image, idioma: str = "por") -> str:

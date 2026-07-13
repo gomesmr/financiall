@@ -46,3 +46,45 @@ def test_extrair_campos_nao_levanta_excecao_com_texto_vazio():
     campos = extrair_campos("")
     assert campos.chave_acesso is None
     assert campos.itens == []
+
+
+TEXTO_OCR_FORMATO_X_IGUAL = (
+    "MERCADO REAL LTDA\n"
+    "CNPJ: 17.608.063/0005-51\n"
+    "BANANA NANICA KG 1,400 KG X 6,99 = 9,79\n"
+    "TEMP AROMA ERVAS 1 UN X 7,59 = 7,59\n"
+    "Valor a Pagar R$ 17,38\n"
+)
+
+
+def test_extrair_campos_reconhece_formato_qtd_x_valor_igual_total():
+    """Formato confirmado contra OCR de cupom real (código/descrição
+    quantidade UN X valor_unitário = valor_total)."""
+    campos = extrair_campos(TEXTO_OCR_FORMATO_X_IGUAL)
+    assert campos.cnpj_emitente == "17608063000551"
+    assert campos.valor_total == 1738
+    assert len(campos.itens) == 2
+    assert campos.itens[0]["descricao"] == "BANANA NANICA KG"
+    assert campos.itens[0]["quantidade"] == 1.4
+    assert campos.itens[0]["valor_unitario"] == 699
+    assert campos.itens[0]["valor_total_item"] == 979
+
+
+def test_extrair_campos_encontra_chave_impressa_em_grupos_de_4_digitos():
+    """A chave de acesso impressa no cupom (ao contrário do parâmetro de
+    uma URL) costuma vir em grupos de 4 dígitos separados por espaço —
+    confirmado contra OCR de cupom real, onde a extração por sequência
+    contígua falhava."""
+    grupos = [CHAVE[i : i + 4] for i in range(0, len(CHAVE), 4)]
+    texto = "Consulte pela Chave de Acesso em\n" + " ".join(grupos) + "\n"
+    campos = extrair_campos(texto)
+    assert campos.chave_acesso == CHAVE
+
+
+def test_extrair_campos_chave_grupos_incompletos_nao_encontra_nada():
+    """Se o OCR não capturou dígitos suficientes (menos de 44 ao todo na
+    linha), não deve inventar uma chave — fica None e a nota cai em
+    pendente de revisão, o comportamento esperado (Princípio VII)."""
+    texto = "Chave de acesso\n3526 0717 6080\n"
+    campos = extrair_campos(texto)
+    assert campos.chave_acesso is None

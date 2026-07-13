@@ -62,7 +62,8 @@ def test_upload_foto_e_consulta_status_ate_concluido(app_e_db, client, monkeypat
         "VALOR TOTAL R$                   25,00\n"
         f"{chave}\n"
     )
-    monkeypatch.setattr("src.worker.ocr_worker.ocr_client.reconhecer_texto", lambda caminho: texto_ocr)
+    monkeypatch.setattr("src.worker.ocr_worker.ocr_client.reconhecer_texto_de_imagem", lambda imagem: texto_ocr)
+    monkeypatch.setattr("src.worker.ocr_worker._imagens_do_envio", lambda envio: ["imagem-fake"])
 
     upload = client.post(
         "/notas/upload",
@@ -103,8 +104,9 @@ def test_mesma_nota_via_url_e_depois_via_foto_nao_duplica(app_e_db, client, monk
 
     texto_ocr_com_a_mesma_chave = f"LOJA QUALQUER\n{chave}\n"
     monkeypatch.setattr(
-        "src.worker.ocr_worker.ocr_client.reconhecer_texto", lambda caminho: texto_ocr_com_a_mesma_chave
+        "src.worker.ocr_worker.ocr_client.reconhecer_texto_de_imagem", lambda imagem: texto_ocr_com_a_mesma_chave
     )
+    monkeypatch.setattr("src.worker.ocr_worker._imagens_do_envio", lambda envio: ["imagem-fake"])
     upload = client.post(
         "/notas/upload",
         data={"arquivo": (io.BytesIO(b"outra-foto-da-mesma-nota"), "cupom2.jpg")},
@@ -143,10 +145,11 @@ def test_foto_ilegivel_ainda_conclui_processamento_sem_erro(app_e_db, client, mo
     """US4 cenario 3: OCR sem nenhum campo utilizavel ainda registra o envio."""
     _, db_path = app_e_db
 
-    def _ocr_sem_nada_util(caminho):
+    def _ocr_sem_nada_util(imagem):
         return "###   ...   ilegivel   ---"
 
-    monkeypatch.setattr("src.worker.ocr_worker.ocr_client.reconhecer_texto", _ocr_sem_nada_util)
+    monkeypatch.setattr("src.worker.ocr_worker.ocr_client.reconhecer_texto_de_imagem", _ocr_sem_nada_util)
+    monkeypatch.setattr("src.worker.ocr_worker._imagens_do_envio", lambda envio: ["imagem-fake"])
 
     upload = client.post(
         "/notas/upload",

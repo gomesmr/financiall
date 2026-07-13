@@ -140,7 +140,8 @@ def test_get_envio_concluido_completo(client, monkeypatch, app_e_db):
         "VALOR TOTAL R$                   10,00\n"
         f"{chave}\n"
     )
-    monkeypatch.setattr("src.worker.ocr_worker.ocr_client.reconhecer_texto", lambda caminho: texto_ocr)
+    monkeypatch.setattr("src.worker.ocr_worker.ocr_client.reconhecer_texto_de_imagem", lambda imagem: texto_ocr)
+    monkeypatch.setattr("src.worker.ocr_worker._imagens_do_envio", lambda envio: ["imagem-fake"])
 
     upload = client.post(
         "/notas/upload",
@@ -162,7 +163,8 @@ def test_get_envio_concluido_com_dados_incompletos(client, monkeypatch, app_e_db
     from src.worker import ocr_worker
 
     _, db_path = app_e_db
-    monkeypatch.setattr("src.worker.ocr_worker.ocr_client.reconhecer_texto", lambda caminho: "ilegivel")
+    monkeypatch.setattr("src.worker.ocr_worker.ocr_client.reconhecer_texto_de_imagem", lambda imagem: "ilegivel")
+    monkeypatch.setattr("src.worker.ocr_worker._imagens_do_envio", lambda envio: ["imagem-fake"])
 
     upload = client.post(
         "/notas/upload",
@@ -249,3 +251,21 @@ def test_pagina_upload_carrega(client):
     assert resposta.status_code == 200
     assert b"financiALL" in resposta.data
     assert resposta.content_type.startswith("text/html")
+
+
+def test_get_notas_inclui_itens_da_nota(client, monkeypatch):
+    """Regressão: GET /notas esquecia de buscar os itens de cada nota,
+    sempre retornando `itens: []` mesmo quando a nota tinha itens."""
+    monkeypatch.setattr(
+        "src.services.importador.sefaz_client.buscar_dados_nota",
+        lambda url: _dados_sefaz_completos(),
+    )
+    chave = gerar_chave_valida(numero="000000015")
+    url = f"https://www.sefaz.sp.gov.br/nfce/qrcode?p={chave}|2|1|1|hash"
+    client.post("/notas", json={"entrada": url})
+
+    resposta = client.get("/notas")
+    corpo = resposta.get_json()
+    assert len(corpo["notas"]) == 1
+    assert len(corpo["notas"][0]["itens"]) == 1
+    assert corpo["notas"][0]["itens"][0]["descricao"] == "Produto Exemplo"

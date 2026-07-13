@@ -16,11 +16,13 @@ echo "==> financiALL: provisionando em $REPO_DIR"
 echo "--> Atualizando indice de pacotes"
 sudo apt-get update -y
 
-# tesseract-ocr e o pacote de idioma portugues nao vem na imagem padrao.
-echo "--> Garantindo tesseract-ocr, tesseract-ocr-por, python3-venv"
+# tesseract-ocr, o pacote de idioma portugues e libzbar0 (leitura de QR
+# Code via pyzbar) nao vem na imagem padrao.
+echo "--> Garantindo tesseract-ocr, tesseract-ocr-por, libzbar0, python3-venv"
 sudo apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-por \
+    libzbar0 \
     python3-venv \
     python3-pip
 

@@ -34,13 +34,21 @@ def _calcular_status(
 
 
 def importar_por_url_ou_chave(
-    entrada: str, db_path: str = storage_db.DEFAULT_DB_PATH
+    entrada: str,
+    canal_origem: CanalOrigem = CanalOrigem.URL_CHAVE,
+    db_path: str = storage_db.DEFAULT_DB_PATH,
 ) -> ResultadoImportacao:
     """Orquestra o canal URL/chave: valida a chave, checa duplicidade,
     busca dados best-effort na fonte SEFAZ (só modelo 65) e grava a nota
     (US1, US3, US4). Levanta `chave_acesso.ChaveInvalidaError` quando a
     entrada não resulta em uma chave válida (FR-004) — o chamador (rota da
-    API) é responsável por transformar isso numa resposta HTTP 422."""
+    API) é responsável por transformar isso numa resposta HTTP 422.
+
+    `canal_origem` permite reaproveitar esta orquestração quando a URL foi
+    obtida de outra forma (ex.: QR Code decodificado de uma foto — o
+    worker do canal 2 chama esta função com `canal_origem=FOTO_PDF` para
+    reusar a mesma busca best-effort na SEFAZ, já que a URL do QR Code é
+    idêntica nos dois canais)."""
     chave = chave_acesso_service.extrair_e_validar(entrada)
 
     existente = storage_db.buscar_por_chave_acesso(chave, db_path=db_path)
@@ -75,7 +83,7 @@ def importar_por_url_ou_chave(
     status = _calcular_status(emitente_nome, data_emissao, valor_total, itens)
 
     nota = NotaFiscal(
-        canal_origem=CanalOrigem.URL_CHAVE,
+        canal_origem=canal_origem,
         status=status,
         chave_acesso=chave,
         uf=dados_chave.uf,

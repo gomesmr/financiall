@@ -22,7 +22,17 @@ def listar_notas():
     db_path = current_app.config["DB_PATH"]
     mes = request.args.get("mes")
     notas = storage_db.listar_notas(mes=mes, db_path=db_path)
-    return jsonify({"notas": [nota_to_dict(nota) for nota in notas]}), 200
+    return (
+        jsonify(
+            {
+                "notas": [
+                    nota_to_dict(nota, storage_db.listar_itens_por_nota(nota.id, db_path=db_path))
+                    for nota in notas
+                ]
+            }
+        ),
+        200,
+    )
 
 
 @bp.get("/notas/resumo/mes-atual")

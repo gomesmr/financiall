@@ -10,11 +10,13 @@ dependencies = [
     "pytesseract>=0.3.10",
     "pillow>=10.0",
     "pdf2image>=1.17",
+    "pyzbar>=0.1.9",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+    "qrcode>=7.4",
 ]
 
 [tool.pytest.ini_options]
