@@ -2,6 +2,9 @@
 {% block title %}financiALL - Notas{% endblock %}
 {% block content %}
   <h1>Notas importadas</h1>
+  {% if request.args.get('excluida') %}
+  <p class="mensagem-sucesso">Nota excluída com sucesso.</p>
+  {% endif %}
   {% if notas %}
   <table>
     <tr>
@@ -10,6 +13,7 @@
       <th>Total</th>
       <th>Status</th>
       <th>Canal</th>
+      <th>Ações</th>
     </tr>
     {% for nota in notas %}
     <tr class="linha-clicavel" onclick="window.location='/ver/notas/{{ nota.id }}'">
@@ -18,10 +22,26 @@
       <td>{% if nota.valor_total is not none %}R$ {{ "%.2f"|format(nota.valor_total / 100) }}{% else %}—{% endif %}</td>
       <td><span class="status-badge status-{{ nota.status.value }}">{{ "completa" if nota.status.value == "completa" else "pendente de revisão" }}</span></td>
       <td>{{ "URL/chave" if nota.canal_origem.value == "url_chave" else "Foto/PDF" }}</td>
+      <td><button class="btn-excluir" onclick="event.stopPropagation(); excluirNota({{ nota.id }})">Excluir</button></td>
     </tr>
     {% endfor %}
   </table>
   {% else %}
   <p class="vazio">Nenhuma nota importada ainda. <a href="/">Importar a primeira →</a></p>
   {% endif %}
+
+  <script>
+    async function excluirNota(notaId) {
+      if (!confirm("Excluir esta nota? Essa ação não pode ser desfeita.")) {
+        return;
+      }
+      const resposta = await fetch(`/notas/${notaId}`, { method: "DELETE" });
+      const corpo = await resposta.json();
+      if (!resposta.ok) {
+        alert(corpo.erro || "Não foi possível excluir a nota.");
+        return;
+      }
+      window.location.href = "/ver/notas?excluida=1";
+    }
+  </script>
 {% endblock %}

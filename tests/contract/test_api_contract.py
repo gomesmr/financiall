@@ -350,3 +350,21 @@ def test_pagina_nota_detalhe_inexistente_retorna_404(client):
     resposta = client.get("/ver/notas/999999")
     assert resposta.status_code == 404
     assert "não encontrada" in resposta.get_data(as_text=True)
+
+
+def test_delete_nota_inexistente_retorna_404(client):
+    resposta = client.delete("/notas/999999")
+    corpo = resposta.get_json()
+    assert resposta.status_code == 404
+    assert corpo["erro"] == "Nota não encontrada."
+
+
+def test_delete_nota_existente_retorna_200_com_mensagem(client):
+    chave = gerar_chave_valida(numero="000000019")
+    resposta_import = client.post("/notas", json={"entrada": chave})
+    nota_id = resposta_import.get_json()["nota"]["id"]
+
+    resposta = client.delete(f"/notas/{nota_id}")
+    corpo = resposta.get_json()
+    assert resposta.status_code == 200
+    assert corpo["mensagem"] == "Nota excluída com sucesso."

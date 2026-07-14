@@ -12,6 +12,8 @@
       </span>
       &nbsp;
       {{ "URL/chave" if nota.canal_origem.value == "url_chave" else "Foto/PDF" }}
+      &nbsp;
+      <button class="btn-excluir" onclick="excluirNota({{ nota.id }})">Excluir</button>
     </p>
     <p>Data de emissão: {{ nota.data_emissao or nota.ano_mes_emissao or "não disponível" }}</p>
     <p>CNPJ do emitente: {{ nota.cnpj_emitente or "não disponível" }}</p>
@@ -41,5 +43,20 @@
     {% else %}
     <p class="vazio">Nenhum item disponível para esta nota.</p>
     {% endif %}
+
+    <script>
+      async function excluirNota(notaId) {
+        if (!confirm("Excluir esta nota? Essa ação não pode ser desfeita.")) {
+          return;
+        }
+        const resposta = await fetch(`/notas/${notaId}`, { method: "DELETE" });
+        const corpo = await resposta.json();
+        if (!resposta.ok) {
+          alert(corpo.erro || "Não foi possível excluir a nota.");
+          return;
+        }
+        window.location.href = "/ver/notas?excluida=1";
+      }
+    </script>
   {% endif %}
 {% endblock %}
