@@ -369,6 +369,83 @@ def test_excluir_categoria_inexistente_retorna_404(app_e_db, client):
     assert resposta.status_code == 404
 
 
+def test_importar_historico_e_consultar_via_api(app_e_db, client, tmp_path):
+    """US1: rodar a importacao sobre um arquivo de fixture reflete em GET /notas, com itens."""
+    import json
+
+    from src.services.importar_historico import importar_historico
+
+    _, db_path = app_e_db
+    chave = gerar_chave_valida(numero="000000060")
+    dados = {
+        chave: {
+            "emitente": "Loja Exemplo Sintetica",
+            "cnpj": "12.345.678/0001-99",
+            "uf": "SP",
+            "data_emissao": "10/03/2025",
+            "total": 50.0,
+            "itens": [
+                {"descricao": "Item Exemplo", "codigo": "1", "qtd": 1.0, "vl_unit": 50.0, "vl_total": 50.0}
+            ],
+            "conta": "cristine",
+            "fonte": "qr",
+        }
+    }
+    arquivo = tmp_path / "historico.json"
+    arquivo.write_text(json.dumps(dados), encoding="utf-8")
+
+    resumo = importar_historico(str(arquivo), db_path=db_path)
+    assert resumo.importadas == 1
+
+    notas = client.get("/notas").get_json()["notas"]
+    nota = next(n for n in notas if n["chave_acesso"] == chave)
+    assert nota["status"] == "completa"
+    assert len(nota["itens"]) == 1
+    assert nota["itens"][0]["descricao"] == "Item Exemplo"
+
+
+def test_filtrar_notas_por_titular(app_e_db, client, tmp_path):
+    """US2: GET /notas?titular=marcelo retorna so as notas daquele titular."""
+    import json
+
+    from src.services.importar_historico import importar_historico
+
+    _, db_path = app_e_db
+    chave_marcelo = gerar_chave_valida(numero="000000061")
+    chave_cristine = gerar_chave_valida(numero="000000062")
+    dados = {
+        chave_marcelo: {
+            "emitente": "Loja A",
+            "cnpj": "12.345.678/0001-99",
+            "uf": "SP",
+            "data_emissao": "01/01/2025",
+            "total": 10.0,
+            "itens": [],
+            "conta": "marcelo",
+        },
+        chave_cristine: {
+            "emitente": "Loja B",
+            "cnpj": "12.345.678/0001-99",
+            "uf": "SP",
+            "data_emissao": "01/01/2025",
+            "total": 20.0,
+            "itens": [],
+            "conta": "cristine",
+        },
+    }
+    arquivo = tmp_path / "historico.json"
+    arquivo.write_text(json.dumps(dados), encoding="utf-8")
+    importar_historico(str(arquivo), db_path=db_path)
+
+    todas = client.get("/notas").get_json()["notas"]
+    assert len(todas) == 2
+    assert {n["titular"] for n in todas} == {"marcelo", "cristine"}
+
+    so_marcelo = client.get("/notas?titular=marcelo").get_json()["notas"]
+    assert len(so_marcelo) == 1
+    assert so_marcelo[0]["chave_acesso"] == chave_marcelo
+
+
 def test_resumo_historico_com_notas_em_meses_diferentes(app_e_db, client):
     chave_jan = gerar_chave_valida(numero="000000030", aamm="2501")
     chave_fev = gerar_chave_valida(numero="000000031", aamm="2502")

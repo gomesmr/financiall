@@ -373,6 +373,38 @@ def test_pagina_categorias_lista_categoria_criada(client):
     assert "Lazer" in texto
 
 
+def test_pagina_ver_notas_mostra_titular_e_filtra(client, app_e_db, tmp_path):
+    import json
+
+    from src.services.importar_historico import importar_historico
+
+    _, db_path = app_e_db
+    chave = gerar_chave_valida(numero="000000063")
+    dados = {
+        chave: {
+            "emitente": "Loja Exemplo",
+            "cnpj": "12.345.678/0001-99",
+            "uf": "SP",
+            "data_emissao": "01/01/2025",
+            "total": 10.0,
+            "itens": [],
+            "conta": "cristine",
+        }
+    }
+    arquivo = tmp_path / "historico.json"
+    arquivo.write_text(json.dumps(dados), encoding="utf-8")
+
+    importar_historico(str(arquivo), db_path=db_path)
+
+    resposta = client.get("/ver/notas")
+    assert "Cristine" in resposta.get_data(as_text=True)
+
+    filtrada = client.get("/ver/notas?titular=marcelo")
+    assert "Nenhuma nota importada" in filtrada.get_data(as_text=True) or chave not in filtrada.get_data(
+        as_text=True
+    )
+
+
 def test_delete_nota_existente_retorna_200_com_mensagem(client):
     chave = gerar_chave_valida(numero="000000019")
     resposta_import = client.post("/notas", json={"entrada": chave})
