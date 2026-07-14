@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}financiALL - Resumo{% endblock %}
+{% block content %}
+  <h1>Resumo de gastos</h1>
+  <p class="vazio">Parcial — reflete apenas notas fiscais importadas, não o gasto total do mês.</p>
+
+  <h2>Mês corrente</h2>
+  {% if mes_corrente %}
+  <p>{{ mes_corrente.mes }}: <strong>R$ {{ "%.2f"|format((mes_corrente.total_gasto or 0) / 100) }}</strong> ({{ mes_corrente.quantidade_notas }} nota(s))</p>
+  {% else %}
+  <p class="vazio">Nenhuma nota importada no mês corrente.</p>
+  {% endif %}
+
+  <h2>Meses anteriores</h2>
+  {% if historico %}
+  <table>
+    <tr><th>Mês</th><th>Total</th><th>Notas</th></tr>
+    {% for mes in historico %}
+    <tr>
+      <td>{{ mes.mes }}</td>
+      <td>R$ {{ "%.2f"|format((mes.total_gasto or 0) / 100) }}</td>
+      <td>{{ mes.quantidade_notas }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="vazio">Nenhum mês anterior com notas.</p>
+  {% endif %}
+
+  <p><a href="/ver/notas">Ver todas as notas →</a></p>
+{% endblock %}

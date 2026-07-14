@@ -14,7 +14,59 @@ def pagina_upload():
     """Formulario HTML simples (sem framework de frontend) para importar
     por URL/chave ou enviar foto/PDF direto do navegador do celular, sem
     precisar de curl (Polish, usabilidade do canal de digitalizacao)."""
-    return render_template("upload.html")
+    return render_template("upload.html", pagina_ativa="importar")
+
+
+@bp.get("/ver/notas")
+def pagina_notas():
+    """Visao HTML de navegacao (distinta do endpoint JSON GET /notas do
+    contrato da API) — lista as notas para o usuario navegar pelo
+    navegador, com a mesma navegacao principal das demais paginas."""
+    db_path = current_app.config["DB_PATH"]
+    mes = request.args.get("mes")
+    notas = storage_db.listar_notas(mes=mes, db_path=db_path)
+    return render_template("notas.html", notas=notas, pagina_ativa="notas")
+
+
+@bp.get("/ver/notas/<int:nota_id>")
+def pagina_nota_detalhe(nota_id: int):
+    """Visao HTML de detalhe de uma nota — acessada clicando numa linha da
+    listagem (/ver/notas), mostra os itens que a listagem nao cabe exibir."""
+    db_path = current_app.config["DB_PATH"]
+    nota = storage_db.buscar_nota_por_id(nota_id, db_path=db_path)
+    if nota is None:
+        return render_template("nota_detalhe.html", nota=None, pagina_ativa="notas"), 404
+    itens = storage_db.listar_itens_por_nota(nota_id, db_path=db_path)
+    return render_template("nota_detalhe.html", nota=nota, itens=itens, pagina_ativa="notas")
+
+
+@bp.get("/ver/resumo")
+def pagina_resumo():
+    """Visao HTML de navegacao do resumo mensal (mes corrente + historico)."""
+    db_path = current_app.config["DB_PATH"]
+    mes_corrente = resumo_service.gasto_mes_corrente(db_path=db_path)
+    historico = resumo_service.historico_meses_anteriores(db_path=db_path)
+    return render_template(
+        "resumo.html", mes_corrente=mes_corrente, historico=historico, pagina_ativa="resumo"
+    )
+
+
+@bp.get("/ver/envios/<int:envio_id>")
+def pagina_envio(envio_id: int):
+    """Visao HTML do status de um envio — atualiza sozinha (meta refresh)
+    enquanto pendente/processando, para o link devolvido por `POST
+    /notas/upload` ser algo navegavel e nao so um endpoint JSON cru."""
+    db_path = current_app.config["DB_PATH"]
+    envio = storage_db.buscar_envio_por_id(envio_id, db_path=db_path)
+    if envio is None:
+        return render_template("envio.html", envio=None, pagina_ativa="importar"), 404
+
+    nota = None
+    itens = []
+    if envio["nota_fiscal_id"] is not None:
+        nota = storage_db.buscar_nota_por_id(envio["nota_fiscal_id"], db_path=db_path)
+        itens = storage_db.listar_itens_por_nota(nota.id, db_path=db_path)
+    return render_template("envio.html", envio=envio, nota=nota, itens=itens, pagina_ativa="importar")
 
 
 @bp.get("/notas")

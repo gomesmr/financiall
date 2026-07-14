@@ -28,8 +28,8 @@ administração Linux/Raspberry Pi.
 
 **Language/Version**: Python 3.11+ — ambiente de desenvolvimento (Windows,
 máquina atual do usuário) e produção real confirmada por acesso SSH
-(hostname `finall`, Raspberry Pi OS de 64 bits, base Debian 13 "trixie",
-com Python 3.13.5 já instalado de fábrica).
+(hostname `raspberrypi.local`, Raspberry Pi OS de 64 bits, base Debian 13
+"trixie", com Python 3.13.5 já instalado de fábrica).
 
 **Primary Dependencies**: `Flask` (API HTTP + páginas HTML simples
 renderizadas no servidor) servido em produção por `waitress`; `requests`
@@ -57,8 +57,8 @@ research.md #16), já que o desenvolvimento acontece no Windows.
 já instalado localmente em `C:\Program Files\Tesseract-OCR`, então os
 testes que exercitam OCR real também rodam aqui, além de no Pi); produção
 confirmada em um Raspberry Pi 3 Model B v1.2 real, acessível por SSH
-(hostname `finall`, Raspberry Pi OS de 64 bits/`aarch64`, base Debian 13
-"trixie", `poppler-utils` e `zram` já presentes de fábrica), sempre ligado
+(hostname `raspberrypi.local`, Raspberry Pi OS de 64 bits/`aarch64`, base
+Debian 13 "trixie", `poppler-utils` e `zram` já presentes de fábrica), sempre ligado
 na rede local do usuário.
 
 **Project Type**: aplicação web única — backend Flask com páginas HTML

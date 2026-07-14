@@ -239,7 +239,7 @@ dependências do projeto, e uma unit `systemd`
 serviço do sistema, com `Restart=on-failure` e início automático no boot.
 
 **Confirmado em campo (2026-07-13)**: acesso SSH por chave à máquina real
-(hostname `finall`, usuário `w3finall`, `sudo` sem senha) confirmou:
+(hostname `raspberrypi.local`, usuário `pi`, `sudo` sem senha) confirmou:
 Raspberry Pi OS 64 bits (`aarch64`) base Debian 13 "trixie", `Python
 3.13.5` e `pip3` já instalados, `poppler-utils` e `zram` já presentes,
 `python3-venv` (módulo `venv`) funcional, cartão de 29GB com 22GB livres.

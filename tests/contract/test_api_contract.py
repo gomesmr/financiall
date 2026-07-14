@@ -269,3 +269,84 @@ def test_get_notas_inclui_itens_da_nota(client, monkeypatch):
     assert len(corpo["notas"]) == 1
     assert len(corpo["notas"][0]["itens"]) == 1
     assert corpo["notas"][0]["itens"][0]["descricao"] == "Produto Exemplo"
+
+
+def test_pagina_ver_notas_carrega_vazia(client):
+    resposta = client.get("/ver/notas")
+    assert resposta.status_code == 200
+    assert "Nenhuma nota importada" in resposta.get_data(as_text=True)
+
+
+def test_pagina_ver_notas_lista_nota_importada(client):
+    chave = gerar_chave_valida(numero="000000016")
+    client.post("/notas", json={"entrada": chave})
+    resposta = client.get("/ver/notas")
+    texto = resposta.get_data(as_text=True)
+    assert resposta.status_code == 200
+    assert chave not in texto  # pagina nao expoe a chave crua, so os campos exibidos
+    assert "pendente de revisão" in texto
+
+
+def test_pagina_ver_resumo_carrega(client):
+    resposta = client.get("/ver/resumo")
+    assert resposta.status_code == 200
+    assert "Resumo de gastos" in resposta.get_data(as_text=True)
+
+
+def test_pagina_ver_envio_pendente_tem_meta_refresh(client):
+    upload = client.post(
+        "/notas/upload",
+        data={"arquivo": (io.BytesIO(b"foto"), "cupom.jpg")},
+        content_type="multipart/form-data",
+    )
+    envio_id = upload.get_json()["envio_id"]
+    resposta = client.get(f"/ver/envios/{envio_id}")
+    texto = resposta.get_data(as_text=True)
+    assert resposta.status_code == 200
+    assert "http-equiv=\"refresh\"" in texto
+
+
+def test_pagina_ver_envio_inexistente_retorna_404(client):
+    resposta = client.get("/ver/envios/999999")
+    assert resposta.status_code == 404
+    assert "não encontrado" in resposta.get_data(as_text=True)
+
+
+def test_pagina_ver_notas_linha_e_clicavel_para_o_detalhe(client):
+    """Regressão: a listagem deve linkar cada linha para /ver/notas/<id>,
+    sem vazar a representação crua do enum de status/canal no HTML."""
+    chave = gerar_chave_valida(numero="000000017")
+    resposta_import = client.post("/notas", json={"entrada": chave})
+    nota_id = resposta_import.get_json()["nota"]["id"]
+
+    resposta = client.get("/ver/notas")
+    texto = resposta.get_data(as_text=True)
+    assert resposta.status_code == 200
+    assert f"/ver/notas/{nota_id}" in texto
+    assert "linha-clicavel" in texto
+    assert "StatusNota" not in texto
+    assert "CanalOrigem" not in texto
+
+
+def test_pagina_nota_detalhe_mostra_itens(client, monkeypatch):
+    monkeypatch.setattr(
+        "src.services.importador.sefaz_client.buscar_dados_nota",
+        lambda url: _dados_sefaz_completos(),
+    )
+    chave = gerar_chave_valida(numero="000000018")
+    url = f"https://www.sefaz.sp.gov.br/nfce/qrcode?p={chave}|2|1|1|hash"
+    resposta_import = client.post("/notas", json={"entrada": url})
+    nota_id = resposta_import.get_json()["nota"]["id"]
+
+    resposta = client.get(f"/ver/notas/{nota_id}")
+    texto = resposta.get_data(as_text=True)
+    assert resposta.status_code == 200
+    assert "Produto Exemplo" in texto
+    assert "StatusNota" not in texto
+    assert "CanalOrigem" not in texto
+
+
+def test_pagina_nota_detalhe_inexistente_retorna_404(client):
+    resposta = client.get("/ver/notas/999999")
+    assert resposta.status_code == 404
+    assert "não encontrada" in resposta.get_data(as_text=True)

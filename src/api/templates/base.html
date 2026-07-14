@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}financiALL{% endblock %}</title>
+  <style>
+    body { font-family: sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+    nav.principal { display: flex; gap: 1.2rem; margin-bottom: 1.5rem; border-bottom: 1px solid #ddd; padding-bottom: 0.8rem; }
+    nav.principal a { text-decoration: none; color: #1a5fb4; font-weight: 600; }
+    nav.principal a.ativo { color: #000; border-bottom: 2px solid #1a5fb4; padding-bottom: 0.2rem; }
+    h1 { font-size: 1.3rem; }
+    h2 { font-size: 1.05rem; margin-top: 1.5rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 0.8rem; }
+    th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+    fieldset { margin-bottom: 1.5rem; }
+    input[type="text"] { width: 100%; padding: 0.5rem; box-sizing: border-box; }
+    button { padding: 0.6rem 1.2rem; }
+    #resultado p { margin: 0.4rem 0; }
+    #resultado { background: #f2f2f2; padding: 0.8rem; border-radius: 4px; min-height: 1.2rem; }
+    #resultado:empty { display: none; }
+    .status-badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 3px; font-size: 0.8rem; }
+    .status-completa { background: #d5f5d5; color: #1a5c1a; }
+    .status-pendente_revisao { background: #fff3cd; color: #7a5b00; }
+    .vazio { color: #777; }
+    .voltar { display: inline-block; margin-bottom: 1rem; }
+    tr.linha-clicavel { cursor: pointer; }
+    tr.linha-clicavel:hover { background: #f5f5f5; }
+  </style>
+</head>
+<body>
+  <nav class="principal">
+    <a href="/" class="{{ 'ativo' if pagina_ativa == 'importar' else '' }}">Importar</a>
+    <a href="/ver/notas" class="{{ 'ativo' if pagina_ativa == 'notas' else '' }}">Notas</a>
+    <a href="/ver/resumo" class="{{ 'ativo' if pagina_ativa == 'resumo' else '' }}">Resumo</a>
+  </nav>
+  {% block content %}{% endblock %}
+</body>
+</html>

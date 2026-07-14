@@ -1,20 +1,7 @@
-<!doctype html>
-<html lang="pt-br">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>financiALL - Importar nota fiscal</title>
-  <style>
-    body { font-family: sans-serif; max-width: 480px; margin: 2rem auto; padding: 0 1rem; }
-    h1 { font-size: 1.3rem; }
-    fieldset { margin-bottom: 1.5rem; }
-    input[type="text"] { width: 100%; padding: 0.5rem; box-sizing: border-box; }
-    button { padding: 0.6rem 1.2rem; }
-    #resultado { white-space: pre-wrap; background: #f2f2f2; padding: 0.8rem; border-radius: 4px; }
-  </style>
-</head>
-<body>
-  <h1>financiALL - Importar nota fiscal</h1>
+{% extends "base.html" %}
+{% block title %}financiALL - Importar{% endblock %}
+{% block content %}
+  <h1>Importar nota fiscal</h1>
 
   <fieldset>
     <legend>URL do QR Code ou chave de acesso</legend>
@@ -37,6 +24,26 @@
   <script>
     const resultado = document.getElementById("resultado");
 
+    function limparResultado() {
+      resultado.innerHTML = "";
+    }
+
+    function adicionarParagrafo(texto) {
+      const p = document.createElement("p");
+      p.textContent = texto;
+      resultado.appendChild(p);
+      return p;
+    }
+
+    function adicionarLink(href, texto) {
+      const p = document.createElement("p");
+      const a = document.createElement("a");
+      a.href = href;
+      a.textContent = texto;
+      p.appendChild(a);
+      resultado.appendChild(p);
+    }
+
     document.getElementById("form-entrada").addEventListener("submit", async (evento) => {
       evento.preventDefault();
       const entrada = document.getElementById("entrada").value;
@@ -46,7 +53,16 @@
         body: JSON.stringify({ entrada }),
       });
       const corpo = await resposta.json();
-      resultado.textContent = JSON.stringify(corpo, null, 2);
+      limparResultado();
+      if (corpo.erro) {
+        adicionarParagrafo(corpo.erro);
+        return;
+      }
+      adicionarParagrafo(corpo.mensagem);
+      if (corpo.nota) {
+        adicionarParagrafo(`Emitente: ${corpo.nota.emitente_nome || "não disponível"}`);
+      }
+      adicionarLink("/ver/notas", "Ver na lista de notas →");
     });
 
     document.getElementById("form-upload").addEventListener("submit", async (evento) => {
@@ -56,8 +72,13 @@
       dados.append("arquivo", arquivo);
       const resposta = await fetch("/notas/upload", { method: "POST", body: dados });
       const corpo = await resposta.json();
-      resultado.textContent = JSON.stringify(corpo, null, 2);
+      limparResultado();
+      if (corpo.erro) {
+        adicionarParagrafo(corpo.erro);
+        return;
+      }
+      adicionarParagrafo(`Arquivo recebido (envio #${corpo.envio_id}).`);
+      adicionarLink(`/ver/envios/${corpo.envio_id}`, "Ver status do envio →");
     });
   </script>
-</body>
-</html>
+{% endblock %}
