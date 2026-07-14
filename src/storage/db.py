@@ -313,33 +313,3 @@ def reconciliar_processando_para_pendente(db_path: str = DEFAULT_DB_PATH) -> int
         return cursor.rowcount
     finally:
         conn.close()
-
-
-# --- Exclusao de nota (feature 002) -------------------------------------
-
-def excluir_nota(nota_id: int, db_path: str = DEFAULT_DB_PATH) -> list[str] | None:
-    """Exclui a nota, seus itens e os envios que a originaram numa unica
-    transacao (data-model.md - Operacao excluir_nota). Retorna a lista de
-    `caminho_arquivo` dos envios excluidos (para o chamador remover os
-    arquivos do disco - research.md #2), ou None se a nota nao existia."""
-    conn = get_connection(db_path)
-    try:
-        existe = conn.execute(
-            "SELECT 1 FROM nota_fiscal WHERE id = ?", (nota_id,)
-        ).fetchone()
-        if existe is None:
-            return None
-
-        caminhos = [
-            row["caminho_arquivo"]
-            for row in conn.execute(
-                "SELECT caminho_arquivo FROM envio_ocr WHERE nota_fiscal_id = ?", (nota_id,)
-            ).fetchall()
-        ]
-        conn.execute("DELETE FROM envio_ocr WHERE nota_fiscal_id = ?", (nota_id,))
-        conn.execute("DELETE FROM item_nota WHERE nota_fiscal_id = ?", (nota_id,))
-        conn.execute("DELETE FROM nota_fiscal WHERE id = ?", (nota_id,))
-        conn.commit()
-        return caminhos
-    finally:
-        conn.close()

@@ -3,7 +3,7 @@ from __future__ import annotations
 from flask import Blueprint, current_app, jsonify, request
 
 from src.services import chave_acesso as chave_acesso_service
-from src.services import exclusao, fila_processamento, importador
+from src.services import fila_processamento, importador
 
 bp = Blueprint("importar", __name__)
 
@@ -108,12 +108,3 @@ def upload_nota():
         ),
         202,
     )
-
-
-@bp.delete("/notas/<int:nota_id>")
-def excluir_nota(nota_id: int):
-    db_path = current_app.config["DB_PATH"]
-    excluida = exclusao.excluir_nota_fiscal(nota_id, db_path=db_path)
-    if not excluida:
-        return jsonify({"erro": "Nota não encontrada."}), 404
-    return jsonify({"mensagem": "Nota excluída com sucesso."}), 200
