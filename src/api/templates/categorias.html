@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}financiALL - Categorias{% endblock %}
+{% block content %}
+  <h1>Categorias</h1>
+
+  <fieldset>
+    <legend>Nova categoria</legend>
+    <form id="form-categoria">
+      <input type="text" id="nome-categoria" name="nome" placeholder="Nome da categoria (ex.: Alimentação)" required>
+      <button type="submit">Criar</button>
+    </form>
+  </fieldset>
+
+  <div id="mensagem"></div>
+
+  {% if categorias %}
+  <table>
+    <tr>
+      <th>Nome</th>
+      <th>Ações</th>
+    </tr>
+    {% for categoria in categorias %}
+    <tr>
+      <td>
+        <span id="nome-exibicao-{{ categoria.id }}">{{ categoria.nome }}</span>
+        <input type="text" id="nome-edicao-{{ categoria.id }}" value="{{ categoria.nome }}" style="display:none">
+      </td>
+      <td>
+        <button id="btn-editar-{{ categoria.id }}" onclick="iniciarEdicao({{ categoria.id }})">Editar</button>
+        <button id="btn-salvar-{{ categoria.id }}" onclick="salvarEdicao({{ categoria.id }})" style="display:none">Salvar</button>
+        <button class="btn-excluir" onclick="excluirCategoria({{ categoria.id }})">Excluir</button>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="vazio">Nenhuma categoria criada ainda. Use o formulário acima para criar a primeira.</p>
+  {% endif %}
+
+  <script>
+    const mensagem = document.getElementById("mensagem");
+
+    document.getElementById("form-categoria").addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      const nome = document.getElementById("nome-categoria").value;
+      const resposta = await fetch("/categorias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome }),
+      });
+      const corpo = await resposta.json();
+      if (!resposta.ok) {
+        mensagem.textContent = corpo.erro;
+        return;
+      }
+      window.location.reload();
+    });
+
+    function iniciarEdicao(categoriaId) {
+      document.getElementById(`nome-exibicao-${categoriaId}`).style.display = "none";
+      document.getElementById(`nome-edicao-${categoriaId}`).style.display = "inline";
+      document.getElementById(`btn-editar-${categoriaId}`).style.display = "none";
+      document.getElementById(`btn-salvar-${categoriaId}`).style.display = "inline";
+    }
+
+    async function salvarEdicao(categoriaId) {
+      const nome = document.getElementById(`nome-edicao-${categoriaId}`).value;
+      const resposta = await fetch(`/categorias/${categoriaId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome }),
+      });
+      const corpo = await resposta.json();
+      if (!resposta.ok) {
+        mensagem.textContent = corpo.erro;
+        return;
+      }
+      window.location.reload();
+    }
+
+    async function excluirCategoria(categoriaId) {
+      if (!confirm("Excluir esta categoria? As notas que a usam voltam a ficar sem categoria.")) {
+        return;
+      }
+      const resposta = await fetch(`/categorias/${categoriaId}`, { method: "DELETE" });
+      const corpo = await resposta.json();
+      if (!resposta.ok) {
+        mensagem.textContent = corpo.erro;
+        return;
+      }
+      window.location.reload();
+    }
+  </script>
+{% endblock %}

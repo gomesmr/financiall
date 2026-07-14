@@ -20,6 +20,17 @@
     <p>UF: {{ nota.uf or "não disponível" }}</p>
     <p>Total: {% if nota.valor_total is not none %}R$ {{ "%.2f"|format(nota.valor_total / 100) }}{% else %}não disponível{% endif %}</p>
 
+    <p>
+      Categoria:
+      <select id="select-categoria">
+        <option value="">Sem categoria</option>
+        {% for categoria in categorias %}
+        <option value="{{ categoria.id }}" {{ "selected" if categoria.id == nota.categoria_id else "" }}>{{ categoria.nome }}</option>
+        {% endfor %}
+      </select>
+      <button onclick="salvarCategoria({{ nota.id }})">Salvar</button>
+    </p>
+
     <h2>Itens</h2>
     {% if itens %}
     <table>
@@ -56,6 +67,22 @@
           return;
         }
         window.location.href = "/ver/notas?excluida=1";
+      }
+
+      async function salvarCategoria(notaId) {
+        const select = document.getElementById("select-categoria");
+        const categoriaId = select.value ? parseInt(select.value, 10) : null;
+        const resposta = await fetch(`/notas/${notaId}/categoria`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ categoria_id: categoriaId }),
+        });
+        const corpo = await resposta.json();
+        if (!resposta.ok) {
+          alert(corpo.erro || "Não foi possível atualizar a categoria.");
+          return;
+        }
+        window.location.reload();
       }
     </script>
   {% endif %}
