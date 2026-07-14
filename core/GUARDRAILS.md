@@ -2,7 +2,7 @@
 title: core/GUARDRAILS.md
 summary: Convenções, guardrails comportamentais e regras de git — superestrutura portável, fonte canônica.
 tags: [core, guardrails, convencoes, git]
-updated: 2026-07-08
+updated: 2026-07-14
 ---
 
 # core/GUARDRAILS.md
@@ -43,10 +43,32 @@ updated: 2026-07-08
 - Mensagem focada no "porquê", não apenas no "o quê"
 - Verificar conteúdo sensível antes de commitar
 - Não pushar sem instrução explícita do usuário
+- **Antes de qualquer operação git potencialmente destrutiva ou ampla (`stash`, `checkout`,
+  `reset --hard`, `clean`) num diretório que contém dados reais/de produção (não só código),
+  confirmar via `git status` que o caminho dos dados aparece como ignorado** — nunca como
+  arquivo solto passível de ser capturado pela operação. Se o `.gitignore` que deveria proteger
+  esse caminho ainda não está fisicamente presente na árvore de trabalho (ex.: primeiro
+  `checkout` de um diretório que antes não era um clone git), tratar isso como bloqueio: parar e
+  garantir a proteção antes de prosseguir, não confiar que "vai dar certo". Se um serviço que lê/
+  escreve nesses dados está ativo, considerá-lo como agravante — parar o serviço antes da
+  operação, não durante a investigação de um erro que ela já causou. **Relevância direta para
+  este projeto:** `data/` (banco de dados e uploads) é exatamente o caminho protegido pelo
+  `.gitignore` deste repositório — esta regra existe por causa de um incidente que já aconteceu
+  aqui.
 
 Origem: incidente 2026-05-22 (harness/) — agente incluiu trailers de coautoria de outro agente de IA em commit sem instrução.
 
+Origem: incidente 2026-07-13 (`finall/`, este projeto) — `git stash -u`, ao converter o diretório
+de produção (sincronizado até então por `tar`, sem histórico git) num clone real, capturou a
+pasta `data/` porque o `.gitignore` que deveria protegê-la ainda não existia fisicamente na
+árvore de trabalho naquele momento. Como o serviço em produção continuou rodando e escrevendo
+durante a operação, o código de conexão ao banco recriou silenciosamente um banco vazio ao
+encontrar o caminho ausente. Contido sem perda de dado, mas só por sorte de o `stash` não ter
+sido descartado ainda — não por proteção estrutural. Ver `docs/RELATORIO-FEATURE-001.md`, Seção
+7, para o relato completo do incidente e da recuperação. Promovido para `harness/core/
+GUARDRAILS.md` em 2026-07-14 (ver `harness/core/README.md`, Log de versões).
+
 ---
 
-*Origem deste arquivo: extraído de `harness/AGENTS.md` em 2026-07-02, como parte da separação superestrutura (core) / estrutura local, adotada por analogia ao modelo core/contrib do Drupal.*
+*Origem deste arquivo: extraído de `harness/AGENTS.md` em 2026-07-02, como parte da separação superestrutura (core) / estrutura local, adotada por analogia ao modelo core/contrib do Drupal. Vendorizado para `finall/` em 2026-07-13. Guardrail de git/dados promovido em 2026-07-14 (ver `finall/IMPLEMENT.md`).*
 *Versão do core: 2026-07-02*
