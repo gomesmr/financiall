@@ -5,6 +5,12 @@
   {% if request.args.get('excluida') %}
   <p class="mensagem-sucesso">Nota excluída com sucesso.</p>
   {% endif %}
+  <p>
+    Titular:
+    <a href="/ver/notas" class="{{ 'ativo' if not titular_filtro else '' }}">Todos</a> ·
+    <a href="/ver/notas?titular=marcelo" class="{{ 'ativo' if titular_filtro == 'marcelo' else '' }}">Marcelo</a> ·
+    <a href="/ver/notas?titular=cristine" class="{{ 'ativo' if titular_filtro == 'cristine' else '' }}">Cristine</a>
+  </p>
   {% if notas %}
   <table>
     <tr>
@@ -14,6 +20,7 @@
       <th>Status</th>
       <th>Canal</th>
       <th>Categoria</th>
+      <th>Titular</th>
       <th>Ações</th>
     </tr>
     {% for nota in notas %}
@@ -24,6 +31,7 @@
       <td><span class="status-badge status-{{ nota.status.value }}">{{ "completa" if nota.status.value == "completa" else "pendente de revisão" }}</span></td>
       <td>{{ "URL/chave" if nota.canal_origem.value == "url_chave" else "Foto/PDF" }}</td>
       <td>{{ categorias_por_id.get(nota.categoria_id, "sem categoria") }}</td>
+      <td>{{ nota.titular | capitalize if nota.titular and nota.titular != "nao_identificado" else "não identificado" }}</td>
       <td><button class="btn-excluir" onclick="event.stopPropagation(); excluirNota({{ nota.id }})">Excluir</button></td>
     </tr>
     {% endfor %}

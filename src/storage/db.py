@@ -77,6 +77,16 @@ def _garantir_coluna_categoria_id(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE nota_fiscal ADD COLUMN categoria_id INTEGER REFERENCES categoria(id)")
 
 
+def _garantir_coluna_titular(conn: sqlite3.Connection) -> None:
+    """Adiciona nota_fiscal.titular via ALTER TABLE idempotente (mesmo
+    padrao de categoria_id, research.md #1 da feature 004). Validacao de
+    valor (marcelo/cristine/nao_identificado) fica na camada de servico,
+    nao em CHECK do schema (research.md #1)."""
+    colunas = {row["name"] for row in conn.execute("PRAGMA table_info(nota_fiscal)").fetchall()}
+    if "titular" not in colunas:
+        conn.execute("ALTER TABLE nota_fiscal ADD COLUMN titular TEXT")
+
+
 def get_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
     """Abre uma nova conexao SQLite. Cada operacao de repositorio abre/fecha
     a sua propria conexao (sem estado compartilhado entre threads), o
@@ -95,6 +105,7 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
     try:
         conn.executescript(SCHEMA)
         _garantir_coluna_categoria_id(conn)
+        _garantir_coluna_titular(conn)
         conn.commit()
     finally:
         conn.close()
@@ -116,6 +127,7 @@ def _row_to_nota(row: sqlite3.Row) -> NotaFiscal:
         valor_total=row["valor_total"],
         data_importacao=row["data_importacao"],
         categoria_id=row["categoria_id"],
+        titular=row["titular"],
     )
 
 
@@ -166,6 +178,61 @@ def inserir_nota(nota: NotaFiscal, db_path: str = DEFAULT_DB_PATH) -> int:
         conn.commit()
         nota.id = cursor.lastrowid
         return nota.id
+    finally:
+        conn.close()
+
+
+def inserir_nota_com_itens(nota: NotaFiscal, itens: list[ItemNota], db_path: str = DEFAULT_DB_PATH) -> int:
+    """Grava a nota e seus itens numa unica transacao (research.md #6 da
+    feature 004) -- diferente de inserir_nota/inserir_itens (duas
+    conexoes/commits separados), necessario aqui porque uma interrupcao
+    no meio de uma importacao em lote nao pode deixar nota sem itens."""
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.execute(
+            """
+            INSERT INTO nota_fiscal (
+                chave_acesso, hash_conteudo, canal_origem, uf, cnpj_emitente,
+                ano_mes_emissao, modelo, emitente_nome, data_emissao,
+                valor_total, status, data_importacao, categoria_id, titular
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                nota.chave_acesso,
+                nota.hash_conteudo,
+                nota.canal_origem.value,
+                nota.uf,
+                nota.cnpj_emitente,
+                nota.ano_mes_emissao,
+                nota.modelo,
+                nota.emitente_nome,
+                nota.data_emissao,
+                nota.valor_total,
+                nota.status.value,
+                nota.data_importacao,
+                nota.categoria_id,
+                nota.titular,
+            ),
+        )
+        nota_id = cursor.lastrowid
+
+        if itens:
+            conn.executemany(
+                """
+                INSERT INTO item_nota (
+                    nota_fiscal_id, codigo_item, descricao, quantidade,
+                    valor_unitario, valor_total_item
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (nota_id, item.codigo_item, item.descricao, item.quantidade, item.valor_unitario, item.valor_total_item)
+                    for item in itens
+                ],
+            )
+
+        conn.commit()
+        nota.id = nota_id
+        return nota_id
     finally:
         conn.close()
 
@@ -241,19 +308,30 @@ def listar_itens_por_nota(nota_fiscal_id: int, db_path: str = DEFAULT_DB_PATH) -
         conn.close()
 
 
-def listar_notas(mes: str | None = None, db_path: str = DEFAULT_DB_PATH) -> list[NotaFiscal]:
+def listar_notas(
+    mes: str | None = None, titular: str | None = None, db_path: str = DEFAULT_DB_PATH
+) -> list[NotaFiscal]:
     """Lista notas ordenadas pela data de emissao (ou ano-mes, quando o dia
-    exato nao foi obtido) desc. Filtro opcional por mes no formato AAAA-MM."""
+    exato nao foi obtido) desc. Filtros opcionais por mes (AAAA-MM) e por
+    titular (feature 004)."""
     conn = get_connection(db_path)
     try:
         query = """
             SELECT *, COALESCE(substr(data_emissao, 1, 7), '20' || substr(ano_mes_emissao, 1, 2) || '-' || substr(ano_mes_emissao, 3, 2)) AS mes_ordenacao
             FROM nota_fiscal
         """
-        params: tuple = ()
+        condicoes: list[str] = []
+        params: list = []
         if mes:
-            query += " WHERE COALESCE(substr(data_emissao, 1, 7), '20' || substr(ano_mes_emissao, 1, 2) || '-' || substr(ano_mes_emissao, 3, 2)) = ?"
-            params = (mes,)
+            condicoes.append(
+                "COALESCE(substr(data_emissao, 1, 7), '20' || substr(ano_mes_emissao, 1, 2) || '-' || substr(ano_mes_emissao, 3, 2)) = ?"
+            )
+            params.append(mes)
+        if titular:
+            condicoes.append("titular = ?")
+            params.append(titular)
+        if condicoes:
+            query += " WHERE " + " AND ".join(condicoes)
         query += " ORDER BY mes_ordenacao DESC, id DESC"
         rows = conn.execute(query, params).fetchall()
         return [_row_to_nota(row) for row in rows]

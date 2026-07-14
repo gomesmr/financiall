@@ -37,6 +37,7 @@ def nota_to_dict(nota, itens=None, mascarar_chave: bool = False, categoria=None)
         "data_importacao": nota.data_importacao,
         "itens": [_item_to_dict(i) for i in (itens or [])],
         "categoria": {"id": categoria.id, "nome": categoria.nome} if categoria else None,
+        "titular": nota.titular,
     }
 
 

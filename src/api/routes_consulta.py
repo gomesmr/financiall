@@ -24,10 +24,15 @@ def pagina_notas():
     navegador, com a mesma navegacao principal das demais paginas."""
     db_path = current_app.config["DB_PATH"]
     mes = request.args.get("mes")
-    notas = storage_db.listar_notas(mes=mes, db_path=db_path)
+    titular = request.args.get("titular")
+    notas = storage_db.listar_notas(mes=mes, titular=titular, db_path=db_path)
     categorias_por_id = {c.id: c.nome for c in storage_db.listar_categorias(db_path=db_path)}
     return render_template(
-        "notas.html", notas=notas, categorias_por_id=categorias_por_id, pagina_ativa="notas"
+        "notas.html",
+        notas=notas,
+        categorias_por_id=categorias_por_id,
+        titular_filtro=titular,
+        pagina_ativa="notas",
     )
 
 
@@ -79,7 +84,8 @@ def pagina_envio(envio_id: int):
 def listar_notas():
     db_path = current_app.config["DB_PATH"]
     mes = request.args.get("mes")
-    notas = storage_db.listar_notas(mes=mes, db_path=db_path)
+    titular = request.args.get("titular")
+    notas = storage_db.listar_notas(mes=mes, titular=titular, db_path=db_path)
     categorias_por_id = {c.id: c for c in storage_db.listar_categorias(db_path=db_path)}
     return (
         jsonify(
