@@ -1,21 +1,40 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.0.0 → 1.1.0
-Modified principles: nenhum princípio foi redefinido (conteúdo dos 7 princípios mantido)
-Added sections:
-  - Identidade do Projeto (nome "financiALL", missão e princípio "ALL" de convergência)
+Version change: 1.1.0 → 1.2.0
+Modified principles:
+  - V. Testável por Construção — expandido: para rotinas que processam dado externo ao
+    controle do código, teste sintético e validação com amostra real são tratados como
+    **duas barreiras distintas**, não uma extensão da mesma — a segunda MUST acontecer
+    antes de promover a história, mesmo quando a primeira já passou. Racional ampliado
+    com o achado concreto que motivou a mudança. Adicionado também: ao definir a tarefa
+    de validação real, identificar as dimensões de variação relevantes para o tipo de
+    entrada (fonte, condição de captura, formato) em vez de validar contra amostra única
+    genérica.
+Added sections: nenhuma
 Removed sections: nenhuma
-Renamed: "Finanças Pessoais Constitution" → "financiALL Constitution"
-Updated: Restrições do Projeto — lista de fontes de dados passa a incluir explicitamente
-  extrato bancário, alinhando a restrição de escopo à identidade "ALL"
+Updated: Fluxo de Desenvolvimento e Qualidade — cláusula (a) sobre Princípio V passa a
+  citar a exigência de amostra real explicitamente, como etapa distinta antes de promover.
 Templates requiring updates:
-  - .specify/templates/plan-template.md ✅ compatível (sem referência ao nome do projeto)
-  - .specify/templates/spec-template.md ✅ compatível (sem referência ao nome do projeto)
-  - .specify/templates/tasks-template.md ✅ compatível (sem referência ao nome do projeto)
-  - specs/001-importar-nfce/spec.md ⚠ pendente — feature em andamento não referencia o nome
-    do projeto diretamente, nenhuma ação obrigatória, mas pode citar "financiALL" ao ser retomada
+  - .specify/templates/plan-template.md ✅ compatível ("Constitution Check" é placeholder
+    genérico, sem texto específico do Princípio V a atualizar)
+  - .specify/templates/spec-template.md ✅ compatível (sem referência ao conteúdo do
+    Princípio V)
+  - .specify/templates/tasks-template.md ⚠ atualizado — nova subseção "Real-Data
+    Validation for User Story N" adicionada após "Implementation" em cada história de
+    exemplo (US1/US2/US3), explicitamente separada de "Tests", com nota de que não é
+    extensão do teste automatizado. Numeração de tarefas ajustada (T018→T031) para
+    acomodar as novas tarefas sem colisão. Instrução adicionada em cada subseção: ao
+    preencher para uma feature real, identificar 2-3 dimensões de variação real
+    relevantes ao tipo de entrada daquela história (não uma lista fixa genérica —
+    depende do que a história ingere), com sub-itens de tarefa por dimensão.
+  - README.md ✅ compatível (lista princípios só por nome/rótulo — "testável por
+    construção" continua correto como rótulo, detalhe expandido fica só na constituição)
 Follow-up TODOs: nenhum
+Origem da mudança: finall/docs/RELATORIO-FEATURE-001.md (Seção 4) — 6 bugs de
+  comportamento na feature 001 só apareceram testando com notas fiscais reais, apesar de
+  testes automatizados cobrindo os casos de borda conhecidos passarem o tempo todo.
+  Promovido também como lição de processo em harness/core/SDD_GUARDRAILS.md (2026-07-14).
 -->
 
 # financiALL Constitution
@@ -80,11 +99,30 @@ CPF/valores tem custo real e nenhum benefício correspondente para o projeto.
 Extração de chave de acesso, deduplicação e parsing de notas MUST ter testes
 automatizados cobrindo o caminho feliz e os casos de borda conhecidos (chave
 ausente, HTML malformado, arquivo corrompido). Código novo nessas áreas não é
-aceito sem teste correspondente.
+aceito sem teste correspondente. **Para rotinas que processam dado vindo de
+fora do controle direto do código (OCR de foto, scraping de portal externo,
+leitura de QR code, qualquer parsing de formato não controlado pelo
+projeto), teste automatizado sintético e validação com amostra real são
+duas barreiras distintas, não uma extensão da mesma: a primeira confirma
+que o código trata os casos já previstos; a segunda confirma que ele
+sobrevive a uma amostra real, não construída pelo autor do teste. A segunda
+barreira MUST acontecer antes de promover a história (dev → main), mesmo
+quando a primeira já passa — passar nos testes automatizados não é
+suficiente para considerar a rotina pronta. Ao definir a tarefa de
+validação real, identificar as dimensões de variação relevantes para o
+tipo de entrada da rotina (ex.: fonte/proveniência, condição de captura,
+formato) em vez de validar contra uma única amostra genérica.**
 
 **Racional**: são as três rotinas cuja falha silenciosa corrompe dados
 financeiros sem sinal visível ao usuário — precisam de rede de segurança
-automatizada, não apenas revisão manual.
+automatizada, não apenas revisão manual. **A exigência de amostra real além
+do teste sintético existe porque a feature 001 (importação de NFC-e) teve 6
+bugs de comportamento que só apareceram testando com notas fiscais reais do
+usuário, apesar de testes automatizados cobrindo os casos de borda
+conhecidos passarem o tempo todo — iluminação desigual de foto, chave
+formatada em grupos de 4 dígitos, layout real de um portal específico e
+resolução de foto de celular degradando leitura de QR code não eram "casos
+de borda conhecidos" até acontecerem de fato.**
 
 ### VI. Português nos Artefatos Voltados ao Usuário
 Mensagens ao usuário, docstrings e artefatos gerados (relatórios, exports,
@@ -118,7 +156,11 @@ do Projeto).
 ## Fluxo de Desenvolvimento e Qualidade
 
 Mudanças em extração de chave, deduplicação e parsing exigem teste
-correspondente antes de merge (Princípio V). Revisão de código verifica: (a)
+correspondente antes de merge. Quando a rotina processa dado externo, há
+uma segunda barreira distinta, obrigatória antes de promover para produção:
+validação com pelo menos uma amostra real (Princípio V) — não confundir com
+a primeira, nem pular por já ter passado nos testes automatizados. Revisão
+de código verifica: (a)
 ausência de dados sensíveis em log (Princípio IV), (b) tratamento de erro em
 toda entrada externa nova (Princípio III), (c) que nenhuma solução foi
 adicionada além do necessário para o requisito (Princípio I). Falhas de fontes
@@ -137,4 +179,4 @@ orientação; PATCH para esclarecimentos e correções de redação. Toda revis�
 de código MUST verificar conformidade com os princípios acima; complexidade
 que viole o Princípio I MUST ser justificada explicitamente na revisão.
 
-**Version**: 1.1.0 | **Ratified**: 2026-07-10 | **Last Amended**: 2026-07-10
+**Version**: 1.2.0 | **Ratified**: 2026-07-10 | **Last Amended**: 2026-07-14

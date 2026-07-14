@@ -96,6 +96,25 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T016 [US1] Add validation and error handling
 - [ ] T017 [US1] Add logging for user story 1 operations
 
+### Real-Data Validation for User Story 1 (MANDATORY when this story processes external input — see Constitution Principle V)
+
+> **NOTE: This is a distinct gate from "Tests" above, not an extension of it.** Synthetic
+> tests confirm the code handles the cases you already thought of; this gate confirms it
+> survives contact with a real sample you did not construct. Do not mark this checkpoint
+> done just because the tests above pass.
+>
+> **When filling this section for a real feature**: identify 2-3 dimensions of real-world
+> variation relevant to *this story's specific input type* (not a generic list — it depends on
+> what the story ingests). Examples of the kind of dimension to look for: different sources/
+> providers of the same data type, different capture conditions (device, environment, quality),
+> different real-world formats/encodings the same logical data can arrive in. List them as
+> sub-items under the validation task, then validate against at least one real sample per
+> dimension identified — not just one sample overall.
+
+- [ ] T018 [US1] Validate with at least one real sample before promoting this story (dev → main)
+  - [ ] Dimension 1: [identify based on this story's input type]
+  - [ ] Dimension 2: [identify based on this story's input type]
+
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
 ---
@@ -108,15 +127,34 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Tests for User Story 2 (OPTIONAL - only if tests requested) ⚠️
 
-- [ ] T018 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T019 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T019 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
+- [ ] T020 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
 
 ### Implementation for User Story 2
 
-- [ ] T020 [P] [US2] Create [Entity] model in src/models/[entity].py
-- [ ] T021 [US2] Implement [Service] in src/services/[service].py
-- [ ] T022 [US2] Implement [endpoint/feature] in src/[location]/[file].py
-- [ ] T023 [US2] Integrate with User Story 1 components (if needed)
+- [ ] T021 [P] [US2] Create [Entity] model in src/models/[entity].py
+- [ ] T022 [US2] Implement [Service] in src/services/[service].py
+- [ ] T023 [US2] Implement [endpoint/feature] in src/[location]/[file].py
+- [ ] T024 [US2] Integrate with User Story 1 components (if needed)
+
+### Real-Data Validation for User Story 2 (MANDATORY when this story processes external input — see Constitution Principle V)
+
+> **NOTE: This is a distinct gate from "Tests" above, not an extension of it.** Synthetic
+> tests confirm the code handles the cases you already thought of; this gate confirms it
+> survives contact with a real sample you did not construct. Do not mark this checkpoint
+> done just because the tests above pass.
+>
+> **When filling this section for a real feature**: identify 2-3 dimensions of real-world
+> variation relevant to *this story's specific input type* (not a generic list — it depends on
+> what the story ingests). Examples of the kind of dimension to look for: different sources/
+> providers of the same data type, different capture conditions (device, environment, quality),
+> different real-world formats/encodings the same logical data can arrive in. List them as
+> sub-items under the validation task, then validate against at least one real sample per
+> dimension identified — not just one sample overall.
+
+- [ ] T025 [US2] Validate with at least one real sample before promoting this story (dev → main)
+  - [ ] Dimension 1: [identify based on this story's input type]
+  - [ ] Dimension 2: [identify based on this story's input type]
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -130,14 +168,33 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Tests for User Story 3 (OPTIONAL - only if tests requested) ⚠️
 
-- [ ] T024 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T025 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T026 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
+- [ ] T027 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py
 
 ### Implementation for User Story 3
 
-- [ ] T026 [P] [US3] Create [Entity] model in src/models/[entity].py
-- [ ] T027 [US3] Implement [Service] in src/services/[service].py
-- [ ] T028 [US3] Implement [endpoint/feature] in src/[location]/[file].py
+- [ ] T028 [P] [US3] Create [Entity] model in src/models/[entity].py
+- [ ] T029 [US3] Implement [Service] in src/services/[service].py
+- [ ] T030 [US3] Implement [endpoint/feature] in src/[location]/[file].py
+
+### Real-Data Validation for User Story 3 (MANDATORY when this story processes external input — see Constitution Principle V)
+
+> **NOTE: This is a distinct gate from "Tests" above, not an extension of it.** Synthetic
+> tests confirm the code handles the cases you already thought of; this gate confirms it
+> survives contact with a real sample you did not construct. Do not mark this checkpoint
+> done just because the tests above pass.
+>
+> **When filling this section for a real feature**: identify 2-3 dimensions of real-world
+> variation relevant to *this story's specific input type* (not a generic list — it depends on
+> what the story ingests). Examples of the kind of dimension to look for: different sources/
+> providers of the same data type, different capture conditions (device, environment, quality),
+> different real-world formats/encodings the same logical data can arrive in. List them as
+> sub-items under the validation task, then validate against at least one real sample per
+> dimension identified — not just one sample overall.
+
+- [ ] T031 [US3] Validate with at least one real sample before promoting this story (dev → main)
+  - [ ] Dimension 1: [identify based on this story's input type]
+  - [ ] Dimension 2: [identify based on this story's input type]
 
 **Checkpoint**: All user stories should now be independently functional
 
