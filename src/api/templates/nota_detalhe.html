@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}financiALL - Nota{% endblock %}
+{% block content %}
+  <a class="voltar" href="/ver/notas">← Voltar para a lista</a>
+  {% if nota is none %}
+    <h1>Nota não encontrada</h1>
+  {% else %}
+    <h1>{{ nota.emitente_nome or "Emitente não disponível" }}</h1>
+    <p>
+      <span class="status-badge status-{{ nota.status.value }}">
+        {{ "completa" if nota.status.value == "completa" else "pendente de revisão" }}
+      </span>
+      &nbsp;
+      {{ "URL/chave" if nota.canal_origem.value == "url_chave" else "Foto/PDF" }}
+    </p>
+    <p>Data de emissão: {{ nota.data_emissao or nota.ano_mes_emissao or "não disponível" }}</p>
+    <p>CNPJ do emitente: {{ nota.cnpj_emitente or "não disponível" }}</p>
+    <p>UF: {{ nota.uf or "não disponível" }}</p>
+    <p>Total: {% if nota.valor_total is not none %}R$ {{ "%.2f"|format(nota.valor_total / 100) }}{% else %}não disponível{% endif %}</p>
+
+    <h2>Itens</h2>
+    {% if itens %}
+    <table>
+      <tr>
+        <th>Código</th>
+        <th>Descrição</th>
+        <th>Qtd</th>
+        <th>Vl. Unit.</th>
+        <th>Vl. Total</th>
+      </tr>
+      {% for item in itens %}
+      <tr>
+        <td>{{ item.codigo_item or "—" }}</td>
+        <td>{{ item.descricao or "não disponível" }}</td>
+        <td>{{ item.quantidade if item.quantidade is not none else "—" }}</td>
+        <td>{% if item.valor_unitario is not none %}R$ {{ "%.2f"|format(item.valor_unitario / 100) }}{% else %}—{% endif %}</td>
+        <td>{% if item.valor_total_item is not none %}R$ {{ "%.2f"|format(item.valor_total_item / 100) }}{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <p class="vazio">Nenhum item disponível para esta nota.</p>
+    {% endif %}
+  {% endif %}
+{% endblock %}

@@ -1,7 +1,7 @@
-# Specification Quality Checklist: Importar NFC-e sem Duplicar
+# Specification Quality Checklist: Importar Notas Fiscais sem Duplicar
 
 **Purpose**: Validar a completude e a qualidade da especificação antes de seguir para o planejamento
-**Created**: 2026-07-10
+**Created**: 2026-07-13
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -31,26 +31,24 @@
 
 ## Notes
 
-- Nenhum marcador [NEEDS CLARIFICATION] foi necessário na primeira versão: o
-  pedido do usuário já definiu escopo, entradas aceitas, comportamento de
-  idempotência e o que fica fora de escopo. Pontos sem definição explícita
-  (uso single-user, algoritmo padrão de dígito verificador módulo 11, formato
-  usual de URL de QR Code) foram resolvidos com defaults razoáveis e
-  documentados em "Assumptions".
-- Revisão pós-geração (2026-07-10) corrigiu uma suposição incorreta sobre o
-  código do item (tratado erroneamente como GTIN/EAN global; na prática é
-  frequentemente um SKU interno do emitente) e marcou o resumo mensal (US5)
-  como parcial — cobre só notas fiscais, não o gasto total do mês. Duas
-  decisões de escopo foram confirmadas com o usuário e documentadas em
-  Assumptions: CF-e SAT (modelo 59/COMSAT) e associação da nota a uma
-  pessoa/conta ficam fora de escopo desta feature.
-- Revisão pré-`/speckit-tasks` (2026-07-10) corrigiu dois pontos: (1) valores
-  monetários passam a ser armazenados como inteiro em centavos em vez de
-  `REAL`, evitando erro de arredondamento de ponto flutuante; (2) a
-  restrição "modelo MUST ser 65", que existia só em `plan.md`/`data-model.md`
-  sem FR correspondente, foi removida — o sistema aceita qualquer modelo
-  válido (princípio ALL), e a busca best-effort de detalhes fica restrita a
-  modelo 65 por limitação do fluxo de consulta pesquisado, não por rejeição
-  de entrada. FR-013 e um novo edge case foram adicionados ao spec.md para
-  tornar a decisão rastreável.
-- Todos os itens desta checklist passaram após a revisão.
+- **Redesenho completo** desta feature (2026-07-13), substituindo a versão
+  de 2026-07-10 (CLI local sem servidor, só canal URL/chave). O pedido do
+  usuário passou a exigir: um servidor dedicado sempre ligado na rede local,
+  um segundo canal de entrada por foto/PDF com reconhecimento de texto,
+  processamento assíncrono e sequencial, deduplicação por hash de conteúdo
+  quando a chave de acesso não pode ser identificada, e consultas (listagem,
+  status de processamento, gasto do mês corrente, histórico) sempre
+  disponíveis independentemente do estado de outros dispositivos do
+  usuário.
+- Nenhum marcador [NEEDS CLARIFICATION] foi necessário: as decisões de
+  escopo, canais aceitos e arquitetura de alto nível já haviam sido
+  fechadas em conversa com o usuário antes da geração deste spec. Decisões
+  de implementação (hardware do servidor, motor de reconhecimento de texto,
+  formato de armazenamento) foram deliberadamente deixadas fora do spec,
+  para serem tratadas em `plan.md`.
+- **Ação pendente**: `plan.md`, `research.md`, `data-model.md`,
+  `contracts/`, `quickstart.md` e `tasks.md` desta feature ainda refletem o
+  desenho anterior (CLI local, sem servidor, sem canal de foto/PDF) e MUST
+  ser regenerados via `/speckit-plan` e `/speckit-tasks` antes de retomar a
+  implementação.
+- Todos os itens desta checklist passaram na primeira validação.

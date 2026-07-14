@@ -1,0 +1,23 @@
+[project]
+name = "financiall"
+version = "0.1.0"
+description = "financiALL - base unica de financas pessoais (feature 001: importar notas fiscais)"
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.0",
+    "waitress>=3.0",
+    "requests>=2.31",
+    "pytesseract>=0.3.10",
+    "pillow>=10.0",
+    "pdf2image>=1.17",
+    "pyzbar>=0.1.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "qrcode>=7.4",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

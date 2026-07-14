@@ -1,91 +1,137 @@
-# Quickstart: Validar a Feature 001 (Importar NFC-e sem Duplicar)
+# Quickstart: Validar a Feature 001 (Importar Notas Fiscais sem Duplicar)
 
 ## Pré-requisitos
 
-- Python 3.11+ instalado.
-- Dependências instaladas (`requests`, `click`, `pytest` — ver
-  `pyproject.toml`/`requirements.txt` gerados na fase de implementação).
-- Um arquivo SQLite novo (ex.: `financiall.db`), criado automaticamente na
-  primeira execução via `src/storage/db.py`.
-- Uma URL de QR Code de NFC-e real (ou uma chave de 44 dígitos válida) para
-  o teste do caminho feliz, e uma chave inválida (comprimento errado ou
-  dígito verificador errado) para o teste de rejeição.
+- Raspberry Pi 3 Model B v1.2 provisionado com `infra/setup-raspberry-pi.sh`
+  (dependências de sistema instaladas, `zram` ativo) e o serviço
+  `financiall.service` rodando (`systemctl status financiall`).
+- Um dispositivo cliente (computador ou celular) na mesma rede local,
+  apontando para o endereço do Raspberry Pi (ex.: `http://raspberrypi.local:5000`
+  ou o IP local configurado).
+- Uma URL de QR Code de nota fiscal real (ou uma chave de 44 dígitos
+  válida) para o teste do caminho feliz do canal digital, e uma chave
+  inválida (comprimento errado ou dígito verificador errado) para o teste
+  de rejeição.
+- Uma foto legível de um cupom fiscal em papel para o teste do canal de
+  OCR.
+- No ambiente de desenvolvimento (Windows), o Tesseract não precisa estar
+  instalado para rodar a suíte automatizada — apenas para validar
+  manualmente o Cenário 4 contra o servidor real no Raspberry Pi.
 
 ## Cenário 1 — Importar nota nova via URL (US1)
 
 ```bash
-python -m src.cli.main importar "https://www.sefaz.<uf>.gov.br/.../?p=<44-digitos>|2|1|..."
+curl -X POST http://<raspberrypi>:5000/notas \
+  -H "Content-Type: application/json" \
+  -d '{"entrada": "https://www.sefaz.<uf>.gov.br/.../?p=<44-digitos>|2|1|..."}'
 ```
 
-**Esperado**: saída `Nota importada com sucesso...` (ou `...com dados
-parciais (pendente de revisão)...` se a fonte de detalhamento estiver fora
-do ar) e código de saída `0`. Confirma FR-001, FR-002, FR-007, contrato
-`importar` em [contracts/cli.md](./contracts/cli.md).
+**Esperado**: status `201`, corpo com `"status": "completa"` (ou
+`"pendente_revisao"` se a fonte SEFAZ estiver fora do ar). Confirma FR-001,
+FR-002, FR-012, contrato `POST /notas` em [contracts/api.md](./contracts/api.md).
 
-## Cenário 2 — Importar a mesma nota via chave colada (US1 + US2)
+## Cenário 2 — Importar a mesma nota via chave colada (US1 + US3)
 
 ```bash
-python -m src.cli.main importar "  <44-digitos-com-espacos>  "
+curl -X POST http://<raspberrypi>:5000/notas \
+  -H "Content-Type: application/json" \
+  -d '{"entrada": "  <44-digitos-com-espacos>  "}'
 ```
 
-**Esperado**: se a chave já foi importada no Cenário 1, a saída MUST ser
-`Nota já registrada em ...` (código `0`), e o comando `listar` (Cenário 4)
-MUST continuar mostrando exatamente uma nota com essa chave — nunca duas.
-Confirma FR-003, FR-005, FR-006 (idempotência, Princípio II).
+**Esperado**: se a chave já foi importada no Cenário 1, a resposta MUST ter
+`"status": "ja_registrada"` (status HTTP `200`), e `GET /notas` MUST
+continuar mostrando exatamente uma nota com essa chave — nunca duas.
+Confirma FR-003, FR-010, FR-011 (idempotência, Princípio II).
 
 ## Cenário 3 — Rejeitar entrada inválida (US1 cenário 3)
 
 ```bash
-python -m src.cli.main importar "12345"
+curl -X POST http://<raspberrypi>:5000/notas \
+  -H "Content-Type: application/json" \
+  -d '{"entrada": "12345"}'
 ```
 
-**Esperado**: `Erro: não foi possível identificar uma chave de acesso
-válida de 44 dígitos em "12345".`, código de saída `1`, nenhuma linha nova
-em `listar`. Confirma FR-004.
+**Esperado**: status `422`, corpo `{"erro": "Não foi possível identificar
+uma chave de acesso válida de 44 dígitos em \"12345\"."}`, nenhuma linha
+nova em `GET /notas`. Confirma FR-004.
 
-## Cenário 4 — Listar notas importadas (US4)
+## Cenário 4 — Importar nota via foto de cupom fiscal (US2 + US5)
 
 ```bash
-python -m src.cli.main listar
+curl -X POST http://<raspberrypi>:5000/notas/upload \
+  -F "arquivo=@caminho/para/foto-do-cupom.jpg"
 ```
 
-**Esperado**: uma linha por nota, com data de emissão, emitente, total e
-status (`completa` ou `pendente de revisão`). Com a base vazia, a saída
-MUST ser `Nenhuma nota importada ainda.`. Confirma FR-009.
-
-## Cenário 5 — Ver resumo mensal (US5)
+**Esperado**: resposta imediata (poucos segundos, sem esperar o OCR),
+status `202`, corpo com `envio_id`. Em seguida:
 
 ```bash
-python -m src.cli.main resumo-mensal
+curl http://<raspberrypi>:5000/envios/<envio_id>
 ```
 
-**Esperado**: uma linha por mês com ao menos uma nota, total e contagem de
-notas, com o cabeçalho deixando explícito que o total é **parcial** (só
-notas fiscais). Com a base vazia, a saída MUST ser `Nenhuma nota importada
-ainda — sem dados para o resumo mensal.`. Confirma FR-010, SC-005.
+**Esperado**: logo após o envio, `"status": "pendente"` ou `"processando"`;
+após o processamento terminar (segundos a poucas dezenas de segundos),
+`"status": "concluido"` com `"nota_status": "completa"` (se o OCR
+reconheceu os campos principais) ou `"pendente_revisao"` (se não). Confirma
+FR-005, FR-006, FR-008, FR-009, e o comando não deve travar nem retornar
+erro mesmo quando a foto é de baixa qualidade — Princípio VII.
 
-## Cenário 6 — Degradação graciosa quando a fonte de detalhamento falha (US3)
-
-Simular indisponibilidade da fonte (ex.: apontar para uma chave válida cuja
-consulta à SEFAZ retorna erro/timeout, ou desconectar a rede):
+## Cenário 5 — Listar notas importadas (US6)
 
 ```bash
-python -m src.cli.main importar "<44-digitos-validos-fonte-indisponivel>"
+curl http://<raspberrypi>:5000/notas
+curl "http://<raspberrypi>:5000/notas?mes=2026-06"
 ```
 
-**Esperado**: a nota é gravada mesmo assim (UF, CNPJ do emitente e ano-mês
-de emissão vêm da própria chave — ver research.md #5), com status `pendente
-de revisão`, e o comando não lança exceção nem interrompe o processo.
-Confirma FR-008, Princípio VII.
+**Esperado**: uma entrada por nota, com data de emissão, emitente, total,
+status e canal de origem; com a base vazia, `{"notas": []}`. Confirma
+FR-014.
+
+## Cenário 6 — Ver gasto parcial do mês corrente e histórico (US7 + US8)
+
+```bash
+curl http://<raspberrypi>:5000/notas/resumo/mes-atual
+curl http://<raspberrypi>:5000/notas/resumo/historico
+```
+
+**Esperado**: `mes-atual` retorna o total do mês corrente identificado
+como parcial; `historico` retorna uma entrada por mês anterior com ao
+menos uma nota. Com a base vazia, ambos indicam que não há dados
+suficientes, sem erro. Confirma FR-015, FR-016, SC-005.
+
+## Cenário 7 — Degradação graciosa quando a fonte externa ou o OCR falham (US4)
+
+Repetir o Cenário 1 com uma chave válida cuja consulta à SEFAZ retorna
+erro/timeout (ex.: desconectar a rede do Pi momentaneamente para a
+tentativa), e repetir o Cenário 4 com uma foto ilegível (borrada ou
+recortada).
+
+**Esperado**: em ambos os casos, a nota é gravada mesmo assim (com o que
+for decodificável da chave, no canal digital; ou apenas com
+`hash_conteudo`, no canal de foto), com status `pendente_revisao`, e
+nenhuma das duas chamadas retorna erro `5xx` nem trava o servidor. Confirma
+FR-013, Princípio VII.
+
+## Cenário 8 — Envios simultâneos não se perdem (US2 cenário 3, FR-007)
+
+Enviar duas fotos diferentes em sequência rápida (sem esperar a primeira
+terminar de processar) e consultar `GET /envios/<id>` de cada uma até
+ambas chegarem a `concluido`.
+
+**Esperado**: as duas são processadas em ordem, nenhuma é perdida ou
+sobrescrita pela outra. Confirma FR-007, SC-007.
 
 ## Verificação final
 
-Rodar a suíte automatizada, que cobre os mesmos cenários de forma
-determinística (sem depender de rede real):
+Rodar a suíte automatizada (roda no Windows, sem precisar do Tesseract
+instalado — testes que dependem dele são pulados automaticamente quando o
+binário não está no `PATH`, ver research.md #16):
 
 ```bash
 pytest tests/unit tests/integration tests/contract
 ```
 
 Todos os testes MUST passar antes de considerar a feature pronta para
-revisão (Princípio V).
+revisão (Princípio V). Os cenários 1–8 acima (que dependem do servidor
+real rodando no Raspberry Pi) são a verificação manual complementar de
+ponta a ponta, incluindo o comportamento real do Tesseract.

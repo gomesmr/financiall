@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}financiALL - Importar{% endblock %}
+{% block content %}
+  <h1>Importar nota fiscal</h1>
+
+  <fieldset>
+    <legend>URL do QR Code ou chave de acesso</legend>
+    <form id="form-entrada">
+      <input type="text" id="entrada" name="entrada" placeholder="Cole a URL do QR Code ou a chave de 44 dígitos" required>
+      <button type="submit">Importar</button>
+    </form>
+  </fieldset>
+
+  <fieldset>
+    <legend>Foto ou PDF do cupom fiscal</legend>
+    <form id="form-upload">
+      <input type="file" id="arquivo" name="arquivo" accept="image/*,application/pdf" capture="environment" required>
+      <button type="submit">Enviar</button>
+    </form>
+  </fieldset>
+
+  <div id="resultado"></div>
+
+  <script>
+    const resultado = document.getElementById("resultado");
+
+    function limparResultado() {
+      resultado.innerHTML = "";
+    }
+
+    function adicionarParagrafo(texto) {
+      const p = document.createElement("p");
+      p.textContent = texto;
+      resultado.appendChild(p);
+      return p;
+    }
+
+    function adicionarLink(href, texto) {
+      const p = document.createElement("p");
+      const a = document.createElement("a");
+      a.href = href;
+      a.textContent = texto;
+      p.appendChild(a);
+      resultado.appendChild(p);
+    }
+
+    document.getElementById("form-entrada").addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      const entrada = document.getElementById("entrada").value;
+      const resposta = await fetch("/notas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entrada }),
+      });
+      const corpo = await resposta.json();
+      limparResultado();
+      if (corpo.erro) {
+        adicionarParagrafo(corpo.erro);
+        return;
+      }
+      adicionarParagrafo(corpo.mensagem);
+      if (corpo.nota) {
+        adicionarParagrafo(`Emitente: ${corpo.nota.emitente_nome || "não disponível"}`);
+      }
+      adicionarLink("/ver/notas", "Ver na lista de notas →");
+    });
+
+    document.getElementById("form-upload").addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      const arquivo = document.getElementById("arquivo").files[0];
+      const dados = new FormData();
+      dados.append("arquivo", arquivo);
+      const resposta = await fetch("/notas/upload", { method: "POST", body: dados });
+      const corpo = await resposta.json();
+      limparResultado();
+      if (corpo.erro) {
+        adicionarParagrafo(corpo.erro);
+        return;
+      }
+      adicionarParagrafo(`Arquivo recebido (envio #${corpo.envio_id}).`);
+      adicionarLink(`/ver/envios/${corpo.envio_id}`, "Ver status do envio →");
+    });
+  </script>
+{% endblock %}
