@@ -181,6 +181,97 @@ def test_listar_notas_em_meses_diferentes_com_e_sem_filtro(app_e_db, client):
     assert so_junho[0]["chave_acesso"] == chave_junho
 
 
+def test_excluir_nota_remove_da_listagem_e_do_resumo(app_e_db, client):
+    """US1: excluir uma nota tira ela da listagem e do resumo do mes imediatamente."""
+    chave = gerar_chave_valida(numero="000000040", aamm=_aamm_do_mes_corrente())
+    resposta_import = client.post("/notas", json={"entrada": chave})
+    nota_id = resposta_import.get_json()["nota"]["id"]
+
+    resposta_delete = client.delete(f"/notas/{nota_id}")
+    assert resposta_delete.status_code == 200
+
+    assert client.get("/notas").get_json()["notas"] == []
+    resumo = client.get("/notas/resumo/mes-atual").get_json()
+    assert resumo["quantidade_notas"] == 0
+
+
+def test_reimportar_por_chave_apos_exclusao_nao_e_bloqueada(app_e_db, client):
+    """US2: excluir libera a chave de acesso para uma nova importacao."""
+    chave = gerar_chave_valida(numero="000000041")
+    primeira = client.post("/notas", json={"entrada": chave})
+    nota_id = primeira.get_json()["nota"]["id"]
+
+    client.delete(f"/notas/{nota_id}")
+
+    segunda = client.post("/notas", json={"entrada": chave})
+    corpo = segunda.get_json()
+    assert segunda.status_code == 201
+    assert corpo["status"] != "ja_registrada"
+
+
+def test_reimportar_por_upload_apos_exclusao_nao_e_bloqueada(app_e_db, client, monkeypatch):
+    """US2: excluir uma nota vinda de OCR permite reenviar o mesmo arquivo."""
+    _, db_path = app_e_db
+    texto_ocr_sem_chave = "LOJA SEM CHAVE LEGIVEL\nVALOR TOTAL R$ 10,00\n"
+    monkeypatch.setattr("src.worker.ocr_worker.ocr_client.reconhecer_texto_de_imagem", lambda imagem: texto_ocr_sem_chave)
+    monkeypatch.setattr("src.worker.ocr_worker._imagens_do_envio", lambda envio: ["imagem-fake"])
+
+    conteudo = b"bytes-identicos-do-mesmo-arquivo"
+
+    primeiro_upload = client.post(
+        "/notas/upload", data={"arquivo": (io.BytesIO(conteudo), "cupom.jpg")}, content_type="multipart/form-data"
+    )
+    primeiro_envio_id = primeiro_upload.get_json()["envio_id"]
+    ocr_worker.processar_proximo_envio(db_path=db_path)
+    nota_id = client.get(f"/envios/{primeiro_envio_id}").get_json()["nota"]["id"]
+
+    client.delete(f"/notas/{nota_id}")
+
+    segundo_upload = client.post(
+        "/notas/upload", data={"arquivo": (io.BytesIO(conteudo), "cupom.jpg")}, content_type="multipart/form-data"
+    )
+    segundo_envio_id = segundo_upload.get_json()["envio_id"]
+    processou = ocr_worker.processar_proximo_envio(db_path=db_path)
+    assert processou is True
+
+    status = client.get(f"/envios/{segundo_envio_id}").get_json()
+    assert status["nota_status"] in ("completa", "pendente_revisao")
+    assert len(storage_db.listar_notas(db_path=db_path)) == 1
+
+
+def test_envio_de_nota_excluida_fica_nao_encontrado(app_e_db, client, monkeypatch):
+    """US3: acessar o envio de uma nota excluida nao quebra, vira 'nao encontrado'."""
+    _, db_path = app_e_db
+    texto_ocr_sem_chave = "LOJA X\nVALOR TOTAL R$ 5,00\n"
+    monkeypatch.setattr("src.worker.ocr_worker.ocr_client.reconhecer_texto_de_imagem", lambda imagem: texto_ocr_sem_chave)
+    monkeypatch.setattr("src.worker.ocr_worker._imagens_do_envio", lambda envio: ["imagem-fake"])
+
+    upload = client.post(
+        "/notas/upload",
+        data={"arquivo": (io.BytesIO(b"foto-qualquer"), "cupom.jpg")},
+        content_type="multipart/form-data",
+    )
+    envio_id = upload.get_json()["envio_id"]
+    ocr_worker.processar_proximo_envio(db_path=db_path)
+    nota_id = client.get(f"/envios/{envio_id}").get_json()["nota"]["id"]
+
+    client.delete(f"/notas/{nota_id}")
+
+    resposta_json = client.get(f"/envios/{envio_id}")
+    assert resposta_json.status_code == 404
+    assert resposta_json.get_json()["erro"] == "Envio não encontrado."
+
+    resposta_html = client.get(f"/ver/envios/{envio_id}")
+    assert resposta_html.status_code == 404
+
+
+def _aamm_do_mes_corrente() -> str:
+    from datetime import date
+
+    hoje = date.today()
+    return f"{hoje.year % 100:02d}{hoje.month:02d}"
+
+
 def test_resumo_historico_com_notas_em_meses_diferentes(app_e_db, client):
     chave_jan = gerar_chave_valida(numero="000000030", aamm="2501")
     chave_fev = gerar_chave_valida(numero="000000031", aamm="2502")
