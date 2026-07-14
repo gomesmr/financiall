@@ -359,6 +359,20 @@ def test_delete_nota_inexistente_retorna_404(client):
     assert corpo["erro"] == "Nota não encontrada."
 
 
+def test_pagina_categorias_vazia_mostra_mensagem(client):
+    resposta = client.get("/ver/categorias")
+    assert resposta.status_code == 200
+    assert "Nenhuma categoria criada" in resposta.get_data(as_text=True)
+
+
+def test_pagina_categorias_lista_categoria_criada(client):
+    client.post("/categorias", json={"nome": "Lazer"})
+    resposta = client.get("/ver/categorias")
+    texto = resposta.get_data(as_text=True)
+    assert resposta.status_code == 200
+    assert "Lazer" in texto
+
+
 def test_delete_nota_existente_retorna_200_com_mensagem(client):
     chave = gerar_chave_valida(numero="000000019")
     resposta_import = client.post("/notas", json={"entrada": chave})
