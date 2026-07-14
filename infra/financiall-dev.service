@@ -1,0 +1,23 @@
+[Unit]
+Description=financiALL (dev) - ambiente de desenvolvimento, porta 5005
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/financiall-dev
+Environment=FINANCIALL_PORT=5005
+Environment=FINANCIALL_DB_PATH=/home/pi/financiall-dev/data/financiall.db
+Environment=FINANCIALL_UPLOAD_DIR=/home/pi/financiall-dev/data/uploads
+ExecStart=/home/pi/financiall-dev/.venv/bin/python -m src.main
+Restart=on-failure
+RestartSec=5
+
+# Hardening leve, compativel com acesso a arquivos em WorkingDirectory
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

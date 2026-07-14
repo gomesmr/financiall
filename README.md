@@ -17,9 +17,9 @@ pela rede local pelo navegador.
 
 ```text
 ┌─────────────────┐         rede local          ┌──────────────────────────┐
-│  celular /       │ ───────────────────────────▶│  Raspberry Pi            │
-│  computador      │      HTTP (upload/consulta) │  (financiall.service)    │
-│  (navegador)     │◀─────────────────────────── │                          │
+│  celular /      │ ───────────────────────────▶│  Raspberry Pi            │
+│  computador     │      HTTP (upload/consulta)  │  (financiall.service)    │
+│  (navegador)    │◀─────────────────────────── │                          │
 └─────────────────┘                              │  Flask + waitress        │
                                                   │  ├─ fila (SQLite)        │
                                                   │  ├─ worker OCR (thread)  │

@@ -8,6 +8,7 @@ Type=simple
 User=pi
 Group=pi
 WorkingDirectory=/home/pi/financiall
+Environment=FINANCIALL_PORT=5000
 Environment=FINANCIALL_DB_PATH=/home/pi/financiall/data/financiall.db
 Environment=FINANCIALL_UPLOAD_DIR=/home/pi/financiall/data/uploads
 ExecStart=/home/pi/financiall/.venv/bin/python -m src.main

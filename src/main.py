@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from waitress import serve
 
 from src.api.app import create_app
@@ -9,10 +11,11 @@ app = create_app()
 
 
 def main() -> None:
+    porta = int(os.environ.get("FINANCIALL_PORT", "5000"))
     worker = OcrWorker(db_path=app.config["DB_PATH"])
     worker.iniciar()
     try:
-        serve(app, host="0.0.0.0", port=5000, threads=4)
+        serve(app, host="0.0.0.0", port=porta, threads=4)
     finally:
         worker.parar()
 
