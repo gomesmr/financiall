@@ -47,18 +47,35 @@ validar/importar nota) que o projeto já mantém separadas em outros pontos
 (ex.: upload de foto enfileira, decodifica e só then importa, em etapas
 distintas dentro do worker).
 
-## 3. Downscale do frame antes de enviar
+## 3. Resolução do frame capturado (revisado após validação com QR Code real pequeno)
 
-**Decisão**: o frame capturado do vídeo é desenhado num `<canvas>` reduzido
-para no máximo ~1200px no lado maior antes de exportar como JPEG
-(`canvas.toBlob`, qualidade ~0.7) e enviar ao servidor.
+**Decisão original**: o frame capturado do vídeo seria desenhado num
+`<canvas>` reduzido para no máximo ~1200px no lado maior antes de exportar
+como JPEG (qualidade ~0.7) e enviar ao servidor, com base no comentário do
+`qrcode_reader.py` sobre fotos de celular em resolução total (~4032x3024)
+decodificando melhor reduzidas a ~1500px.
 
-**Rationale**: o próprio `qrcode_reader.py` já documenta (comentário no
-código) que o zbar decodifica QR Code de forma mais confiável em imagens
-reduzidas a ~1500px no lado maior do que em fotos de celular em resolução
-total — enviar já nessa faixa evita o passo de redução no servidor E reduz
-o tamanho do payload trafegado a cada tentativa (importante rodando várias
-vezes por segundo enquanto o usuário aponta a câmera).
+**Achado real (Princípio V)**: essa decisão presumia um frame de origem em
+resolução ALTA (como uma foto), mas o `getUserMedia` sem restrição
+explícita de resolução entrega um stream de vídeo tipicamente bem mais
+baixo (algo como 640x480) — nesse caso o alvo de 1200px nunca chegava a
+reduzir nada (o vídeo já era menor que o alvo), e o frame de origem em si
+não tinha pixels suficientes para resolver os módulos de um QR Code
+pequeno (~1,4x1,4cm) à distância normal de captura. Confirmado na prática:
+um QR Code de ~2,4x2,4cm foi lido sem problema, mas um de ~1,4x1,4cm não —
+mesmo o app nativo de câmera do iPhone (que usa resolução alta do sensor)
+lendo o menor sem dificuldade.
+
+**Decisão revisada**: pedir explicitamente resolução alta ao `getUserMedia`
+(`width: {ideal: 1920}, height: {ideal: 1080}` — `ideal`, não `exact`, para
+o navegador cair graciosamente para o que a câmera suportar) e elevar o
+alvo de captura para 1920px no lado maior (não reduzir de volta abaixo da
+resolução agora pedida), com qualidade JPEG ~0.85 (menos perda de detalhe
+fino nos módulos do código).
+
+**Rationale**: mais pixels por módulo do QR Code é o fator que realmente
+resolve códigos pequenos — o raciocínio original (reduzir uma foto grande)
+não se aplicava a um frame de vídeo que já não era grande o suficiente.
 
 ## 4. Frequência de tentativa e cancelamento
 

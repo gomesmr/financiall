@@ -142,7 +142,11 @@
       const btnCancelar = document.getElementById("btn-cancelar-camera");
 
       const INTERVALO_CAPTURA_MS = 700;
-      const LADO_MAIOR_ALVO_PX = 1200;
+      // QR Codes pequenos (ex.: ~1,4x1,4cm) precisam de mais pixels por
+      // módulo do que um stream de câmera em resolução padrão consegue
+      // entregar -- por isso pedimos resolução alta abaixo (getUserMedia)
+      // e não reduzimos de volta a um alvo menor do que isso ao capturar.
+      const LADO_MAIOR_ALVO_PX = 1920;
 
       let stream = null;
       let capturaAtiva = false;
@@ -228,7 +232,7 @@
             agendarProximaCaptura();
           },
           "image/jpeg",
-          0.7
+          0.85
         );
       }
 
@@ -249,7 +253,15 @@
         limparErroCamera();
         try {
           stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "environment" },
+            video: {
+              facingMode: "environment",
+              // Resolucao alta de proposito: QR Codes pequenos (ex.: ~1,4cm)
+              // precisam de mais pixels por modulo do que a resolucao padrao
+              // de um stream de camera costuma entregar -- "ideal" deixa o
+              // navegador cair para o que a camera suportar, sem falhar.
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+            },
           });
         } catch (erro) {
           mostrarErroCamera(
