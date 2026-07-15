@@ -7,7 +7,7 @@ from pathlib import Path
 
 from src.models.categoria import Categoria
 from src.models.item_nota import ItemNota
-from src.models.nota_fiscal import CanalOrigem, NotaFiscal, StatusNota
+from src.models.nota_fiscal import TITULARES_VALIDOS, CanalOrigem, NotaFiscal, StatusNota
 
 DEFAULT_DB_PATH = os.environ.get("FINANCIALL_DB_PATH", "data/financiall.db")
 
@@ -87,6 +87,17 @@ def _garantir_coluna_titular(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE nota_fiscal ADD COLUMN titular TEXT")
 
 
+def _garantir_coluna_titular_envio(conn: sqlite3.Connection) -> None:
+    """Adiciona envio_ocr.titular via ALTER TABLE idempotente (mesmo
+    padrao de nota_fiscal.titular) -- o titular escolhido pelo usuario no
+    momento do envio de foto/PDF precisa sobreviver ate o worker
+    processar o envio de forma assincrona (feature: escolher titular na
+    importacao)."""
+    colunas = {row["name"] for row in conn.execute("PRAGMA table_info(envio_ocr)").fetchall()}
+    if "titular" not in colunas:
+        conn.execute("ALTER TABLE envio_ocr ADD COLUMN titular TEXT")
+
+
 def get_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
     """Abre uma nova conexao SQLite. Cada operacao de repositorio abre/fecha
     a sua propria conexao (sem estado compartilhado entre threads), o
@@ -106,6 +117,7 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
         conn.executescript(SCHEMA)
         _garantir_coluna_categoria_id(conn)
         _garantir_coluna_titular(conn)
+        _garantir_coluna_titular_envio(conn)
         conn.commit()
     finally:
         conn.close()
@@ -157,8 +169,8 @@ def inserir_nota(nota: NotaFiscal, db_path: str = DEFAULT_DB_PATH) -> int:
             INSERT INTO nota_fiscal (
                 chave_acesso, hash_conteudo, canal_origem, uf, cnpj_emitente,
                 ano_mes_emissao, modelo, emitente_nome, data_emissao,
-                valor_total, status, data_importacao
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                valor_total, status, data_importacao, categoria_id, titular
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 nota.chave_acesso,
@@ -173,6 +185,8 @@ def inserir_nota(nota: NotaFiscal, db_path: str = DEFAULT_DB_PATH) -> int:
                 nota.valor_total,
                 nota.status.value,
                 nota.data_importacao,
+                nota.categoria_id,
+                nota.titular,
             ),
         )
         conn.commit()
@@ -345,16 +359,17 @@ def inserir_envio(
     caminho_arquivo: str,
     tipo_arquivo: str,
     hash_conteudo: str,
+    titular: str | None = None,
     db_path: str = DEFAULT_DB_PATH,
 ) -> int:
     conn = get_connection(db_path)
     try:
         cursor = conn.execute(
             """
-            INSERT INTO envio_ocr (caminho_arquivo, tipo_arquivo, hash_conteudo, status, data_envio)
-            VALUES (?, ?, ?, 'pendente', ?)
+            INSERT INTO envio_ocr (caminho_arquivo, tipo_arquivo, hash_conteudo, status, data_envio, titular)
+            VALUES (?, ?, ?, 'pendente', ?, ?)
             """,
-            (caminho_arquivo, tipo_arquivo, hash_conteudo, datetime.now().isoformat()),
+            (caminho_arquivo, tipo_arquivo, hash_conteudo, datetime.now().isoformat(), titular),
         )
         conn.commit()
         return cursor.lastrowid
@@ -562,6 +577,29 @@ def atribuir_categoria_a_nota(
                 return False
 
         conn.execute("UPDATE nota_fiscal SET categoria_id = ? WHERE id = ?", (categoria_id, nota_id))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def atribuir_titular_a_nota(
+    nota_id: int, titular: str | None, db_path: str = DEFAULT_DB_PATH
+) -> bool | None:
+    """Atribui, troca ou remove (titular=None) o titular de uma nota.
+    Retorna None se a nota nao existe; False se titular foi informado mas
+    nao e um dos valores conhecidos (TITULARES_VALIDOS); True em
+    sucesso. Mesmo padrao de `atribuir_categoria_a_nota`."""
+    if titular is not None and titular not in TITULARES_VALIDOS:
+        return False
+
+    conn = get_connection(db_path)
+    try:
+        nota_existe = conn.execute("SELECT 1 FROM nota_fiscal WHERE id = ?", (nota_id,)).fetchone()
+        if nota_existe is None:
+            return None
+
+        conn.execute("UPDATE nota_fiscal SET titular = ? WHERE id = ?", (titular, nota_id))
         conn.commit()
         return True
     finally:

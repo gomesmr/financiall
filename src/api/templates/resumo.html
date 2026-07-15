@@ -12,7 +12,7 @@
           <h6 class="text-uppercase text-xs font-weight-bolder opacity-7">Mês corrente</h6>
           {% if mes_corrente %}
           <h4 class="mb-0">R$ {{ "%.2f"|format((mes_corrente.total_gasto or 0) / 100) }}</h4>
-          <p class="text-sm text-secondary mb-0">{{ mes_corrente.mes }} — {{ mes_corrente.quantidade_notas }} nota(s)</p>
+          <p class="text-sm text-secondary mb-0">{{ mes_corrente.mes | mes_ano_br }} — {{ mes_corrente.quantidade_notas }} nota(s)</p>
           {% else %}
           <p class="vazio mb-0">Nenhuma nota importada no mês corrente.</p>
           {% endif %}
@@ -27,7 +27,7 @@
       {% if meses_disponiveis %}
       <select id="select-mes-categoria" class="form-select form-select-sm w-auto">
         {% for mes in meses_disponiveis %}
-        <option value="{{ mes }}">{{ mes }}</option>
+        <option value="{{ mes }}">{{ mes | mes_ano_br }}</option>
         {% endfor %}
       </select>
       {% endif %}
@@ -61,7 +61,7 @@
           <tbody>
             {% for mes in historico %}
             <tr>
-              <td class="text-sm">{{ mes.mes }}</td>
+              <td class="text-sm">{{ mes.mes | mes_ano_br }}</td>
               <td class="text-sm">R$ {{ "%.2f"|format((mes.total_gasto or 0) / 100) }}</td>
               <td class="text-sm">{{ mes.quantidade_notas }}</td>
             </tr>
@@ -116,6 +116,11 @@
 
     function formatarReais(centavos) {
       return "R$ " + (centavos / 100).toFixed(2);
+    }
+
+    function formatarMesAno(mesIso) {
+      const [ano, mes] = mesIso.split("-");
+      return `${mes}/${ano}`;
     }
 
     // research.md #4: cor estavel por categoria_id % 8; "Sem categoria" e a
@@ -196,7 +201,7 @@
     (function renderizarBarras() {
       const historico = {{ historico_json | tojson }};
       const paleta = paletaAtual();
-      const meses = historico.map((m) => m.mes).reverse();
+      const meses = historico.map((m) => formatarMesAno(m.mes)).reverse();
       const totaisCentavos = historico.map((m) => m.total_gasto || 0).reverse();
       const totaisReais = totaisCentavos.map((c) => c / 100);
       const dados = [

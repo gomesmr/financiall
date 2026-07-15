@@ -36,6 +36,7 @@ def _calcular_status(
 def importar_por_url_ou_chave(
     entrada: str,
     canal_origem: CanalOrigem = CanalOrigem.URL_CHAVE,
+    titular: str | None = None,
     db_path: str = storage_db.DEFAULT_DB_PATH,
 ) -> ResultadoImportacao:
     """Orquestra o canal URL/chave: valida a chave, checa duplicidade,
@@ -90,6 +91,7 @@ def importar_por_url_ou_chave(
         emitente_nome=emitente_nome,
         data_emissao=data_emissao,
         valor_total=valor_total,
+        titular=titular,
     )
     storage_db.inserir_nota(nota, db_path=db_path)
     for item in itens:
@@ -102,6 +104,7 @@ def importar_por_url_ou_chave(
 def importar_por_ocr(
     campos: campos_ocr_service.CamposExtraidos,
     hash_conteudo: str,
+    titular: str | None = None,
     db_path: str = storage_db.DEFAULT_DB_PATH,
 ) -> ResultadoImportacao:
     """Orquestra o canal foto/PDF depois do OCR já ter rodado (chamado pelo
@@ -150,6 +153,7 @@ def importar_por_ocr(
         emitente_nome=campos.emitente_nome,
         data_emissao=campos.data_emissao,
         valor_total=campos.valor_total,
+        titular=titular,
     )
     storage_db.inserir_nota(nota, db_path=db_path)
     for item in itens:

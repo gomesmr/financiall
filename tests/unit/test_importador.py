@@ -93,6 +93,22 @@ def test_importar_por_url_envolvida_em_cdata_ainda_busca_dados_na_sefaz(db_path,
     assert resultado.nota.emitente_nome == "Loja Exemplo"
 
 
+def test_importar_por_url_ou_chave_grava_titular_informado(db_path):
+    chave = gerar_chave_valida()
+
+    resultado = importador.importar_por_url_ou_chave(chave, titular="cristine", db_path=db_path)
+
+    assert resultado.nota.titular == "cristine"
+
+
+def test_importar_por_ocr_grava_titular_informado(db_path):
+    campos = campos_ocr_service.CamposExtraidos()
+
+    resultado = importador.importar_por_ocr(campos, "hash-titular-ocr", titular="marcelo", db_path=db_path)
+
+    assert resultado.nota.titular == "marcelo"
+
+
 # --- US4: degradacao graciosa -------------------------------------------
 
 

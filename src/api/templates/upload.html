@@ -2,6 +2,17 @@
 {% block title %}financiALL - Importar{% endblock %}
 {% block titulo_pagina %}Importar nota fiscal{% endblock %}
 {% block content %}
+  <div class="card mb-3">
+    <div class="card-body py-3 d-flex align-items-center gap-2 flex-wrap">
+      <label for="titular-import" class="text-sm fw-bold mb-0">De quem é esta nota?</label>
+      <select id="titular-import" class="form-select form-select-sm w-auto">
+        <option value="">Não identificado</option>
+        <option value="marcelo">Marcelo</option>
+        <option value="cristine">Cristine</option>
+      </select>
+    </div>
+  </div>
+
   <div class="row">
     <div class="col-12 col-lg-4 mb-4">
       <div class="card h-100">
@@ -81,6 +92,10 @@
       resultado.appendChild(p);
     }
 
+    function titularSelecionado() {
+      return document.getElementById("titular-import").value || null;
+    }
+
     // Reaproveitado pelos dois fluxos de importar por URL/chave: o formulário
     // de texto e a leitura por câmera (feature 007) chamam esta mesma função,
     // reaproveitando 100% da validação e do POST /notas já existentes.
@@ -88,7 +103,7 @@
       const resposta = await fetch("/notas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entrada }),
+        body: JSON.stringify({ entrada, titular: titularSelecionado() }),
       });
       const corpo = await resposta.json();
       return { ok: resposta.ok, corpo };
@@ -119,6 +134,8 @@
       const arquivo = document.getElementById("arquivo").files[0];
       const dados = new FormData();
       dados.append("arquivo", arquivo);
+      const titular = titularSelecionado();
+      if (titular) dados.append("titular", titular);
       const resposta = await fetch("/notas/upload", { method: "POST", body: dados });
       const corpo = await resposta.json();
       limparResultado();

@@ -4,6 +4,7 @@ import os
 
 from flask import Flask
 
+from src.api import filters as filtros_jinja
 from src.api.routes_categorias import bp as categorias_bp
 from src.api.routes_consulta import bp as consulta_bp
 from src.api.routes_importar import bp as importar_bp
@@ -26,6 +27,10 @@ def create_app(db_path: str | None = None, upload_dir: str | None = None) -> Fla
     )
 
     storage_db.init_db(app.config["DB_PATH"])
+
+    app.jinja_env.filters["data_br"] = filtros_jinja.formatar_data_br
+    app.jinja_env.filters["mes_ano_br"] = filtros_jinja.formatar_mes_ano_br
+    app.jinja_env.filters["aamm_br"] = filtros_jinja.formatar_aamm_br
 
     app.register_blueprint(importar_bp)
     app.register_blueprint(consulta_bp)
