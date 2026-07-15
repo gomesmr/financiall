@@ -30,6 +30,8 @@ class NotaFiscal:
     data_emissao: str | None = None
     valor_total: int | None = None
     data_importacao: str = field(default_factory=lambda: datetime.now().isoformat())
+    categoria_id: int | None = None
+    titular: str | None = None
 
     def __post_init__(self) -> None:
         if not self.chave_acesso and not self.hash_conteudo:

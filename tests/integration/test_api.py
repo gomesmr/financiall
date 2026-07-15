@@ -272,6 +272,180 @@ def _aamm_do_mes_corrente() -> str:
     return f"{hoje.year % 100:02d}{hoje.month:02d}"
 
 
+def test_criar_categoria_aparece_na_listagem(app_e_db, client):
+    """US1: POST /categorias cria a categoria e ela aparece em GET /categorias."""
+    resposta = client.post("/categorias", json={"nome": "Alimentação"})
+    assert resposta.status_code == 201
+
+    listagem = client.get("/categorias").get_json()
+    nomes = [c["nome"] for c in listagem["categorias"]]
+    assert "Alimentação" in nomes
+
+
+def test_atribuir_trocar_e_remover_categoria_de_uma_nota(app_e_db, client):
+    """US2: PUT /notas/<id>/categoria atribui/troca/remove, refletido em GET /notas."""
+    chave = gerar_chave_valida(numero="000000050")
+    resposta_import = client.post("/notas", json={"entrada": chave})
+    nota_id = resposta_import.get_json()["nota"]["id"]
+
+    categoria_1 = client.post("/categorias", json={"nome": "Transporte"}).get_json()["categoria"]["id"]
+    categoria_2 = client.post("/categorias", json={"nome": "Saúde"}).get_json()["categoria"]["id"]
+
+    resposta = client.put(f"/notas/{nota_id}/categoria", json={"categoria_id": categoria_1})
+    assert resposta.status_code == 200
+    notas = client.get("/notas").get_json()["notas"]
+    nota = next(n for n in notas if n["id"] == nota_id)
+    assert nota["categoria"]["nome"] == "Transporte"
+
+    client.put(f"/notas/{nota_id}/categoria", json={"categoria_id": categoria_2})
+    notas = client.get("/notas").get_json()["notas"]
+    nota = next(n for n in notas if n["id"] == nota_id)
+    assert nota["categoria"]["nome"] == "Saúde"
+
+    client.put(f"/notas/{nota_id}/categoria", json={"categoria_id": None})
+    notas = client.get("/notas").get_json()["notas"]
+    nota = next(n for n in notas if n["id"] == nota_id)
+    assert nota["categoria"] is None
+
+
+def test_atribuir_categoria_a_nota_inexistente_retorna_404(app_e_db, client):
+    categoria_id = client.post("/categorias", json={"nome": "Lazer"}).get_json()["categoria"]["id"]
+    resposta = client.put("/notas/999999/categoria", json={"categoria_id": categoria_id})
+    assert resposta.status_code == 404
+
+
+def test_atribuir_categoria_inexistente_a_nota_retorna_422(app_e_db, client):
+    chave = gerar_chave_valida(numero="000000051")
+    resposta_import = client.post("/notas", json={"entrada": chave})
+    nota_id = resposta_import.get_json()["nota"]["id"]
+
+    resposta = client.put(f"/notas/{nota_id}/categoria", json={"categoria_id": 999999})
+    assert resposta.status_code == 422
+
+
+def test_editar_categoria_atualiza_nome_em_categorias_e_em_notas(app_e_db, client):
+    """US4: PUT /categorias/<id> atualiza o nome em GET /categorias e em GET /notas."""
+    categoria_id = client.post("/categorias", json={"nome": "Transporte"}).get_json()["categoria"]["id"]
+    chave = gerar_chave_valida(numero="000000052")
+    resposta_import = client.post("/notas", json={"entrada": chave})
+    nota_id = resposta_import.get_json()["nota"]["id"]
+    client.put(f"/notas/{nota_id}/categoria", json={"categoria_id": categoria_id})
+
+    resposta = client.put(f"/categorias/{categoria_id}", json={"nome": "Transportes"})
+    assert resposta.status_code == 200
+
+    nomes = [c["nome"] for c in client.get("/categorias").get_json()["categorias"]]
+    assert "Transportes" in nomes
+    assert "Transporte" not in nomes
+
+    notas = client.get("/notas").get_json()["notas"]
+    nota = next(n for n in notas if n["id"] == nota_id)
+    assert nota["categoria"]["nome"] == "Transportes"
+
+
+def test_editar_categoria_inexistente_retorna_404(app_e_db, client):
+    resposta = client.put("/categorias/999999", json={"nome": "Novo Nome"})
+    assert resposta.status_code == 404
+
+
+def test_excluir_categoria_em_uso_desassocia_nota_sem_erro(app_e_db, client):
+    """US5: DELETE /categorias/<id> com nota associada -- nota vira 'sem categoria', sem erro."""
+    categoria_id = client.post("/categorias", json={"nome": "Lazer"}).get_json()["categoria"]["id"]
+    chave = gerar_chave_valida(numero="000000053")
+    resposta_import = client.post("/notas", json={"entrada": chave})
+    nota_id = resposta_import.get_json()["nota"]["id"]
+    client.put(f"/notas/{nota_id}/categoria", json={"categoria_id": categoria_id})
+
+    resposta = client.delete(f"/categorias/{categoria_id}")
+    assert resposta.status_code == 200
+
+    notas = client.get("/notas").get_json()["notas"]
+    nota = next(n for n in notas if n["id"] == nota_id)
+    assert nota["categoria"] is None
+
+
+def test_excluir_categoria_inexistente_retorna_404(app_e_db, client):
+    resposta = client.delete("/categorias/999999")
+    assert resposta.status_code == 404
+
+
+def test_importar_historico_e_consultar_via_api(app_e_db, client, tmp_path):
+    """US1: rodar a importacao sobre um arquivo de fixture reflete em GET /notas, com itens."""
+    import json
+
+    from src.services.importar_historico import importar_historico
+
+    _, db_path = app_e_db
+    chave = gerar_chave_valida(numero="000000060")
+    dados = {
+        chave: {
+            "emitente": "Loja Exemplo Sintetica",
+            "cnpj": "12.345.678/0001-99",
+            "uf": "SP",
+            "data_emissao": "10/03/2025",
+            "total": 50.0,
+            "itens": [
+                {"descricao": "Item Exemplo", "codigo": "1", "qtd": 1.0, "vl_unit": 50.0, "vl_total": 50.0}
+            ],
+            "conta": "cristine",
+            "fonte": "qr",
+        }
+    }
+    arquivo = tmp_path / "historico.json"
+    arquivo.write_text(json.dumps(dados), encoding="utf-8")
+
+    resumo = importar_historico(str(arquivo), db_path=db_path)
+    assert resumo.importadas == 1
+
+    notas = client.get("/notas").get_json()["notas"]
+    nota = next(n for n in notas if n["chave_acesso"] == chave)
+    assert nota["status"] == "completa"
+    assert len(nota["itens"]) == 1
+    assert nota["itens"][0]["descricao"] == "Item Exemplo"
+
+
+def test_filtrar_notas_por_titular(app_e_db, client, tmp_path):
+    """US2: GET /notas?titular=marcelo retorna so as notas daquele titular."""
+    import json
+
+    from src.services.importar_historico import importar_historico
+
+    _, db_path = app_e_db
+    chave_marcelo = gerar_chave_valida(numero="000000061")
+    chave_cristine = gerar_chave_valida(numero="000000062")
+    dados = {
+        chave_marcelo: {
+            "emitente": "Loja A",
+            "cnpj": "12.345.678/0001-99",
+            "uf": "SP",
+            "data_emissao": "01/01/2025",
+            "total": 10.0,
+            "itens": [],
+            "conta": "marcelo",
+        },
+        chave_cristine: {
+            "emitente": "Loja B",
+            "cnpj": "12.345.678/0001-99",
+            "uf": "SP",
+            "data_emissao": "01/01/2025",
+            "total": 20.0,
+            "itens": [],
+            "conta": "cristine",
+        },
+    }
+    arquivo = tmp_path / "historico.json"
+    arquivo.write_text(json.dumps(dados), encoding="utf-8")
+    importar_historico(str(arquivo), db_path=db_path)
+
+    todas = client.get("/notas").get_json()["notas"]
+    assert len(todas) == 2
+    assert {n["titular"] for n in todas} == {"marcelo", "cristine"}
+
+    so_marcelo = client.get("/notas?titular=marcelo").get_json()["notas"]
+    assert len(so_marcelo) == 1
+    assert so_marcelo[0]["chave_acesso"] == chave_marcelo
+
+
 def test_resumo_historico_com_notas_em_meses_diferentes(app_e_db, client):
     chave_jan = gerar_chave_valida(numero="000000030", aamm="2501")
     chave_fev = gerar_chave_valida(numero="000000031", aamm="2502")

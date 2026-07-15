@@ -35,6 +35,7 @@
   <nav class="principal">
     <a href="/" class="{{ 'ativo' if pagina_ativa == 'importar' else '' }}">Importar</a>
     <a href="/ver/notas" class="{{ 'ativo' if pagina_ativa == 'notas' else '' }}">Notas</a>
+    <a href="/ver/categorias" class="{{ 'ativo' if pagina_ativa == 'categorias' else '' }}">Categorias</a>
     <a href="/ver/resumo" class="{{ 'ativo' if pagina_ativa == 'resumo' else '' }}">Resumo</a>
   </nav>
   {% block content %}{% endblock %}

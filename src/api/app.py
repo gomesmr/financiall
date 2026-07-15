@@ -4,6 +4,7 @@ import os
 
 from flask import Flask
 
+from src.api.routes_categorias import bp as categorias_bp
 from src.api.routes_consulta import bp as consulta_bp
 from src.api.routes_importar import bp as importar_bp
 from src.services import fila_processamento
@@ -28,5 +29,6 @@ def create_app(db_path: str | None = None, upload_dir: str | None = None) -> Fla
 
     app.register_blueprint(importar_bp)
     app.register_blueprint(consulta_bp)
+    app.register_blueprint(categorias_bp)
 
     return app

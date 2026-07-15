@@ -24,8 +24,16 @@ def pagina_notas():
     navegador, com a mesma navegacao principal das demais paginas."""
     db_path = current_app.config["DB_PATH"]
     mes = request.args.get("mes")
-    notas = storage_db.listar_notas(mes=mes, db_path=db_path)
-    return render_template("notas.html", notas=notas, pagina_ativa="notas")
+    titular = request.args.get("titular")
+    notas = storage_db.listar_notas(mes=mes, titular=titular, db_path=db_path)
+    categorias_por_id = {c.id: c.nome for c in storage_db.listar_categorias(db_path=db_path)}
+    return render_template(
+        "notas.html",
+        notas=notas,
+        categorias_por_id=categorias_por_id,
+        titular_filtro=titular,
+        pagina_ativa="notas",
+    )
 
 
 @bp.get("/ver/notas/<int:nota_id>")
@@ -37,7 +45,10 @@ def pagina_nota_detalhe(nota_id: int):
     if nota is None:
         return render_template("nota_detalhe.html", nota=None, pagina_ativa="notas"), 404
     itens = storage_db.listar_itens_por_nota(nota_id, db_path=db_path)
-    return render_template("nota_detalhe.html", nota=nota, itens=itens, pagina_ativa="notas")
+    categorias = storage_db.listar_categorias(db_path=db_path)
+    return render_template(
+        "nota_detalhe.html", nota=nota, itens=itens, categorias=categorias, pagina_ativa="notas"
+    )
 
 
 @bp.get("/ver/resumo")
@@ -73,12 +84,18 @@ def pagina_envio(envio_id: int):
 def listar_notas():
     db_path = current_app.config["DB_PATH"]
     mes = request.args.get("mes")
-    notas = storage_db.listar_notas(mes=mes, db_path=db_path)
+    titular = request.args.get("titular")
+    notas = storage_db.listar_notas(mes=mes, titular=titular, db_path=db_path)
+    categorias_por_id = {c.id: c for c in storage_db.listar_categorias(db_path=db_path)}
     return (
         jsonify(
             {
                 "notas": [
-                    nota_to_dict(nota, storage_db.listar_itens_por_nota(nota.id, db_path=db_path))
+                    nota_to_dict(
+                        nota,
+                        storage_db.listar_itens_por_nota(nota.id, db_path=db_path),
+                        categoria=categorias_por_id.get(nota.categoria_id),
+                    )
                     for nota in notas
                 ]
             }

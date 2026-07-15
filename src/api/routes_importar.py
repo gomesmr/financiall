@@ -22,7 +22,7 @@ def _item_to_dict(item) -> dict:
     }
 
 
-def nota_to_dict(nota, itens=None, mascarar_chave: bool = False) -> dict:
+def nota_to_dict(nota, itens=None, mascarar_chave: bool = False, categoria=None) -> dict:
     return {
         "id": nota.id,
         "chave_acesso": _mascarar_chave(nota.chave_acesso) if mascarar_chave else nota.chave_acesso,
@@ -36,6 +36,8 @@ def nota_to_dict(nota, itens=None, mascarar_chave: bool = False) -> dict:
         "status": nota.status.value,
         "data_importacao": nota.data_importacao,
         "itens": [_item_to_dict(i) for i in (itens or [])],
+        "categoria": {"id": categoria.id, "nome": categoria.nome} if categoria else None,
+        "titular": nota.titular,
     }
 
 
