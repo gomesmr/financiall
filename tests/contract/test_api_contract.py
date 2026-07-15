@@ -287,6 +287,24 @@ def test_pagina_ver_notas_lista_nota_importada(client):
     assert "pendente de revisão" in texto
 
 
+def test_pagina_ver_resumo_inclui_graficos_com_notas_em_varios_meses(client, monkeypatch):
+    monkeypatch.setattr(
+        "src.services.importador.sefaz_client.buscar_dados_nota",
+        lambda url: _dados_sefaz_completos(),
+    )
+    for numero, aamm in [("000000080", "2501"), ("000000081", "2502"), ("000000082", "2503")]:
+        chave = gerar_chave_valida(numero=numero, aamm=aamm)
+        url = f"https://www.sefaz.sp.gov.br/nfce/qrcode?p={chave}|2|1|1|hash"
+        client.post("/notas", json={"entrada": url})
+
+    resposta = client.get("/ver/resumo")
+    texto = resposta.get_data(as_text=True)
+    assert resposta.status_code == 200
+    assert 'id="grafico-pizza"' in texto
+    assert 'id="grafico-barras"' in texto
+    assert "plotly-basic.min.js" in texto
+
+
 def test_pagina_ver_resumo_carrega(client):
     resposta = client.get("/ver/resumo")
     assert resposta.status_code == 200
