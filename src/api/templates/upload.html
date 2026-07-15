@@ -1,26 +1,43 @@
 {% extends "base.html" %}
 {% block title %}financiALL - Importar{% endblock %}
+{% block titulo_pagina %}Importar nota fiscal{% endblock %}
 {% block content %}
-  <h1>Importar nota fiscal</h1>
+  <div class="row">
+    <div class="col-12 col-lg-6 mb-4">
+      <div class="card h-100">
+        <div class="card-header pb-0">
+          <h6>URL do QR Code ou chave de acesso</h6>
+        </div>
+        <div class="card-body">
+          <form id="form-entrada">
+            <div class="input-group input-group-outline mb-3">
+              <input type="text" class="form-control" id="entrada" name="entrada" placeholder="Cole a URL do QR Code ou a chave de 44 dígitos" required>
+            </div>
+            <button type="submit" class="btn bg-gradient-primary w-100 mb-0">Importar</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6 mb-4">
+      <div class="card h-100">
+        <div class="card-header pb-0">
+          <h6>Foto ou PDF do cupom fiscal</h6>
+        </div>
+        <div class="card-body">
+          <form id="form-upload">
+            <div class="mb-3">
+              <input type="file" class="form-control form-control-lg" id="arquivo" name="arquivo" accept="image/*,application/pdf" capture="environment" required>
+            </div>
+            <button type="submit" class="btn bg-gradient-primary w-100 mb-0">Enviar</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <fieldset>
-    <legend>URL do QR Code ou chave de acesso</legend>
-    <form id="form-entrada">
-      <input type="text" id="entrada" name="entrada" placeholder="Cole a URL do QR Code ou a chave de 44 dígitos" required>
-      <button type="submit">Importar</button>
-    </form>
-  </fieldset>
-
-  <fieldset>
-    <legend>Foto ou PDF do cupom fiscal</legend>
-    <form id="form-upload">
-      <input type="file" id="arquivo" name="arquivo" accept="image/*,application/pdf" capture="environment" required>
-      <button type="submit">Enviar</button>
-    </form>
-  </fieldset>
-
-  <div id="resultado"></div>
-
+  <div id="resultado" class="card card-body"></div>
+{% endblock %}
+{% block extra_scripts %}
   <script>
     const resultado = document.getElementById("resultado");
 
@@ -30,6 +47,7 @@
 
     function adicionarParagrafo(texto) {
       const p = document.createElement("p");
+      p.className = "mb-1";
       p.textContent = texto;
       resultado.appendChild(p);
       return p;
@@ -37,6 +55,7 @@
 
     function adicionarLink(href, texto) {
       const p = document.createElement("p");
+      p.className = "mb-0";
       const a = document.createElement("a");
       a.href = href;
       a.textContent = texto;
