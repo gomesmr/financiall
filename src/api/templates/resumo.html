@@ -21,7 +21,7 @@
       {% endfor %}
     </select>
   </p>
-  <div id="grafico-pizza" style="max-width: 480px;"></div>
+  <div id="grafico-pizza" style="max-width: 480px; height: 420px;"></div>
   <p id="mensagem-pizza-vazia" class="vazio" style="display:none">Nenhum gasto neste mês.</p>
   {% else %}
   <p class="vazio">Nenhuma nota importada ainda.</p>
@@ -29,7 +29,7 @@
 
   <h2>Meses anteriores</h2>
   {% if historico %}
-  <div id="grafico-barras" style="max-width: 640px;"></div>
+  <div id="grafico-barras" style="max-width: 640px; height: 400px;"></div>
   <table>
     <tr><th>Mês</th><th>Total</th><th>Notas</th></tr>
     {% for mes in historico %}
@@ -137,7 +137,7 @@
         },
       ];
 
-      const layout = Object.assign({ showlegend: true }, layoutBase(paleta));
+      const layout = Object.assign({ showlegend: true, height: 420 }, layoutBase(paleta));
       const primeiraRenderizacao = !divPizza.dataset.renderizado;
       if (primeiraRenderizacao) {
         Plotly.newPlot("grafico-pizza", dados, layout, { responsive: true, displayModeBar: false });
@@ -165,19 +165,24 @@
       const historico = {{ historico_json | tojson }};
       const paleta = paletaAtual();
       const meses = historico.map((m) => m.mes).reverse();
-      const valores = historico.map((m) => m.total_gasto || 0).reverse();
+      const totaisCentavos = historico.map((m) => m.total_gasto || 0).reverse();
+      const totaisReais = totaisCentavos.map((c) => c / 100);
       const dados = [
         {
           type: "bar",
           x: meses,
-          y: valores,
+          y: totaisReais,
           marker: { color: paleta.sequencial },
-          customdata: valores.map(formatarReais),
+          customdata: totaisCentavos.map(formatarReais),
           hovertemplate: "%{x}: %{customdata}<extra></extra>",
         },
       ];
       const layout = Object.assign(
-        { xaxis: { gridcolor: paleta.gridline }, yaxis: { gridcolor: paleta.gridline } },
+        {
+          height: 400,
+          xaxis: { gridcolor: paleta.gridline },
+          yaxis: { gridcolor: paleta.gridline, tickprefix: "R$ " },
+        },
         layoutBase(paleta)
       );
       Plotly.newPlot("grafico-barras", dados, layout, { responsive: true, displayModeBar: false });
