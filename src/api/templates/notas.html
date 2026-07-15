@@ -21,27 +21,27 @@
         <table class="table align-items-center mb-0">
           <thead>
             <tr>
-              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Data</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Data</th>
               <th class="text-uppercase text-xs font-weight-bolder opacity-7">Emitente</th>
-              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Total</th>
-              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Status</th>
-              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Canal</th>
-              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Categoria</th>
-              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Titular</th>
-              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Ações</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Total</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Status</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Canal</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Categoria</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Titular</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Ações</th>
             </tr>
           </thead>
           <tbody>
             {% for nota in notas %}
             <tr class="linha-clicavel" onclick="window.location='/ver/notas/{{ nota.id }}'">
-              <td class="text-sm">{{ nota.data_emissao or nota.ano_mes_emissao or "—" }}</td>
+              <td class="text-sm" style="white-space:nowrap;">{{ nota.data_emissao or nota.ano_mes_emissao or "—" }}</td>
               <td class="text-sm">{{ nota.emitente_nome or "não disponível" }}</td>
-              <td class="text-sm">{% if nota.valor_total is not none %}R$ {{ "%.2f"|format(nota.valor_total / 100) }}{% else %}—{% endif %}</td>
-              <td><span class="status-badge status-{{ nota.status.value }}">{{ "completa" if nota.status.value == "completa" else "pendente de revisão" }}</span></td>
-              <td class="text-sm">{{ "URL/chave" if nota.canal_origem.value == "url_chave" else "Foto/PDF" }}</td>
-              <td class="text-sm">{{ categorias_por_id.get(nota.categoria_id, "sem categoria") }}</td>
-              <td class="text-sm">{{ nota.titular | capitalize if nota.titular and nota.titular != "nao_identificado" else "não identificado" }}</td>
-              <td><button class="btn btn-sm btn-outline-danger mb-0" onclick="event.stopPropagation(); excluirNota({{ nota.id }})">Excluir</button></td>
+              <td class="text-sm" style="white-space:nowrap;">{% if nota.valor_total is not none %}R$ {{ "%.2f"|format(nota.valor_total / 100) }}{% else %}—{% endif %}</td>
+              <td style="white-space:nowrap;"><span class="status-badge status-{{ nota.status.value }}">{{ "completa" if nota.status.value == "completa" else "pendente de revisão" }}</span></td>
+              <td class="text-sm" style="white-space:nowrap;">{{ "URL/chave" if nota.canal_origem.value == "url_chave" else "Foto/PDF" }}</td>
+              <td class="text-sm" style="white-space:nowrap;">{{ categorias_por_id.get(nota.categoria_id, "sem categoria") }}</td>
+              <td class="text-sm" style="white-space:nowrap;">{{ nota.titular | capitalize if nota.titular and nota.titular != "nao_identificado" else "não identificado" }}</td>
+              <td style="white-space:nowrap;"><button class="btn btn-sm btn-outline-danger mb-0" onclick="event.stopPropagation(); excluirNota({{ nota.id }})">Excluir</button></td>
             </tr>
             {% endfor %}
           </tbody>
