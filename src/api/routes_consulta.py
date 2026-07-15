@@ -53,12 +53,20 @@ def pagina_nota_detalhe(nota_id: int):
 
 @bp.get("/ver/resumo")
 def pagina_resumo():
-    """Visao HTML de navegacao do resumo mensal (mes corrente + historico)."""
+    """Visao HTML de navegacao do resumo mensal (mes corrente + historico
+    + graficos de pizza/barras, feature 005)."""
     db_path = current_app.config["DB_PATH"]
     mes_corrente = resumo_service.gasto_mes_corrente(db_path=db_path)
     historico = resumo_service.historico_meses_anteriores(db_path=db_path)
+    historico_json = [{"mes": r.mes, "total_gasto": r.total_gasto} for r in historico]
+    meses_disponiveis = [resumo_service.mes_atual()] + [r.mes for r in historico]
     return render_template(
-        "resumo.html", mes_corrente=mes_corrente, historico=historico, pagina_ativa="resumo"
+        "resumo.html",
+        mes_corrente=mes_corrente,
+        historico=historico,
+        historico_json=historico_json,
+        meses_disponiveis=meses_disponiveis,
+        pagina_ativa="resumo",
     )
 
 
@@ -145,6 +153,26 @@ def resumo_historico():
                 "meses": [
                     {"mes": r.mes, "total_gasto": r.total_gasto, "quantidade_notas": r.quantidade_notas}
                     for r in meses
+                ],
+                "parcial": True,
+            }
+        ),
+        200,
+    )
+
+
+@bp.get("/notas/resumo/categorias")
+def resumo_categorias():
+    db_path = current_app.config["DB_PATH"]
+    mes = request.args.get("mes") or resumo_service.mes_atual()
+    gastos = resumo_service.gasto_por_categoria(mes, db_path=db_path)
+    return (
+        jsonify(
+            {
+                "mes": mes,
+                "categorias": [
+                    {"categoria_id": g.categoria_id, "nome": g.nome, "total_gasto": g.total_gasto}
+                    for g in gastos
                 ],
                 "parcial": True,
             }

@@ -11,8 +11,25 @@
   <p class="vazio">Nenhuma nota importada no mês corrente.</p>
   {% endif %}
 
+  <h2>Gasto por categoria</h2>
+  {% if meses_disponiveis %}
+  <p>
+    Mês:
+    <select id="select-mes-categoria">
+      {% for mes in meses_disponiveis %}
+      <option value="{{ mes }}">{{ mes }}</option>
+      {% endfor %}
+    </select>
+  </p>
+  <div id="grafico-pizza" style="max-width: 480px;"></div>
+  <p id="mensagem-pizza-vazia" class="vazio" style="display:none">Nenhum gasto neste mês.</p>
+  {% else %}
+  <p class="vazio">Nenhuma nota importada ainda.</p>
+  {% endif %}
+
   <h2>Meses anteriores</h2>
   {% if historico %}
+  <div id="grafico-barras" style="max-width: 640px;"></div>
   <table>
     <tr><th>Mês</th><th>Total</th><th>Notas</th></tr>
     {% for mes in historico %}
@@ -28,4 +45,143 @@
   {% endif %}
 
   <p><a href="/ver/notas">Ver todas as notas →</a></p>
+
+  <script src="/static/plotly-basic.min.js"></script>
+  <script>
+    // Paleta validada em research.md #2 (feature 005) -- nunca escolhida "no olho".
+    const PALETA = {
+      light: {
+        categorica: ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"],
+        neutro: "#898781",
+        sequencial: "#2a78d6",
+        superficie: "#fcfcfb",
+        texto: "#0b0b0b",
+        gridline: "#e1e0d9",
+      },
+      dark: {
+        categorica: ["#3987e5", "#199e70", "#c98500", "#008300", "#9085e9", "#e66767", "#d55181", "#d95926"],
+        neutro: "#898781",
+        sequencial: "#3987e5",
+        superficie: "#1a1a19",
+        texto: "#ffffff",
+        gridline: "#2c2c2a",
+      },
+    };
+
+    function paletaAtual() {
+      const escuro = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      return escuro ? PALETA.dark : PALETA.light;
+    }
+
+    function layoutBase(paleta) {
+      return {
+        paper_bgcolor: paleta.superficie,
+        plot_bgcolor: paleta.superficie,
+        font: { color: paleta.texto, family: "system-ui, -apple-system, 'Segoe UI', sans-serif" },
+        margin: { t: 20, b: 40, l: 40, r: 20 },
+      };
+    }
+
+    function formatarReais(centavos) {
+      return "R$ " + (centavos / 100).toFixed(2);
+    }
+
+    // research.md #4: cor estavel por categoria_id % 8; "Sem categoria" e a
+    // cauda dobrada em "Outros" (teto de 8 series, choosing-a-form.md da
+    // skill de dataviz) usam sempre o tom neutro, nunca um slot categorico.
+    function prepararFatias(categorias) {
+      const semCategoria = categorias.find((c) => c.categoria_id === null);
+      const comCategoria = categorias
+        .filter((c) => c.categoria_id !== null)
+        .sort((a, b) => b.total_gasto - a.total_gasto);
+      const principais = comCategoria.slice(0, 8);
+      const cauda = comCategoria.slice(8);
+      const fatias = principais.slice();
+      if (cauda.length > 0) {
+        const totalCauda = cauda.reduce((soma, c) => soma + c.total_gasto, 0);
+        fatias.push({ categoria_id: null, nome: "Outros", total_gasto: totalCauda });
+      }
+      if (semCategoria) {
+        fatias.push(semCategoria);
+      }
+      return fatias;
+    }
+
+    function corDaFatia(fatia, paleta) {
+      if (fatia.categoria_id === null) return paleta.neutro;
+      return paleta.categorica[fatia.categoria_id % 8];
+    }
+
+    function renderizarPizza(categorias) {
+      const mensagemVazia = document.getElementById("mensagem-pizza-vazia");
+      const divPizza = document.getElementById("grafico-pizza");
+      if (!categorias.length) {
+        divPizza.style.display = "none";
+        mensagemVazia.style.display = "block";
+        return;
+      }
+      divPizza.style.display = "block";
+      mensagemVazia.style.display = "none";
+
+      const paleta = paletaAtual();
+      const fatias = prepararFatias(categorias);
+      const dados = [
+        {
+          type: "pie",
+          labels: fatias.map((f) => f.nome),
+          values: fatias.map((f) => f.total_gasto),
+          marker: { colors: fatias.map((f) => corDaFatia(f, paleta)) },
+          textinfo: "percent",
+          customdata: fatias.map((f) => formatarReais(f.total_gasto)),
+          hovertemplate: "%{label}: %{customdata}<extra></extra>",
+        },
+      ];
+
+      const layout = Object.assign({ showlegend: true }, layoutBase(paleta));
+      const primeiraRenderizacao = !divPizza.dataset.renderizado;
+      if (primeiraRenderizacao) {
+        Plotly.newPlot("grafico-pizza", dados, layout, { responsive: true, displayModeBar: false });
+        divPizza.dataset.renderizado = "1";
+      } else {
+        Plotly.react("grafico-pizza", dados, layout, { responsive: true, displayModeBar: false });
+      }
+    }
+
+    async function carregarPizza(mes) {
+      const resposta = await fetch(`/notas/resumo/categorias?mes=${encodeURIComponent(mes)}`);
+      const corpo = await resposta.json();
+      renderizarPizza(corpo.categorias);
+    }
+
+    {% if meses_disponiveis %}
+    document.getElementById("select-mes-categoria").addEventListener("change", (evento) => {
+      carregarPizza(evento.target.value);
+    });
+    carregarPizza("{{ meses_disponiveis[0] }}");
+    {% endif %}
+
+    {% if historico %}
+    (function renderizarBarras() {
+      const historico = {{ historico_json | tojson }};
+      const paleta = paletaAtual();
+      const meses = historico.map((m) => m.mes).reverse();
+      const valores = historico.map((m) => m.total_gasto || 0).reverse();
+      const dados = [
+        {
+          type: "bar",
+          x: meses,
+          y: valores,
+          marker: { color: paleta.sequencial },
+          customdata: valores.map(formatarReais),
+          hovertemplate: "%{x}: %{customdata}<extra></extra>",
+        },
+      ];
+      const layout = Object.assign(
+        { xaxis: { gridcolor: paleta.gridline }, yaxis: { gridcolor: paleta.gridline } },
+        layoutBase(paleta)
+      );
+      Plotly.newPlot("grafico-barras", dados, layout, { responsive: true, displayModeBar: false });
+    })();
+    {% endif %}
+  </script>
 {% endblock %}
