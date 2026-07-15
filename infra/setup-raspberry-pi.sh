@@ -57,7 +57,35 @@ echo "--> Instalando dependencias do projeto no venv"
 echo "--> Criando diretorio de dados (banco SQLite + uploads)"
 mkdir -p "$REPO_DIR/data/uploads"
 
+# Caddy (feature 007) -- proxy reverso HTTPS local, certificado autoassinado
+# gerado pelo proprio Caddy (Caddyfile usa `tls internal`), necessario para
+# a API de camera do navegador (getUserMedia exige contexto seguro). Prefere
+# o pacote ja disponivel no repositorio oficial da distro (Debian 13/trixie
+# ja empacota Caddy) -- so usa o repositorio proprio do Caddy (Cloudsmith)
+# como alternativa se o pacote nao existir no repositorio ja configurado.
+if command -v caddy >/dev/null 2>&1; then
+    echo "--> Caddy ja instalado ($(command -v caddy)), pulando instalacao"
+elif apt-cache show caddy >/dev/null 2>&1; then
+    echo "--> Instalando Caddy do repositorio ja configurado da distro"
+    sudo apt-get install -y --no-install-recommends caddy
+else
+    echo "--> Caddy ausente do repositorio da distro, usando repositorio oficial do Caddy"
+    sudo apt-get install -y --no-install-recommends debian-keyring debian-archive-keyring apt-transport-https curl
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+        | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+        | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+    sudo apt-get update -y
+    sudo apt-get install -y --no-install-recommends caddy
+fi
+
+echo "--> Instalando infra/Caddyfile em /etc/caddy/Caddyfile"
+sudo cp "$REPO_DIR/infra/Caddyfile" /etc/caddy/Caddyfile
+sudo systemctl reload caddy 2>/dev/null || sudo systemctl restart caddy
+
 echo "==> Provisionamento concluido."
 echo "    Proximo passo: instalar o servico systemd com"
 echo "    sudo cp \"$REPO_DIR/infra/financiall.service\" /etc/systemd/system/ && \\"
 echo "    sudo systemctl daemon-reload && sudo systemctl enable --now financiall"
+echo "    financiALL fica acessivel via HTTPS em https://finall.local:5443 (producao)"
+echo "    e https://finall.local:5444 (dev) depois do Caddy recarregar."

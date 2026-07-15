@@ -1,0 +1,20 @@
+# Proxy reverso HTTPS para o financiALL na rede local (feature 007 — leitura
+# de QR Code pela câmera exige contexto seguro do navegador). Certificado
+# gerado e renovado automaticamente pelo próprio Caddy (`tls internal`),
+# sem depender de internet nem de uma autoridade certificadora pública —
+# ver specs/007-leitura-qrcode-camera/research.md #5.
+#
+# Portas acima de 1024 de propósito: evita exigir capacidade especial
+# (CAP_NET_BIND_SERVICE) para o processo do Caddy poder escutar.
+#
+# Produção (financiall.service, porta 5000)
+finall.local:5443 {
+	tls internal
+	reverse_proxy localhost:5000
+}
+
+# Desenvolvimento (financiall-dev.service, porta 5005)
+finall.local:5444 {
+	tls internal
+	reverse_proxy localhost:5005
+}

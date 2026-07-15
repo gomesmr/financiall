@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from io import BytesIO
+
 from flask import Blueprint, current_app, jsonify, request
+from PIL import UnidentifiedImageError
+from PIL import Image as PilImage
 
 from src.services import chave_acesso as chave_acesso_service
-from src.services import exclusao, fila_processamento, importador
+from src.services import exclusao, fila_processamento, importador, qrcode_reader
 
 bp = Blueprint("importar", __name__)
 
@@ -81,6 +85,31 @@ def importar_nota():
         ),
         201,
     )
+
+
+@bp.post("/notas/qrcode-frame")
+def decodificar_frame_camera():
+    """Decodifica um frame de câmera capturado ao vivo pelo navegador
+    (feature 007) -- não importa nada, só decodifica. O cliente, ao
+    receber uma `entrada` não nula, chama POST /notas separadamente,
+    reaproveitando a validação e o fluxo de importação já existentes
+    (contracts/api.md)."""
+    conteudo = request.get_data()
+    if not conteudo:
+        return jsonify({"erro": "Não foi possível processar a imagem enviada."}), 415
+
+    try:
+        imagem = PilImage.open(BytesIO(conteudo))
+        imagem.load()
+    except UnidentifiedImageError:
+        return jsonify({"erro": "Não foi possível processar a imagem enviada."}), 415
+
+    try:
+        entrada = qrcode_reader.decodificar_qrcode(imagem)
+    except qrcode_reader.QrCodeIndisponivelError:
+        entrada = None
+
+    return jsonify({"entrada": entrada}), 200
 
 
 @bp.post("/notas/upload")
