@@ -1,89 +1,113 @@
 {% extends "base.html" %}
 {% block title %}financiALL - Nota{% endblock %}
+{% block titulo_pagina %}Detalhe da nota{% endblock %}
 {% block content %}
-  <a class="voltar" href="/ver/notas">← Voltar para a lista</a>
+  <a class="btn btn-sm btn-outline-secondary mb-3" href="/ver/notas">← Voltar para a lista</a>
   {% if nota is none %}
-    <h1>Nota não encontrada</h1>
+    <div class="card">
+      <div class="card-body">
+        <h6 class="mb-0">Nota não encontrada</h6>
+      </div>
+    </div>
   {% else %}
-    <h1>{{ nota.emitente_nome or "Emitente não disponível" }}</h1>
-    <p>
-      <span class="status-badge status-{{ nota.status.value }}">
-        {{ "completa" if nota.status.value == "completa" else "pendente de revisão" }}
-      </span>
-      &nbsp;
-      {{ "URL/chave" if nota.canal_origem.value == "url_chave" else "Foto/PDF" }}
-      &nbsp;
-      <button class="btn-excluir" onclick="excluirNota({{ nota.id }})">Excluir</button>
-    </p>
-    <p>Data de emissão: {{ nota.data_emissao or nota.ano_mes_emissao or "não disponível" }}</p>
-    <p>CNPJ do emitente: {{ nota.cnpj_emitente or "não disponível" }}</p>
-    <p>UF: {{ nota.uf or "não disponível" }}</p>
-    <p>Total: {% if nota.valor_total is not none %}R$ {{ "%.2f"|format(nota.valor_total / 100) }}{% else %}não disponível{% endif %}</p>
+    <div class="card mb-4">
+      <div class="card-header pb-0 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <h5 class="mb-0">{{ nota.emitente_nome or "Emitente não disponível" }}</h5>
+        <button class="btn btn-sm btn-outline-danger mb-0" onclick="excluirNota({{ nota.id }})">Excluir</button>
+      </div>
+      <div class="card-body">
+        <p class="mb-2">
+          <span class="status-badge status-{{ nota.status.value }}">
+            {{ "completa" if nota.status.value == "completa" else "pendente de revisão" }}
+          </span>
+          <span class="text-sm text-secondary ms-2">
+            {{ "URL/chave" if nota.canal_origem.value == "url_chave" else "Foto/PDF" }}
+          </span>
+        </p>
+        <p class="text-sm mb-1">Data de emissão: {{ nota.data_emissao or nota.ano_mes_emissao or "não disponível" }}</p>
+        <p class="text-sm mb-1">CNPJ do emitente: {{ nota.cnpj_emitente or "não disponível" }}</p>
+        <p class="text-sm mb-1">UF: {{ nota.uf or "não disponível" }}</p>
+        <p class="text-sm mb-3">Total: {% if nota.valor_total is not none %}R$ {{ "%.2f"|format(nota.valor_total / 100) }}{% else %}não disponível{% endif %}</p>
 
-    <p>
-      Categoria:
-      <select id="select-categoria">
-        <option value="">Sem categoria</option>
-        {% for categoria in categorias %}
-        <option value="{{ categoria.id }}" {{ "selected" if categoria.id == nota.categoria_id else "" }}>{{ categoria.nome }}</option>
-        {% endfor %}
-      </select>
-      <button onclick="salvarCategoria({{ nota.id }})">Salvar</button>
-    </p>
+        <div class="input-group input-group-outline d-inline-flex w-auto align-items-center">
+          <label class="me-2 mb-0 text-sm">Categoria:</label>
+          <select id="select-categoria" class="form-select form-select-sm w-auto d-inline-block">
+            <option value="">Sem categoria</option>
+            {% for categoria in categorias %}
+            <option value="{{ categoria.id }}" {{ "selected" if categoria.id == nota.categoria_id else "" }}>{{ categoria.nome }}</option>
+            {% endfor %}
+          </select>
+          <button class="btn btn-sm btn-outline-primary mb-0 ms-2" onclick="salvarCategoria({{ nota.id }})">Salvar</button>
+        </div>
+      </div>
+    </div>
 
-    <h2>Itens</h2>
-    {% if itens %}
-    <table>
-      <tr>
-        <th>Código</th>
-        <th>Descrição</th>
-        <th>Qtd</th>
-        <th>Vl. Unit.</th>
-        <th>Vl. Total</th>
-      </tr>
-      {% for item in itens %}
-      <tr>
-        <td>{{ item.codigo_item or "—" }}</td>
-        <td>{{ item.descricao or "não disponível" }}</td>
-        <td>{{ item.quantidade if item.quantidade is not none else "—" }}</td>
-        <td>{% if item.valor_unitario is not none %}R$ {{ "%.2f"|format(item.valor_unitario / 100) }}{% else %}—{% endif %}</td>
-        <td>{% if item.valor_total_item is not none %}R$ {{ "%.2f"|format(item.valor_total_item / 100) }}{% else %}—{% endif %}</td>
-      </tr>
-      {% endfor %}
-    </table>
-    {% else %}
-    <p class="vazio">Nenhum item disponível para esta nota.</p>
-    {% endif %}
-
-    <script>
-      async function excluirNota(notaId) {
-        if (!confirm("Excluir esta nota? Essa ação não pode ser desfeita.")) {
-          return;
-        }
-        const resposta = await fetch(`/notas/${notaId}`, { method: "DELETE" });
-        const corpo = await resposta.json();
-        if (!resposta.ok) {
-          alert(corpo.erro || "Não foi possível excluir a nota.");
-          return;
-        }
-        window.location.href = "/ver/notas?excluida=1";
-      }
-
-      async function salvarCategoria(notaId) {
-        const select = document.getElementById("select-categoria");
-        const categoriaId = select.value ? parseInt(select.value, 10) : null;
-        const resposta = await fetch(`/notas/${notaId}/categoria`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ categoria_id: categoriaId }),
-        });
-        const corpo = await resposta.json();
-        if (!resposta.ok) {
-          alert(corpo.erro || "Não foi possível atualizar a categoria.");
-          return;
-        }
-        window.location.reload();
-      }
-    </script>
+    <div class="card">
+      <div class="card-header pb-0">
+        <h6>Itens</h6>
+      </div>
+      <div class="card-body px-0 pb-0">
+        {% if itens %}
+        <div class="table-responsive-argon">
+          <table class="table align-items-center mb-0">
+            <thead>
+              <tr>
+                <th class="text-uppercase text-xs font-weight-bolder opacity-7">Código</th>
+                <th class="text-uppercase text-xs font-weight-bolder opacity-7">Descrição</th>
+                <th class="text-uppercase text-xs font-weight-bolder opacity-7">Qtd</th>
+                <th class="text-uppercase text-xs font-weight-bolder opacity-7">Vl. Unit.</th>
+                <th class="text-uppercase text-xs font-weight-bolder opacity-7">Vl. Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in itens %}
+              <tr>
+                <td class="text-sm">{{ item.codigo_item or "—" }}</td>
+                <td class="text-sm">{{ item.descricao or "não disponível" }}</td>
+                <td class="text-sm">{{ item.quantidade if item.quantidade is not none else "—" }}</td>
+                <td class="text-sm">{% if item.valor_unitario is not none %}R$ {{ "%.2f"|format(item.valor_unitario / 100) }}{% else %}—{% endif %}</td>
+                <td class="text-sm">{% if item.valor_total_item is not none %}R$ {{ "%.2f"|format(item.valor_total_item / 100) }}{% else %}—{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="vazio px-4 pb-3">Nenhum item disponível para esta nota.</p>
+        {% endif %}
+      </div>
+    </div>
   {% endif %}
+{% endblock %}
+{% block extra_scripts %}
+  <script>
+    async function excluirNota(notaId) {
+      if (!confirm("Excluir esta nota? Essa ação não pode ser desfeita.")) {
+        return;
+      }
+      const resposta = await fetch(`/notas/${notaId}`, { method: "DELETE" });
+      const corpo = await resposta.json();
+      if (!resposta.ok) {
+        alert(corpo.erro || "Não foi possível excluir a nota.");
+        return;
+      }
+      window.location.href = "/ver/notas?excluida=1";
+    }
+
+    async function salvarCategoria(notaId) {
+      const select = document.getElementById("select-categoria");
+      const categoriaId = select.value ? parseInt(select.value, 10) : null;
+      const resposta = await fetch(`/notas/${notaId}/categoria`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoria_id: categoriaId }),
+      });
+      const corpo = await resposta.json();
+      if (!resposta.ok) {
+        alert(corpo.erro || "Não foi possível atualizar a categoria.");
+        return;
+      }
+      window.location.reload();
+    }
+  </script>
 {% endblock %}
