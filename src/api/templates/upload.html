@@ -6,6 +6,24 @@
     <div class="col-12 col-lg-4 mb-4">
       <div class="card h-100">
         <div class="card-header pb-0">
+          <h6>Ler QR Code pela câmera</h6>
+        </div>
+        <div class="card-body">
+          <button type="button" id="btn-camera" class="btn bg-gradient-primary w-100 mb-0">Ativar câmera</button>
+          <p id="camera-indisponivel" class="vazio mt-2 mb-0" style="display:none;">Leitura por câmera não disponível neste navegador/dispositivo — use as outras opções ao lado.</p>
+          <div id="camera-area" style="display:none;">
+            <video id="video-camera" autoplay playsinline muted style="width:100%; border-radius:0.5rem; margin-top:0.5rem; background:#000;"></video>
+            <canvas id="canvas-camera" style="display:none;"></canvas>
+            <p id="camera-status" class="text-sm text-secondary mt-2 mb-1"></p>
+            <p id="camera-erro" class="text-sm text-danger mt-2 mb-1" style="display:none;"></p>
+            <button type="button" id="btn-cancelar-camera" class="btn btn-sm btn-outline-secondary mb-0">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-4 mb-4">
+      <div class="card h-100">
+        <div class="card-header pb-0">
           <h6>URL do QR Code ou chave de acesso</h6>
         </div>
         <div class="card-body">
@@ -30,24 +48,6 @@
             </div>
             <button type="submit" class="btn bg-gradient-primary w-100 mb-0">Enviar</button>
           </form>
-        </div>
-      </div>
-    </div>
-    <div class="col-12 col-lg-4 mb-4">
-      <div class="card h-100">
-        <div class="card-header pb-0">
-          <h6>Ler QR Code pela câmera</h6>
-        </div>
-        <div class="card-body">
-          <button type="button" id="btn-camera" class="btn bg-gradient-primary w-100 mb-0">Ativar câmera</button>
-          <p id="camera-indisponivel" class="vazio mt-2 mb-0" style="display:none;">Leitura por câmera não disponível neste navegador/dispositivo — use as outras opções ao lado.</p>
-          <div id="camera-area" style="display:none;">
-            <video id="video-camera" autoplay playsinline muted style="width:100%; border-radius:0.5rem; margin-top:0.5rem; background:#000;"></video>
-            <canvas id="canvas-camera" style="display:none;"></canvas>
-            <p id="camera-status" class="text-sm text-secondary mt-2 mb-1"></p>
-            <p id="camera-erro" class="text-sm text-danger mt-2 mb-1" style="display:none;"></p>
-            <button type="button" id="btn-cancelar-camera" class="btn btn-sm btn-outline-secondary mb-0">Cancelar</button>
-          </div>
         </div>
       </div>
     </div>
