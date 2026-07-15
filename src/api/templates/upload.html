@@ -141,7 +141,12 @@
       const erroEl = document.getElementById("camera-erro");
       const btnCancelar = document.getElementById("btn-cancelar-camera");
 
-      const INTERVALO_CAPTURA_MS = 700;
+      // Reduzido de 700ms: com a mão tremendo, cada captura é uma foto
+      // instantânea do frame naquele exato momento -- tentar mais vezes
+      // por segundo aumenta a chance de pegar um instante mais parado
+      // (o próprio fetch/decodificação no servidor já limita a cadência
+      // real, então isto não sobrecarrega sem necessidade).
+      const INTERVALO_CAPTURA_MS = 300;
       // QR Codes pequenos (ex.: ~1,4x1,4cm) precisam de mais pixels por
       // módulo do que um stream de câmera em resolução padrão consegue
       // entregar -- por isso pedimos resolução alta abaixo (getUserMedia,
@@ -262,6 +267,10 @@
               // navegador cair para o que a camera suportar, sem falhar.
               width: { ideal: 3840 },
               height: { ideal: 2160 },
+              // Taxa de quadros alta tende a reduzir o tempo de exposicao
+              // de cada frame (obturador mais rapido), o que ajuda com
+              // borrao de movimento causado por tremor na mao.
+              frameRate: { ideal: 30 },
             },
           });
         } catch (erro) {
