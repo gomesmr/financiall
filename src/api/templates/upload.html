@@ -144,9 +144,10 @@
       const INTERVALO_CAPTURA_MS = 700;
       // QR Codes pequenos (ex.: ~1,4x1,4cm) precisam de mais pixels por
       // módulo do que um stream de câmera em resolução padrão consegue
-      // entregar -- por isso pedimos resolução alta abaixo (getUserMedia)
-      // e não reduzimos de volta a um alvo menor do que isso ao capturar.
-      const LADO_MAIOR_ALVO_PX = 1920;
+      // entregar -- por isso pedimos resolução alta abaixo (getUserMedia,
+      // ideal 3840x2160) e mantemos um alvo de captura também alto, sem
+      // reduzir de volta a um tamanho pequeno.
+      const LADO_MAIOR_ALVO_PX = 2560;
 
       let stream = null;
       let capturaAtiva = false;
@@ -259,8 +260,8 @@
               // precisam de mais pixels por modulo do que a resolucao padrao
               // de um stream de camera costuma entregar -- "ideal" deixa o
               // navegador cair para o que a camera suportar, sem falhar.
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
+              width: { ideal: 3840 },
+              height: { ideal: 2160 },
             },
           });
         } catch (erro) {
@@ -274,6 +275,18 @@
         cameraArea.style.display = "block";
         capturaAtiva = true;
         mostrarStatus("Buscando QR Code...");
+        video.addEventListener(
+          "loadedmetadata",
+          () => {
+            // Diagnostico temporario (feature 007): mostra a resolucao real
+            // que o navegador negociou, para confirmar empiricamente se o
+            // pedido de resolucao alta acima esta sendo atendido.
+            mostrarStatus(
+              `Buscando QR Code... (câmera em ${video.videoWidth}x${video.videoHeight})`
+            );
+          },
+          { once: true }
+        );
         agendarProximaCaptura();
       }
 
