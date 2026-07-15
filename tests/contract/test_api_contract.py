@@ -432,3 +432,41 @@ def test_delete_nota_existente_retorna_200_com_mensagem(client):
     corpo = resposta.get_json()
     assert resposta.status_code == 200
     assert corpo["mensagem"] == "Nota excluída com sucesso."
+
+
+def test_post_qrcode_frame_com_qrcode_valido_retorna_entrada(client):
+    import qrcode as qrcode_lib
+
+    chave = gerar_chave_valida(numero="000000920")
+    url = f"https://www.sefaz.sp.gov.br/nfce/qrcode?p={chave}|2|1|1|hash"
+    imagem_qrcode = qrcode_lib.make(url).convert("RGB")
+    buffer = io.BytesIO()
+    imagem_qrcode.save(buffer, format="PNG")
+
+    resposta = client.post(
+        "/notas/qrcode-frame", data=buffer.getvalue(), content_type="image/png"
+    )
+    assert resposta.status_code == 200
+    assert resposta.get_json() == {"entrada": url}
+
+
+def test_post_qrcode_frame_sem_qrcode_retorna_entrada_nula(client):
+    from PIL import Image
+
+    imagem_em_branco = Image.new("RGB", (200, 200), color="white")
+    buffer = io.BytesIO()
+    imagem_em_branco.save(buffer, format="PNG")
+
+    resposta = client.post(
+        "/notas/qrcode-frame", data=buffer.getvalue(), content_type="image/png"
+    )
+    assert resposta.status_code == 200
+    assert resposta.get_json() == {"entrada": None}
+
+
+def test_post_qrcode_frame_com_corpo_invalido_retorna_415(client):
+    resposta = client.post(
+        "/notas/qrcode-frame", data=b"nao e uma imagem", content_type="image/jpeg"
+    )
+    assert resposta.status_code == 415
+    assert "erro" in resposta.get_json()

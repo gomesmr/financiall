@@ -165,6 +165,7 @@ specs/001-importar-nfce/  # Spec, plano técnico, pesquisa, tarefas (spec-kit)
 Simplicidade acima de esperteza, idempotência não-negociável, tratamento
 explícito de erro em toda entrada externa, dados financeiros nunca em log
 de texto claro, testável por construção, artefatos voltados ao usuário em
-português, fontes frágeis degradam sem quebrar o fluxo principal. Ver
+português, fontes frágeis degradam sem quebrar o fluxo principal, integridade
+visual e de assets de terceiros. Ver
 [`.specify/memory/constitution.md`](.specify/memory/constitution.md) para
 o texto completo.

@@ -1,40 +1,33 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.1.0 → 1.2.0
-Modified principles:
-  - V. Testável por Construção — expandido: para rotinas que processam dado externo ao
-    controle do código, teste sintético e validação com amostra real são tratados como
-    **duas barreiras distintas**, não uma extensão da mesma — a segunda MUST acontecer
-    antes de promover a história, mesmo quando a primeira já passou. Racional ampliado
-    com o achado concreto que motivou a mudança. Adicionado também: ao definir a tarefa
-    de validação real, identificar as dimensões de variação relevantes para o tipo de
-    entrada (fonte, condição de captura, formato) em vez de validar contra amostra única
-    genérica.
-Added sections: nenhuma
+Version change: 1.2.0 → 1.3.0
+Modified principles: nenhum princípio existente foi redefinido nesta rodada (1.2.0 já
+  cobriu a expansão do Princípio V)
+Added sections:
+  - VIII. Integridade Visual e de Assets de Terceiros — verificação visual real (navegador
+    headless + checagem de erro de console) obrigatória antes de promover feature com
+    superfície visual; validação de integridade de formato obrigatória para todo asset de
+    terceiro vendorizado, antes de qualquer verificação visual
 Removed sections: nenhuma
-Updated: Fluxo de Desenvolvimento e Qualidade — cláusula (a) sobre Princípio V passa a
-  citar a exigência de amostra real explicitamente, como etapa distinta antes de promover.
+Updated: Fluxo de Desenvolvimento e Qualidade — nova cláusula (d) citando o Princípio VIII
 Templates requiring updates:
   - .specify/templates/plan-template.md ✅ compatível ("Constitution Check" é placeholder
-    genérico, sem texto específico do Princípio V a atualizar)
+    genérico, sem texto específico do Princípio VIII a atualizar)
   - .specify/templates/spec-template.md ✅ compatível (sem referência ao conteúdo do
-    Princípio V)
-  - .specify/templates/tasks-template.md ⚠ atualizado — nova subseção "Real-Data
-    Validation for User Story N" adicionada após "Implementation" em cada história de
-    exemplo (US1/US2/US3), explicitamente separada de "Tests", com nota de que não é
-    extensão do teste automatizado. Numeração de tarefas ajustada (T018→T031) para
-    acomodar as novas tarefas sem colisão. Instrução adicionada em cada subseção: ao
-    preencher para uma feature real, identificar 2-3 dimensões de variação real
-    relevantes ao tipo de entrada daquela história (não uma lista fixa genérica —
-    depende do que a história ingere), com sub-itens de tarefa por dimensão.
-  - README.md ✅ compatível (lista princípios só por nome/rótulo — "testável por
-    construção" continua correto como rótulo, detalhe expandido fica só na constituição)
+    Princípio VIII)
+  - .specify/templates/tasks-template.md ✅ atualizado — nova subseção "Visual
+    Verification for User Story N" adicionada após "Real-Data Validation" em cada
+    história de exemplo (US1/US2/US3), com dois sub-checks independentes (integridade
+    de asset de terceiro; captura headless + erro de console), cada um "N/A" quando a
+    condição correspondente não se aplica. Numeração de tarefas T032-T037, sem colisão.
+  - README.md ✅ atualizado — "integridade visual e de assets de terceiros" adicionado
+    à lista de princípios
 Follow-up TODOs: nenhum
-Origem da mudança: finall/docs/RELATORIO-FEATURE-001.md (Seção 4) — 6 bugs de
-  comportamento na feature 001 só apareceram testando com notas fiscais reais, apesar de
-  testes automatizados cobrindo os casos de borda conhecidos passarem o tempo todo.
-  Promovido também como lição de processo em harness/core/SDD_GUARDRAILS.md (2026-07-14).
+Origem da mudança: assets/reports/RELATORIO-FEATURES-002-a-006.md (Seção 4) — 6 dos 8
+  bugs do ciclo de features 002-006 foram de integração visual, nenhum coberto pelo
+  Princípio V. Promovido também como lições 4-5 em harness/core/SDD_GUARDRAILS.md
+  (2026-07-15).
 -->
 
 # financiALL Constitution
@@ -143,6 +136,33 @@ registro de notas.
 projeto; o valor central (registrar a nota) não pode depender da
 disponibilidade de um enriquecimento opcional.
 
+### VIII. Integridade Visual e de Assets de Terceiros
+Feature que muda ou introduz superfície visual (página nova, mudança de
+layout, biblioteca de frontend, template/tema vendorizado) MUST passar por
+verificação visual real antes de promover — suíte automatizada passando não
+é suficiente, ela verifica texto/contrato, não aparência. Verificação de
+referência: captura de tela via navegador headless local (ex.: `chrome.exe
+--headless=new --screenshot=...`) inspecionada antes do deploy, mais
+checagem de ausência de erro de console JS na mesma execução.
+
+Todo asset de terceiro vendorizado (fonte, imagem, script, CSS de um
+pacote/template externo) MUST ser validado como íntegro no próprio formato
+imediatamente após ser copiado para o projeto — não presumir que copiar
+implica em íntegro. Checagem apropriada ao tipo de arquivo (ex.: abrir/
+validar fonte com `fonttools`, decodificar imagem, parsear sintaxe de JS/
+CSS) antes de qualquer verificação visual, por ser mais barata e não
+depender de navegador.
+
+**Racional**: seis dos oito defeitos do ciclo de features 002-006 foram de
+integração visual (fonte de ícone corrompida na própria origem, script de
+terceiro quebrando o menu, gráfico sobreposto, unidade errada em eixo,
+espaçamento de tabela, texto cortado) — nenhum coberto pelo Princípio V
+(escopado a dado processado, não a renderização), e todos só descobertos
+por print de tela do usuário, em produção, depois do deploy. A fonte de
+ícone corrompida em particular veio já quebrada do repositório oficial do
+template (licença MIT, `creativetimofficial/argon-dashboard`) — vendorizar
+não é sinônimo de íntegro.
+
 ## Restrições do Projeto
 
 Escopo é pessoa física: não há suporte a certificado e-CNPJ nem a fluxos que
@@ -165,7 +185,10 @@ ausência de dados sensíveis em log (Princípio IV), (b) tratamento de erro em
 toda entrada externa nova (Princípio III), (c) que nenhuma solução foi
 adicionada além do necessário para o requisito (Princípio I). Falhas de fontes
 frágeis são validadas com um teste que simula a fonte indisponível, confirmando
-degradação graciosa (Princípio VII).
+degradação graciosa (Princípio VII). Feature com superfície visual exige
+verificação visual real (captura headless + checagem de erro de console) e,
+se vendorizar asset de terceiro, validação de integridade de formato antes
+da verificação visual — ambas antes de promover para produção (Princípio VIII).
 
 ## Governance
 
@@ -179,4 +202,4 @@ orientação; PATCH para esclarecimentos e correções de redação. Toda revis�
 de código MUST verificar conformidade com os princípios acima; complexidade
 que viole o Princípio I MUST ser justificada explicitamente na revisão.
 
-**Version**: 1.2.0 | **Ratified**: 2026-07-10 | **Last Amended**: 2026-07-14
+**Version**: 1.3.0 | **Ratified**: 2026-07-10 | **Last Amended**: 2026-07-15

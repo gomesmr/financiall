@@ -15,6 +15,16 @@ class CanalOrigem(str, Enum):
     FOTO_PDF = "foto_pdf"
 
 
+# Valores aceitos para o campo `titular` -- validado na camada de rota/
+# storage (não em CHECK do schema, mesmo racional de `categoria_id`/
+# `titular` na migração idempotente de db.py: mais simples de ajustar do
+# que uma constraint de schema). "nao_identificado" representa "sem
+# titular definido", equivalente a `titular is None` para efeito de
+# exibição, mas é um valor explícito aceito vindo de fontes que já o
+# atribuem assim (ex.: importar_historico.py).
+TITULARES_VALIDOS = {"marcelo", "cristine", "nao_identificado"}
+
+
 @dataclass
 class NotaFiscal:
     canal_origem: CanalOrigem

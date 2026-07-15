@@ -27,7 +27,9 @@ def _reconhecer_texto_do_envio(envio, imagens: list[Image.Image]) -> str:
     return "\n".join(textos)
 
 
-def _tentar_via_qrcode(imagens: list[Image.Image], db_path: str) -> importador.ResultadoImportacao | None:
+def _tentar_via_qrcode(
+    imagens: list[Image.Image], db_path: str, titular: str | None = None
+) -> importador.ResultadoImportacao | None:
     """QR Code tem correção de erro embutida (Reed-Solomon) e é bem mais
     robusto que OCR de texto corrido para recuperar a chave de acesso —
     tentado antes do reconhecimento de texto completo. A URL decodificada
@@ -44,7 +46,7 @@ def _tentar_via_qrcode(imagens: list[Image.Image], db_path: str) -> importador.R
             continue
         try:
             return importador.importar_por_url_ou_chave(
-                conteudo, canal_origem=CanalOrigem.FOTO_PDF, db_path=db_path
+                conteudo, canal_origem=CanalOrigem.FOTO_PDF, titular=titular, db_path=db_path
             )
         except chave_acesso_service.ChaveInvalidaError:
             continue
@@ -64,6 +66,7 @@ def processar_proximo_envio(db_path: str = storage_db.DEFAULT_DB_PATH) -> bool:
         return False
 
     envio_id = envio["id"]
+    titular = envio["titular"]
     storage_db.atualizar_status_envio(envio_id, "processando", db_path=db_path)
 
     imagens: list[Image.Image] = []
@@ -75,7 +78,7 @@ def processar_proximo_envio(db_path: str = storage_db.DEFAULT_DB_PATH) -> bool:
     resultado = None
     if imagens:
         try:
-            resultado = _tentar_via_qrcode(imagens, db_path)
+            resultado = _tentar_via_qrcode(imagens, db_path, titular=titular)
         except Exception:
             logger.exception("Falha ao tentar QR Code no envio id=%s", envio_id)
 
@@ -86,7 +89,7 @@ def processar_proximo_envio(db_path: str = storage_db.DEFAULT_DB_PATH) -> bool:
         except Exception:
             logger.exception("Falha ao processar envio id=%s; gravando nota mínima", envio_id)
             campos = campos_ocr_service.CamposExtraidos()
-        resultado = importador.importar_por_ocr(campos, envio["hash_conteudo"], db_path=db_path)
+        resultado = importador.importar_por_ocr(campos, envio["hash_conteudo"], titular=titular, db_path=db_path)
 
     storage_db.atualizar_status_envio(
         envio_id,

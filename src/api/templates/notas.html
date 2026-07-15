@@ -34,7 +34,7 @@
           <tbody>
             {% for nota in notas %}
             <tr class="linha-clicavel" onclick="window.location='/ver/notas/{{ nota.id }}'">
-              <td class="text-sm" style="white-space:nowrap;">{{ nota.data_emissao or nota.ano_mes_emissao or "—" }}</td>
+              <td class="text-sm" style="white-space:nowrap;">{% if nota.data_emissao %}{{ nota.data_emissao | data_br }}{% elif nota.ano_mes_emissao %}{{ nota.ano_mes_emissao | aamm_br }}{% else %}—{% endif %}</td>
               <td class="text-sm">{{ nota.emitente_nome or "não disponível" }}</td>
               <td class="text-sm" style="white-space:nowrap;">{% if nota.valor_total is not none %}R$ {{ "%.2f"|format(nota.valor_total / 100) }}{% else %}—{% endif %}</td>
               <td style="white-space:nowrap;"><span class="status-badge status-{{ nota.status.value }}">{{ "completa" if nota.status.value == "completa" else "pendente de revisão" }}</span></td>

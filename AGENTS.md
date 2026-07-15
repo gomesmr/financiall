@@ -2,7 +2,7 @@
 title: AGENTS.md
 summary: Instruções operacionais para agentes de IA neste repositório — visão geral, estrutura, permissões, gates.
 tags: [instrucoes, agente, permissoes]
-updated: 2026-07-13
+updated: 2026-07-15
 ---
 
 # AGENTS.md
@@ -85,11 +85,18 @@ integralmente, sem cópia local do conteúdo.
 
 ### Obrigatório
 
-- **Dados financeiros nunca em texto claro na saída do agente.** CPF, chave de acesso, CNPJ e
-  valores monetários de notas reais não aparecem em respostas de chat, commits, logs ou qualquer
-  artefato gerado pelo agente — mesma regra do Princípio IV da constituição, estendida
-  explicitamente à saída do agente (a constituição fala do código da aplicação; esta linha cobre
-  o agente que opera sobre o repositório).
+- **Dados financeiros reais podem aparecer na conversa/terminal entre agente e usuário — o
+  cuidado real é contra vazamento externo.** CPF, chave de acesso, CNPJ e valores monetários de
+  notas reais **nunca** aparecem em commit, push, log persistido, ou qualquer artefato que saia
+  da sessão de trabalho — mesma regra do Princípio IV da constituição, estendida explicitamente
+  ao agente (a constituição fala do código da aplicação; esta linha cobre o agente que opera
+  sobre o repositório). Dentro da própria conversa (resposta de chat, saída de comando exibida
+  ao usuário), esse dado **pode** aparecer sem problema — é comunicação entre as duas partes, não
+  vazamento. Não confundir as duas coisas: a restrição é sobre o que persiste/sai da sessão, não
+  sobre o que é dito entre agente e usuário durante o trabalho. (Origem: calibração explícita do
+  usuário em 2026-07-15, depois de dois episódios em que o agente imprimiu dado real na conversa
+  ao inspecionar arquivo/API sem mascarar — o usuário esclareceu que isso não é o problema em si,
+  só vazamento externo é — ver `assets/reports/RELATORIO-FEATURES-002-a-006.md`, Seção 5.)
 - Nunca ler ou exibir o conteúdo de `data/*.db` ou `data/uploads/` diretamente — são dados reais
   do usuário, não fixtures. Testes usam banco/arquivos de teste isolados, nunca `data/` real.
 - Respeitar o `.gitignore` existente (`data/`, `*.db`, `uploads/`, `.claude/settings.local.json`)

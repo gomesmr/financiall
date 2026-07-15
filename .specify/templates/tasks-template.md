@@ -115,6 +115,23 @@ Examples of foundational tasks (adjust based on your project):
   - [ ] Dimension 1: [identify based on this story's input type]
   - [ ] Dimension 2: [identify based on this story's input type]
 
+### Visual Verification for User Story 1 (MANDATORY when this story changes/introduces visual surface, or vendors a third-party asset — see Constitution Principle VIII)
+
+> **NOTE: This is a distinct gate, not covered by "Tests" or "Real-Data Validation" above.**
+> Automated tests confirm text/contract/status-code correctness, not appearance. This gate
+> catches what those cannot: visual overlap, broken contrast, a script that fails silently, a
+> corrupted vendored asset. The two checks below are independent — apply whichever condition
+> matches this story, both if both match, neither if neither matches (state "N/A" explicitly
+> rather than leaving unchecked).
+
+- [ ] T032 [US1] If this story vendors a third-party asset (font, image, script, CSS from an
+      external package/template): validate format integrity immediately after copying it
+      (e.g., `fonttools` for fonts, decode for images, syntax parse for JS/CSS) — before any
+      visual check, it's cheaper and doesn't need a browser
+- [ ] T033 [US1] If this story changes/introduces visual surface: capture a real screenshot via
+      local headless browser and check for zero console errors, before promoting this story
+      (dev → main)
+
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
 ---
@@ -156,6 +173,23 @@ Examples of foundational tasks (adjust based on your project):
   - [ ] Dimension 1: [identify based on this story's input type]
   - [ ] Dimension 2: [identify based on this story's input type]
 
+### Visual Verification for User Story 2 (MANDATORY when this story changes/introduces visual surface, or vendors a third-party asset — see Constitution Principle VIII)
+
+> **NOTE: This is a distinct gate, not covered by "Tests" or "Real-Data Validation" above.**
+> Automated tests confirm text/contract/status-code correctness, not appearance. This gate
+> catches what those cannot: visual overlap, broken contrast, a script that fails silently, a
+> corrupted vendored asset. The two checks below are independent — apply whichever condition
+> matches this story, both if both match, neither if neither matches (state "N/A" explicitly
+> rather than leaving unchecked).
+
+- [ ] T034 [US2] If this story vendors a third-party asset (font, image, script, CSS from an
+      external package/template): validate format integrity immediately after copying it
+      (e.g., `fonttools` for fonts, decode for images, syntax parse for JS/CSS) — before any
+      visual check, it's cheaper and doesn't need a browser
+- [ ] T035 [US2] If this story changes/introduces visual surface: capture a real screenshot via
+      local headless browser and check for zero console errors, before promoting this story
+      (dev → main)
+
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
 ---
@@ -195,6 +229,23 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T031 [US3] Validate with at least one real sample before promoting this story (dev → main)
   - [ ] Dimension 1: [identify based on this story's input type]
   - [ ] Dimension 2: [identify based on this story's input type]
+
+### Visual Verification for User Story 3 (MANDATORY when this story changes/introduces visual surface, or vendors a third-party asset — see Constitution Principle VIII)
+
+> **NOTE: This is a distinct gate, not covered by "Tests" or "Real-Data Validation" above.**
+> Automated tests confirm text/contract/status-code correctness, not appearance. This gate
+> catches what those cannot: visual overlap, broken contrast, a script that fails silently, a
+> corrupted vendored asset. The two checks below are independent — apply whichever condition
+> matches this story, both if both match, neither if neither matches (state "N/A" explicitly
+> rather than leaving unchecked).
+
+- [ ] T036 [US3] If this story vendors a third-party asset (font, image, script, CSS from an
+      external package/template): validate format integrity immediately after copying it
+      (e.g., `fonttools` for fonts, decode for images, syntax parse for JS/CSS) — before any
+      visual check, it's cheaper and doesn't need a browser
+- [ ] T037 [US3] If this story changes/introduces visual surface: capture a real screenshot via
+      local headless browser and check for zero console errors, before promoting this story
+      (dev → main)
 
 **Checkpoint**: All user stories should now be independently functional
 

@@ -347,6 +347,73 @@ def test_atribuir_categoria_a_nota_inexistente_retorna_404(app_e_db, client):
     assert resposta.status_code == 404
 
 
+def test_importar_nota_com_titular_grava_titular(app_e_db, client):
+    chave = gerar_chave_valida(numero="000000060")
+    resposta = client.post("/notas", json={"entrada": chave, "titular": "marcelo"})
+    assert resposta.status_code == 201
+    assert resposta.get_json()["nota"]["titular"] == "marcelo"
+
+
+def test_importar_nota_com_titular_invalido_retorna_422(app_e_db, client):
+    chave = gerar_chave_valida(numero="000000061")
+    resposta = client.post("/notas", json={"entrada": chave, "titular": "vizinho"})
+    assert resposta.status_code == 422
+
+
+def test_upload_com_titular_grava_titular_na_nota_final(app_e_db, client):
+    upload = client.post(
+        "/notas/upload",
+        data={"titular": "cristine", "arquivo": (io.BytesIO(b"foto"), "cupom.jpg")},
+        content_type="multipart/form-data",
+    )
+    assert upload.status_code == 202
+    envio_id = upload.get_json()["envio_id"]
+
+    ocr_worker.processar_proximo_envio(db_path=app_e_db[1])
+
+    envio = client.get(f"/envios/{envio_id}").get_json()
+    nota_id = envio["nota"]["id"]
+    notas = client.get("/notas").get_json()["notas"]
+    nota = next(n for n in notas if n["id"] == nota_id)
+    assert nota["titular"] == "cristine"
+
+
+def test_atribuir_trocar_e_remover_titular_de_uma_nota(app_e_db, client):
+    """Espelha test_atribuir_trocar_e_remover_categoria_de_uma_nota: PUT
+    /notas/<id>/titular atribui/troca/remove, refletido em GET /notas."""
+    chave = gerar_chave_valida(numero="000000062")
+    resposta_import = client.post("/notas", json={"entrada": chave})
+    nota_id = resposta_import.get_json()["nota"]["id"]
+
+    resposta = client.put(f"/notas/{nota_id}/titular", json={"titular": "marcelo"})
+    assert resposta.status_code == 200
+    notas = client.get("/notas").get_json()["notas"]
+    nota = next(n for n in notas if n["id"] == nota_id)
+    assert nota["titular"] == "marcelo"
+
+    client.put(f"/notas/{nota_id}/titular", json={"titular": "cristine"})
+    notas = client.get("/notas").get_json()["notas"]
+    nota = next(n for n in notas if n["id"] == nota_id)
+    assert nota["titular"] == "cristine"
+
+    client.put(f"/notas/{nota_id}/titular", json={"titular": None})
+    notas = client.get("/notas").get_json()["notas"]
+    nota = next(n for n in notas if n["id"] == nota_id)
+    assert nota["titular"] is None
+
+
+def test_atribuir_titular_a_nota_inexistente_retorna_404(app_e_db, client):
+    resposta = client.put("/notas/999999/titular", json={"titular": "marcelo"})
+    assert resposta.status_code == 404
+
+
+def test_atribuir_titular_invalido_a_nota_retorna_422(app_e_db, client):
+    chave = gerar_chave_valida(numero="000000063")
+    nota_id = client.post("/notas", json={"entrada": chave}).get_json()["nota"]["id"]
+    resposta = client.put(f"/notas/{nota_id}/titular", json={"titular": "vizinho"})
+    assert resposta.status_code == 422
+
+
 def test_atribuir_categoria_inexistente_a_nota_retorna_422(app_e_db, client):
     chave = gerar_chave_valida(numero="000000051")
     resposta_import = client.post("/notas", json={"entrada": chave})

@@ -24,7 +24,7 @@
             {{ "URL/chave" if nota.canal_origem.value == "url_chave" else "Foto/PDF" }}
           </span>
         </p>
-        <p class="text-sm mb-1">Data de emissão: {{ nota.data_emissao or nota.ano_mes_emissao or "não disponível" }}</p>
+        <p class="text-sm mb-1">Data de emissão: {% if nota.data_emissao %}{{ nota.data_emissao | data_br }}{% elif nota.ano_mes_emissao %}{{ nota.ano_mes_emissao | aamm_br }}{% else %}não disponível{% endif %}</p>
         <p class="text-sm mb-1">CNPJ do emitente: {{ nota.cnpj_emitente or "não disponível" }}</p>
         <p class="text-sm mb-1">UF: {{ nota.uf or "não disponível" }}</p>
         <p class="text-sm mb-3">Total: {% if nota.valor_total is not none %}R$ {{ "%.2f"|format(nota.valor_total / 100) }}{% else %}não disponível{% endif %}</p>
@@ -38,6 +38,16 @@
             {% endfor %}
           </select>
           <button class="btn btn-sm btn-outline-primary mb-0" onclick="salvarCategoria({{ nota.id }})">Salvar</button>
+        </div>
+
+        <div class="d-flex align-items-center gap-2 mt-2">
+          <label for="select-titular" class="mb-0 text-sm fw-bold">Titular:</label>
+          <select id="select-titular" class="form-select form-select-sm w-auto" style="min-width: 180px;">
+            <option value="">Não identificado</option>
+            <option value="marcelo" {{ "selected" if nota.titular == "marcelo" else "" }}>Marcelo</option>
+            <option value="cristine" {{ "selected" if nota.titular == "cristine" else "" }}>Cristine</option>
+          </select>
+          <button class="btn btn-sm btn-outline-primary mb-0" onclick="salvarTitular({{ nota.id }})">Salvar</button>
         </div>
       </div>
     </div>
@@ -105,6 +115,22 @@
       const corpo = await resposta.json();
       if (!resposta.ok) {
         alert(corpo.erro || "Não foi possível atualizar a categoria.");
+        return;
+      }
+      window.location.reload();
+    }
+
+    async function salvarTitular(notaId) {
+      const select = document.getElementById("select-titular");
+      const titular = select.value || null;
+      const resposta = await fetch(`/notas/${notaId}/titular`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titular }),
+      });
+      const corpo = await resposta.json();
+      if (!resposta.ok) {
+        alert(corpo.erro || "Não foi possível atualizar o titular.");
         return;
       }
       window.location.reload();
