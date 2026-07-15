@@ -17,7 +17,11 @@ _UF_POR_CODIGO = {
 }
 
 _DIGITOS_RE = re.compile(r"\d+")
-_URL_RE = re.compile(r"https?://\S+", re.IGNORECASE)
+# Exclui espaco, aspas, colchetes e angulos do fim do casamento -- sem
+# isso, uma URL envolvida em `<![CDATA[...]]>` levaria o `]]>` de
+# fechamento junto (nenhum desses caracteres aparece numa URL de QR Code
+# de nota fiscal real).
+_URL_RE = re.compile(r"https?://[^\s<>\[\]\"']+", re.IGNORECASE)
 
 
 class ChaveInvalidaError(ValueError):
@@ -99,6 +103,18 @@ def normalizar_chave_colada(entrada: str) -> str:
     return re.sub(r"\D", "", entrada)
 
 
+def extrair_url(texto: str) -> str | None:
+    """Encontra a primeira URL http(s) em qualquer parte do texto (não só
+    no início) e retorna só esse trecho, ou None se não houver nenhuma.
+    Único ponto de detecção de URL usado tanto por `extrair_e_validar`
+    quanto pelo importador (research.md da feature 007) -- evita duas
+    checagens divergentes: o conteúdo bruto de um QR Code lido pela
+    câmera pode vir envolvido em `<![CDATA[...]]>`, e um `startswith`
+    ingênuo perderia a URL nesse caso."""
+    match = _URL_RE.search(texto)
+    return match.group(0) if match else None
+
+
 def extrair_e_validar(entrada: str) -> str:
     """Ponto de entrada usado pelo importador: aceita uma URL (pura ou
     embutida em texto ao redor, ex.: QR Code lido pela câmera cujo
@@ -111,9 +127,9 @@ def extrair_e_validar(entrada: str) -> str:
     possível (FR-004)."""
     entrada = entrada.strip()
 
-    match_url = _URL_RE.search(entrada)
-    if match_url:
-        chave = extrair_chave_de_url(match_url.group(0))
+    url = extrair_url(entrada)
+    if url:
+        chave = extrair_chave_de_url(url)
         if chave is None:
             raise ChaveInvalidaError(
                 f'Não foi possível identificar uma chave de acesso válida de 44 dígitos em "{entrada}".'

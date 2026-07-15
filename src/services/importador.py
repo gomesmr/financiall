@@ -58,10 +58,7 @@ def importar_por_url_ou_chave(
 
     dados_chave = chave_acesso_service.decodificar_chave(chave)
 
-    entrada_normalizada = entrada.strip()
-    url_original = (
-        entrada_normalizada if entrada_normalizada.lower().startswith(("http://", "https://")) else None
-    )
+    url_original = chave_acesso_service.extrair_url(entrada.strip())
 
     emitente_nome: str | None = None
     data_emissao: str | None = None

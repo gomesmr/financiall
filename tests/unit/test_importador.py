@@ -63,6 +63,36 @@ def test_importar_mesma_chave_via_url_depois_via_ocr_nao_duplica(db_path, monkey
     assert len(storage_db.listar_notas(db_path=db_path)) == 1
 
 
+def test_importar_por_url_envolvida_em_cdata_ainda_busca_dados_na_sefaz(db_path, monkeypatch):
+    """Regressão: a entrada bruta de um QR Code lido pela câmera (feature
+    007) pode vir envolvida em `<![CDATA[...]]>`. Além da chave (já
+    coberto em test_chave_acesso.py), o enriquecimento best-effort via
+    SEFAZ também precisa disparar -- uma checagem de URL divergente aqui
+    (ex.: `startswith` ingênuo) faria a nota ficar sem nome do emitente,
+    itens e valor, mesmo com a chave corretamente identificada."""
+    chave = gerar_chave_valida()
+    url_limpa = f"https://www.sefaz.sp.gov.br/nfce/qrcode?p={chave}|2|1|1|hash"
+    urls_recebidas = []
+
+    def _captura_e_retorna(url):
+        urls_recebidas.append(url)
+        return sefaz_client.DadosNotaSefaz(
+            emitente_nome="Loja Exemplo",
+            data_emissao="2026-07-15",
+            valor_total=1000,
+            itens=[{"codigo_item": "1", "descricao": "Item", "quantidade": 1.0, "valor_unitario": 1000, "valor_total_item": 1000}],
+        )
+
+    monkeypatch.setattr("src.services.importador.sefaz_client.buscar_dados_nota", _captura_e_retorna)
+
+    entrada_com_cdata = f"<![CDATA[{url_limpa}]]>"
+    resultado = importador.importar_por_url_ou_chave(entrada_com_cdata, db_path=db_path)
+
+    assert urls_recebidas == [url_limpa]  # CDATA removido antes de chamar a SEFAZ
+    assert resultado.status == "completa"
+    assert resultado.nota.emitente_nome == "Loja Exemplo"
+
+
 # --- US4: degradacao graciosa -------------------------------------------
 
 
