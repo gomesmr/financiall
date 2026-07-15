@@ -1,29 +1,34 @@
 {% extends "base.html" %}
 {% block title %}financiALL - Envio{% endblock %}
+{% block titulo_pagina %}Status do envio{% endblock %}
 {% block content %}
-  {% if envio is none %}
-    <h1>Envio não encontrado</h1>
-    <p><a href="/">Voltar para importar →</a></p>
-  {% else %}
-    <h1>Envio #{{ envio["id"] }}</h1>
-    {% if envio["status"] in ("pendente", "processando") %}
-      <meta http-equiv="refresh" content="3">
-      <p>Status: <strong>{{ envio["status"] }}</strong> — atualizando automaticamente a cada poucos segundos...</p>
-    {% else %}
-      <p>Status: <strong>concluído</strong></p>
-      {% if nota %}
-        <p>Situação da nota:
-          <span class="status-badge status-{{ nota.status.value }}">
-            {{ "completa" if nota.status.value == "completa" else "pendente de revisão" }}
-          </span>
-        </p>
-        <p>Emitente: {{ nota.emitente_nome or "não disponível" }}</p>
-        <p>Total: {% if nota.valor_total is not none %}R$ {{ "%.2f"|format(nota.valor_total / 100) }}{% else %}não disponível{% endif %}</p>
-        {% if itens %}
-        <p>{{ itens|length }} item(ns) reconhecido(s).</p>
+  <div class="card">
+    <div class="card-body">
+      {% if envio is none %}
+        <h6 class="mb-2">Envio não encontrado</h6>
+        <p class="mb-0"><a href="/">Voltar para importar →</a></p>
+      {% else %}
+        <h6 class="mb-2">Envio #{{ envio["id"] }}</h6>
+        {% if envio["status"] in ("pendente", "processando") %}
+          <meta http-equiv="refresh" content="3">
+          <p class="text-sm mb-0">Status: <strong>{{ envio["status"] }}</strong> — atualizando automaticamente a cada poucos segundos...</p>
+        {% else %}
+          <p class="text-sm mb-2">Status: <strong>concluído</strong></p>
+          {% if nota %}
+            <p class="text-sm mb-1">Situação da nota:
+              <span class="status-badge status-{{ nota.status.value }}">
+                {{ "completa" if nota.status.value == "completa" else "pendente de revisão" }}
+              </span>
+            </p>
+            <p class="text-sm mb-1">Emitente: {{ nota.emitente_nome or "não disponível" }}</p>
+            <p class="text-sm mb-1">Total: {% if nota.valor_total is not none %}R$ {{ "%.2f"|format(nota.valor_total / 100) }}{% else %}não disponível{% endif %}</p>
+            {% if itens %}
+            <p class="text-sm mb-1">{{ itens|length }} item(ns) reconhecido(s).</p>
+            {% endif %}
+          {% endif %}
+          <p class="mb-0"><a href="/ver/notas">Ver na lista de notas →</a></p>
         {% endif %}
       {% endif %}
-      <p><a href="/ver/notas">Ver na lista de notas →</a></p>
-    {% endif %}
-  {% endif %}
+    </div>
+  </div>
 {% endblock %}

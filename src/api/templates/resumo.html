@@ -1,51 +1,83 @@
 {% extends "base.html" %}
 {% block title %}financiALL - Resumo{% endblock %}
+{% block titulo_pagina %}Resumo de gastos{% endblock %}
 {% block content %}
-  <h1>Resumo de gastos</h1>
+  <h4 class="mb-0">Resumo de gastos</h4>
   <p class="vazio">Parcial — reflete apenas notas fiscais importadas, não o gasto total do mês.</p>
 
-  <h2>Mês corrente</h2>
-  {% if mes_corrente %}
-  <p>{{ mes_corrente.mes }}: <strong>R$ {{ "%.2f"|format((mes_corrente.total_gasto or 0) / 100) }}</strong> ({{ mes_corrente.quantidade_notas }} nota(s))</p>
-  {% else %}
-  <p class="vazio">Nenhuma nota importada no mês corrente.</p>
-  {% endif %}
+  <div class="row">
+    <div class="col-12 col-md-6 mb-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <h6 class="text-uppercase text-xs font-weight-bolder opacity-7">Mês corrente</h6>
+          {% if mes_corrente %}
+          <h4 class="mb-0">R$ {{ "%.2f"|format((mes_corrente.total_gasto or 0) / 100) }}</h4>
+          <p class="text-sm text-secondary mb-0">{{ mes_corrente.mes }} — {{ mes_corrente.quantidade_notas }} nota(s)</p>
+          {% else %}
+          <p class="vazio mb-0">Nenhuma nota importada no mês corrente.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <h2>Gasto por categoria</h2>
-  {% if meses_disponiveis %}
-  <p>
-    Mês:
-    <select id="select-mes-categoria">
-      {% for mes in meses_disponiveis %}
-      <option value="{{ mes }}">{{ mes }}</option>
-      {% endfor %}
-    </select>
-  </p>
-  <div id="grafico-pizza" style="max-width: 480px; height: 420px;"></div>
-  <p id="mensagem-pizza-vazia" class="vazio" style="display:none">Nenhum gasto neste mês.</p>
-  {% else %}
-  <p class="vazio">Nenhuma nota importada ainda.</p>
-  {% endif %}
+  <div class="card mb-4">
+    <div class="card-header pb-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <h6 class="mb-0">Gasto por categoria</h6>
+      {% if meses_disponiveis %}
+      <select id="select-mes-categoria" class="form-select form-select-sm w-auto">
+        {% for mes in meses_disponiveis %}
+        <option value="{{ mes }}">{{ mes }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+    </div>
+    <div class="card-body">
+      {% if meses_disponiveis %}
+      <div id="grafico-pizza" style="max-width: 480px; height: 420px;"></div>
+      <p id="mensagem-pizza-vazia" class="vazio" style="display:none">Nenhum gasto neste mês.</p>
+      {% else %}
+      <p class="vazio mb-0">Nenhuma nota importada ainda.</p>
+      {% endif %}
+    </div>
+  </div>
 
-  <h2>Meses anteriores</h2>
-  {% if historico %}
-  <div id="grafico-barras" style="max-width: 640px; height: 400px;"></div>
-  <table>
-    <tr><th>Mês</th><th>Total</th><th>Notas</th></tr>
-    {% for mes in historico %}
-    <tr>
-      <td>{{ mes.mes }}</td>
-      <td>R$ {{ "%.2f"|format((mes.total_gasto or 0) / 100) }}</td>
-      <td>{{ mes.quantidade_notas }}</td>
-    </tr>
-    {% endfor %}
-  </table>
-  {% else %}
-  <p class="vazio">Nenhum mês anterior com notas.</p>
-  {% endif %}
+  <div class="card mb-4">
+    <div class="card-header pb-0">
+      <h6 class="mb-0">Meses anteriores</h6>
+    </div>
+    <div class="card-body">
+      {% if historico %}
+      <div id="grafico-barras" style="max-width: 640px; height: 400px;"></div>
+      <div class="table-responsive-argon mt-3">
+        <table class="table align-items-center mb-0">
+          <thead>
+            <tr>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Mês</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Total</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Notas</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for mes in historico %}
+            <tr>
+              <td class="text-sm">{{ mes.mes }}</td>
+              <td class="text-sm">R$ {{ "%.2f"|format((mes.total_gasto or 0) / 100) }}</td>
+              <td class="text-sm">{{ mes.quantidade_notas }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="vazio mb-0">Nenhum mês anterior com notas.</p>
+      {% endif %}
+    </div>
+  </div>
 
   <p><a href="/ver/notas">Ver todas as notas →</a></p>
-
+{% endblock %}
+{% block extra_scripts %}
   <script src="/static/plotly-basic.min.js"></script>
   <script>
     // Paleta validada em research.md #2 (feature 005) -- nunca escolhida "no olho".
