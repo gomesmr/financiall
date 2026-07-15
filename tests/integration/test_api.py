@@ -265,6 +265,39 @@ def test_envio_de_nota_excluida_fica_nao_encontrado(app_e_db, client, monkeypatc
     assert resposta_html.status_code == 404
 
 
+def test_resumo_categorias_soma_bate_com_resumo_mes_atual(app_e_db, client, monkeypatch):
+    """US1/FR-006: soma de GET /notas/resumo/categorias bate com o total de GET /notas/resumo/mes-atual."""
+    monkeypatch.setattr(
+        "src.services.importador.sefaz_client.buscar_dados_nota",
+        lambda url: DadosNotaSefaz(emitente_nome="Loja Exemplo", valor_total=1000, itens=[]),
+    )
+    categoria_id = client.post("/categorias", json={"nome": "Alimentação"}).get_json()["categoria"]["id"]
+    chave_1 = gerar_chave_valida(numero="000000070", aamm=_aamm_do_mes_corrente())
+    chave_2 = gerar_chave_valida(numero="000000071", aamm=_aamm_do_mes_corrente())
+    url_1 = f"https://www.sefaz.sp.gov.br/nfce/qrcode?p={chave_1}|2|1|1|hash"
+    url_2 = f"https://www.sefaz.sp.gov.br/nfce/qrcode?p={chave_2}|2|1|1|hash"
+    resposta_1 = client.post("/notas", json={"entrada": url_1})
+    resposta_2 = client.post("/notas", json={"entrada": url_2})
+    nota_1_id = resposta_1.get_json()["nota"]["id"]
+    client.put(f"/notas/{nota_1_id}/categoria", json={"categoria_id": categoria_id})
+    assert resposta_2.status_code == 201
+
+    total_texto = client.get("/notas/resumo/mes-atual").get_json()["total_gasto"]
+    categorias = client.get("/notas/resumo/categorias").get_json()["categorias"]
+    soma_grafico = sum(c["total_gasto"] for c in categorias)
+
+    assert soma_grafico == total_texto
+    nomes = {c["nome"] for c in categorias}
+    assert "Alimentação" in nomes
+    assert "Sem categoria" in nomes
+
+
+def test_resumo_categorias_mes_sem_notas_retorna_lista_vazia(app_e_db, client):
+    resposta = client.get("/notas/resumo/categorias?mes=2020-01")
+    assert resposta.status_code == 200
+    assert resposta.get_json()["categorias"] == []
+
+
 def _aamm_do_mes_corrente() -> str:
     from datetime import date
 

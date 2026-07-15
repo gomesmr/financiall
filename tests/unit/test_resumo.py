@@ -76,3 +76,56 @@ def test_historico_meses_anteriores_ordenado_do_mais_recente_para_o_mais_antigo(
 def test_historico_vazio_quando_nenhuma_nota_de_mes_anterior(db_path):
     _gravar_nota(db_path, _mes_corrente_como_data("05"), 1000, numero="000000010")
     assert resumo.historico_meses_anteriores(db_path=db_path) == []
+
+
+# --- feature 005: gasto por categoria -------------------------------------
+
+
+def test_gasto_por_categoria_soma_por_categoria(db_path):
+    categoria_id = storage_db.criar_categoria("Alimentação", db_path=db_path)
+    nota_1 = _gravar_nota(db_path, "2025-06-05", 1000, numero="000000011")
+    nota_2 = _gravar_nota(db_path, "2025-06-10", 2000, numero="000000012")
+    storage_db.atribuir_categoria_a_nota(nota_1.id, categoria_id, db_path=db_path)
+    storage_db.atribuir_categoria_a_nota(nota_2.id, categoria_id, db_path=db_path)
+
+    resultado = resumo.gasto_por_categoria("2025-06", db_path=db_path)
+
+    assert len(resultado) == 1
+    assert resultado[0].categoria_id == categoria_id
+    assert resultado[0].nome == "Alimentação"
+    assert resultado[0].total_gasto == 3000
+
+
+def test_gasto_por_categoria_agrupa_notas_sem_categoria(db_path):
+    categoria_id = storage_db.criar_categoria("Transporte", db_path=db_path)
+    nota_com_categoria = _gravar_nota(db_path, "2025-06-05", 1000, numero="000000013")
+    _gravar_nota(db_path, "2025-06-06", 500, numero="000000014")  # sem categoria
+    storage_db.atribuir_categoria_a_nota(nota_com_categoria.id, categoria_id, db_path=db_path)
+
+    resultado = resumo.gasto_por_categoria("2025-06", db_path=db_path)
+
+    por_nome = {g.nome: g for g in resultado}
+    assert por_nome["Transporte"].total_gasto == 1000
+    assert por_nome["Sem categoria"].categoria_id is None
+    assert por_nome["Sem categoria"].total_gasto == 500
+
+
+def test_gasto_por_categoria_exclui_nota_com_valor_total_nulo(db_path):
+    _gravar_nota(db_path, "2025-06-05", None, numero="000000015")  # pendente, sem total
+
+    resultado = resumo.gasto_por_categoria("2025-06", db_path=db_path)
+
+    assert resultado == []
+
+
+def test_gasto_por_categoria_ordenado_do_maior_para_o_menor(db_path):
+    categoria_pequena = storage_db.criar_categoria("Lazer", db_path=db_path)
+    categoria_grande = storage_db.criar_categoria("Supermercado", db_path=db_path)
+    nota_pequena = _gravar_nota(db_path, "2025-06-05", 500, numero="000000016")
+    nota_grande = _gravar_nota(db_path, "2025-06-06", 5000, numero="000000017")
+    storage_db.atribuir_categoria_a_nota(nota_pequena.id, categoria_pequena, db_path=db_path)
+    storage_db.atribuir_categoria_a_nota(nota_grande.id, categoria_grande, db_path=db_path)
+
+    resultado = resumo.gasto_por_categoria("2025-06", db_path=db_path)
+
+    assert [g.nome for g in resultado] == ["Supermercado", "Lazer"]
