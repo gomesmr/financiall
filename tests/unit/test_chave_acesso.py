@@ -52,6 +52,16 @@ def test_extrair_e_validar_url_sem_chave_levanta_erro():
         extrair_e_validar("https://exemplo.com/?p=123")
 
 
+def test_extrair_e_validar_aceita_url_envolvida_em_cdata():
+    """Regressão: o conteúdo bruto de um QR Code lido pela câmera (feature
+    007) pode vir envolvido em `<![CDATA[...]]>` -- o app nativo de câmera
+    do celular nunca expõe esse texto ao redor porque extrai só a URL
+    antes de abrir no navegador, mas o decodificador desta aplicação lê o
+    conteúdo bruto do código (achado real, QR Code de nota fiscal real)."""
+    entrada = f"<![CDATA[https://www.nfce.fazenda.sp.gov.br/qrcode?p={CHAVE_VALIDA}|2|1|1|hashficticio]]>"
+    assert extrair_e_validar(entrada) == CHAVE_VALIDA
+
+
 def test_normalizar_chave_colada_remove_nao_digitos():
     assert normalizar_chave_colada("123.456-789 abc") == "123456789"
 

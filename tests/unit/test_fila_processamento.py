@@ -172,3 +172,27 @@ def test_processar_proximo_envio_qrcode_ausente_cai_para_ocr_de_texto(db_path, u
     envio = storage_db.buscar_envio_por_id(envio_id, db_path=db_path)
     nota = storage_db.buscar_nota_por_id(envio["nota_fiscal_id"], db_path=db_path)
     assert nota.chave_acesso == chave
+
+
+def test_titular_escolhido_no_envio_sobrevive_ate_a_nota(db_path, upload_dir, monkeypatch):
+    """O titular escolhido pelo usuário no momento do upload (feature:
+    escolher titular na importação) precisa sobreviver ao processamento
+    assíncrono -- gravado no envio, lido pelo worker, repassado até a
+    nota final."""
+    monkeypatch.setattr(
+        "src.worker.ocr_worker.ocr_client.reconhecer_texto_de_imagem",
+        lambda imagem: (_ for _ in ()).throw(RuntimeError("ilegível")),
+    )
+    monkeypatch.setattr("src.worker.ocr_worker._imagens_do_envio", lambda envio: ["imagem-fake"])
+
+    envio_id = fila_processamento.enfileirar_envio(
+        "cupom.jpg", b"bytes-da-foto", titular="cristine", db_path=db_path, upload_dir=upload_dir
+    )
+    envio_gravado = storage_db.buscar_envio_por_id(envio_id, db_path=db_path)
+    assert envio_gravado["titular"] == "cristine"
+
+    ocr_worker.processar_proximo_envio(db_path=db_path)
+
+    envio = storage_db.buscar_envio_por_id(envio_id, db_path=db_path)
+    nota = storage_db.buscar_nota_por_id(envio["nota_fiscal_id"], db_path=db_path)
+    assert nota.titular == "cristine"

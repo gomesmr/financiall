@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageFilter, ImageOps
 from pyzbar.pyzbar import decode as zbar_decode
 
 # zbar detecta QR Code de forma pouco confiavel quando o "modulo" (quadrado
@@ -30,6 +30,20 @@ def _reduzir_se_grande(imagem: Image.Image) -> Image.Image:
     return imagem.resize(nova_dimensao, Image.LANCZOS)
 
 
+def _realcada(imagem: Image.Image) -> Image.Image:
+    """Escala de cinza + autocontraste + máscara de nitidez -- recupera QR
+    Code com impressão degradada (impressora térmica desbotada, módulos
+    borrados) que nem a imagem original nem uma cópia só reduzida
+    conseguem decodificar. Achado real na validação da feature 007: um QR
+    Code pequeno (~1,4cm) de cupom térmico só decodificou depois deste
+    realce -- confirmado experimentalmente que autocontraste sozinho não
+    basta para esse tipo de degradação (o problema dominante é a perda de
+    nitidez nas bordas dos módulos, não só o contraste baixo)."""
+    cinza = ImageOps.grayscale(imagem)
+    autocontraste = ImageOps.autocontrast(cinza, cutoff=1)
+    return autocontraste.filter(ImageFilter.UnsharpMask(radius=2, percent=180, threshold=2))
+
+
 def decodificar_qrcode(imagem: Image.Image | str | Path) -> str | None:
     """Tenta decodificar um QR Code na imagem e retorna o texto decodificado
     (tipicamente a URL do QR Code da nota) — ou None se nenhum QR Code for
@@ -37,16 +51,23 @@ def decodificar_qrcode(imagem: Image.Image | str | Path) -> str | None:
     o torna mais robusto que OCR de texto corrido para recuperar a chave de
     acesso mesmo com parte da imagem borrada ou danificada.
 
-    Tenta primeiro numa cópia reduzida da imagem (mais confiável para o
-    zbar — ver `_LADO_MAIOR_ALVO_PIXELS`) e, se não encontrar nada, tenta
-    de novo na imagem original como último recurso."""
+    Tenta, em ordem, até uma das variantes decodificar: cópia reduzida da
+    imagem (mais confiável para o zbar — ver `_LADO_MAIOR_ALVO_PIXELS`),
+    imagem original, e por fim uma versão com contraste/nitidez realçados
+    (`_realcada`) -- último recurso mais custoso, só tentado quando as
+    variantes mais simples falham."""
     try:
         if not isinstance(imagem, Image.Image):
             imagem = Image.open(imagem)
 
-        resultados = zbar_decode(_reduzir_se_grande(imagem))
-        if not resultados:
-            resultados = zbar_decode(imagem)
+        reduzida = _reduzir_se_grande(imagem)
+        tentativas = [reduzida, imagem, _realcada(reduzida)]
+
+        resultados: list = []
+        for candidata in tentativas:
+            resultados = zbar_decode(candidata)
+            if resultados:
+                break
     except Exception as exc:
         raise QrCodeIndisponivelError(str(exc)) from exc
 

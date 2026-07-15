@@ -1,15 +1,32 @@
 from __future__ import annotations
 
-from flask import Blueprint, current_app, jsonify, request
+from io import BytesIO
 
+from flask import Blueprint, current_app, jsonify, request
+from PIL import UnidentifiedImageError
+from PIL import Image as PilImage
+
+from src.models.nota_fiscal import TITULARES_VALIDOS
 from src.services import chave_acesso as chave_acesso_service
-from src.services import exclusao, fila_processamento, importador
+from src.services import exclusao, fila_processamento, importador, qrcode_reader
+from src.storage import db as storage_db
 
 bp = Blueprint("importar", __name__)
 
 
 def _mascarar_chave(chave: str | None) -> str | None:
     return f"...{chave[-4:]}" if chave else None
+
+
+def _titular_da_requisicao(valor: str | None) -> tuple[str | None, str | None]:
+    """Normaliza e valida um valor de `titular` vindo de fora (JSON ou
+    form): string vazia é tratada como "não informado" (None), qualquer
+    outro valor precisa estar em TITULARES_VALIDOS. Retorna
+    (titular, erro) -- erro é None em caso de sucesso."""
+    titular = valor or None
+    if titular is not None and titular not in TITULARES_VALIDOS:
+        return None, "Titular inválido."
+    return titular, None
 
 
 def _item_to_dict(item) -> dict:
@@ -48,9 +65,13 @@ def importar_nota():
     if not isinstance(entrada, str) or not entrada.strip():
         return jsonify({"erro": "Nenhuma entrada foi enviada."}), 422
 
+    titular, erro_titular = _titular_da_requisicao(corpo.get("titular"))
+    if erro_titular:
+        return jsonify({"erro": erro_titular}), 422
+
     db_path = current_app.config["DB_PATH"]
     try:
-        resultado = importador.importar_por_url_ou_chave(entrada, db_path=db_path)
+        resultado = importador.importar_por_url_ou_chave(entrada, titular=titular, db_path=db_path)
     except chave_acesso_service.ChaveInvalidaError as exc:
         return jsonify({"erro": str(exc)}), 422
 
@@ -83,11 +104,40 @@ def importar_nota():
     )
 
 
+@bp.post("/notas/qrcode-frame")
+def decodificar_frame_camera():
+    """Decodifica um frame de câmera capturado ao vivo pelo navegador
+    (feature 007) -- não importa nada, só decodifica. O cliente, ao
+    receber uma `entrada` não nula, chama POST /notas separadamente,
+    reaproveitando a validação e o fluxo de importação já existentes
+    (contracts/api.md)."""
+    conteudo = request.get_data()
+    if not conteudo:
+        return jsonify({"erro": "Não foi possível processar a imagem enviada."}), 415
+
+    try:
+        imagem = PilImage.open(BytesIO(conteudo))
+        imagem.load()
+    except UnidentifiedImageError:
+        return jsonify({"erro": "Não foi possível processar a imagem enviada."}), 415
+
+    try:
+        entrada = qrcode_reader.decodificar_qrcode(imagem)
+    except qrcode_reader.QrCodeIndisponivelError:
+        entrada = None
+
+    return jsonify({"entrada": entrada}), 200
+
+
 @bp.post("/notas/upload")
 def upload_nota():
     arquivo = request.files.get("arquivo")
     if arquivo is None or not arquivo.filename:
         return jsonify({"erro": "Nenhum arquivo foi enviado."}), 400
+
+    titular, erro_titular = _titular_da_requisicao(request.form.get("titular"))
+    if erro_titular:
+        return jsonify({"erro": erro_titular}), 422
 
     conteudo = arquivo.read()
     db_path = current_app.config["DB_PATH"]
@@ -95,7 +145,7 @@ def upload_nota():
 
     try:
         envio_id = fila_processamento.enfileirar_envio(
-            arquivo.filename, conteudo, db_path=db_path, upload_dir=upload_dir
+            arquivo.filename, conteudo, titular=titular, db_path=db_path, upload_dir=upload_dir
         )
     except fila_processamento.TipoArquivoNaoSuportadoError as exc:
         return jsonify({"erro": str(exc)}), 415
@@ -110,6 +160,20 @@ def upload_nota():
         ),
         202,
     )
+
+
+@bp.put("/notas/<int:nota_id>/titular")
+def atribuir_titular_a_nota(nota_id: int):
+    db_path = current_app.config["DB_PATH"]
+    corpo = request.get_json(silent=True) or {}
+    titular = corpo.get("titular") or None
+
+    resultado = storage_db.atribuir_titular_a_nota(nota_id, titular, db_path=db_path)
+    if resultado is None:
+        return jsonify({"erro": "Nota não encontrada."}), 404
+    if resultado is False:
+        return jsonify({"erro": "Titular inválido."}), 422
+    return jsonify({"mensagem": "Titular da nota atualizado com sucesso."}), 200
 
 
 @bp.delete("/notas/<int:nota_id>")

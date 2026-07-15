@@ -53,17 +53,20 @@ def salvar_arquivo_recebido(
 def enfileirar_envio(
     nome_original: str,
     conteudo: bytes,
+    titular: str | None = None,
     db_path: str = storage_db.DEFAULT_DB_PATH,
     upload_dir: str = DEFAULT_UPLOAD_DIR,
 ) -> int:
     """Calcula o hash, grava o arquivo recebido em disco e insere um novo
     registro `pendente` na fila (FR-005/FR-006/FR-007). Retorna o
     `envio_id`. Levanta TipoArquivoNaoSuportadoError para tipos não
-    suportados — antes de gravar qualquer coisa em disco."""
+    suportados — antes de gravar qualquer coisa em disco. `titular`
+    (opcional, escolhido pelo usuário no momento do envio) fica gravado
+    no próprio envio até o worker processá-lo de forma assíncrona."""
     tipo = _tipo_arquivo(nome_original)
     hash_conteudo = calcular_hash_conteudo(conteudo)
     caminho, _ = salvar_arquivo_recebido(nome_original, conteudo, upload_dir=upload_dir)
-    return storage_db.inserir_envio(caminho, tipo, hash_conteudo, db_path=db_path)
+    return storage_db.inserir_envio(caminho, tipo, hash_conteudo, titular=titular, db_path=db_path)
 
 
 def reconciliar_fila_apos_reinicio(db_path: str = storage_db.DEFAULT_DB_PATH) -> int:

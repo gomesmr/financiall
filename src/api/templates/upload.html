@@ -2,8 +2,37 @@
 {% block title %}financiALL - Importar{% endblock %}
 {% block titulo_pagina %}Importar nota fiscal{% endblock %}
 {% block content %}
+  <div class="card mb-3">
+    <div class="card-body py-3 d-flex align-items-center gap-2 flex-wrap">
+      <label for="titular-import" class="text-sm fw-bold mb-0">De quem é esta nota?</label>
+      <select id="titular-import" class="form-select form-select-sm w-auto">
+        <option value="">Não identificado</option>
+        <option value="marcelo">Marcelo</option>
+        <option value="cristine">Cristine</option>
+      </select>
+    </div>
+  </div>
+
   <div class="row">
-    <div class="col-12 col-lg-6 mb-4">
+    <div class="col-12 col-lg-4 mb-4">
+      <div class="card h-100">
+        <div class="card-header pb-0">
+          <h6>Ler QR Code pela câmera</h6>
+        </div>
+        <div class="card-body">
+          <button type="button" id="btn-camera" class="btn bg-gradient-primary w-100 mb-0">Ativar câmera</button>
+          <p id="camera-indisponivel" class="vazio mt-2 mb-0" style="display:none;">Leitura por câmera não disponível neste navegador/dispositivo — use as outras opções ao lado.</p>
+          <div id="camera-area" style="display:none;">
+            <video id="video-camera" autoplay playsinline muted style="width:100%; border-radius:0.5rem; margin-top:0.5rem; background:#000;"></video>
+            <canvas id="canvas-camera" style="display:none;"></canvas>
+            <p id="camera-status" class="text-sm text-secondary mt-2 mb-1"></p>
+            <p id="camera-erro" class="text-sm text-danger mt-2 mb-1" style="display:none;"></p>
+            <button type="button" id="btn-cancelar-camera" class="btn btn-sm btn-outline-secondary mb-0">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-4 mb-4">
       <div class="card h-100">
         <div class="card-header pb-0">
           <h6>URL do QR Code ou chave de acesso</h6>
@@ -18,7 +47,7 @@
         </div>
       </div>
     </div>
-    <div class="col-12 col-lg-6 mb-4">
+    <div class="col-12 col-lg-4 mb-4">
       <div class="card h-100">
         <div class="card-header pb-0">
           <h6>Foto ou PDF do cupom fiscal</h6>
@@ -63,15 +92,24 @@
       resultado.appendChild(p);
     }
 
-    document.getElementById("form-entrada").addEventListener("submit", async (evento) => {
-      evento.preventDefault();
-      const entrada = document.getElementById("entrada").value;
+    function titularSelecionado() {
+      return document.getElementById("titular-import").value || null;
+    }
+
+    // Reaproveitado pelos dois fluxos de importar por URL/chave: o formulário
+    // de texto e a leitura por câmera (feature 007) chamam esta mesma função,
+    // reaproveitando 100% da validação e do POST /notas já existentes.
+    async function enviarEntrada(entrada) {
       const resposta = await fetch("/notas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entrada }),
+        body: JSON.stringify({ entrada, titular: titularSelecionado() }),
       });
       const corpo = await resposta.json();
+      return { ok: resposta.ok, corpo };
+    }
+
+    function exibirResultadoImportacao(corpo) {
       limparResultado();
       if (corpo.erro) {
         adicionarParagrafo(corpo.erro);
@@ -82,6 +120,13 @@
         adicionarParagrafo(`Emitente: ${corpo.nota.emitente_nome || "não disponível"}`);
       }
       adicionarLink("/ver/notas", "Ver na lista de notas →");
+    }
+
+    document.getElementById("form-entrada").addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      const entrada = document.getElementById("entrada").value;
+      const { corpo } = await enviarEntrada(entrada);
+      exibirResultadoImportacao(corpo);
     });
 
     document.getElementById("form-upload").addEventListener("submit", async (evento) => {
@@ -89,6 +134,8 @@
       const arquivo = document.getElementById("arquivo").files[0];
       const dados = new FormData();
       dados.append("arquivo", arquivo);
+      const titular = titularSelecionado();
+      if (titular) dados.append("titular", titular);
       const resposta = await fetch("/notas/upload", { method: "POST", body: dados });
       const corpo = await resposta.json();
       limparResultado();
@@ -99,5 +146,184 @@
       adicionarParagrafo(`Arquivo recebido (envio #${corpo.envio_id}).`);
       adicionarLink(`/ver/envios/${corpo.envio_id}`, "Ver status do envio →");
     });
+
+    // Leitura de QR Code pela câmera (feature 007).
+    (function () {
+      const btnCamera = document.getElementById("btn-camera");
+      const cameraIndisponivel = document.getElementById("camera-indisponivel");
+      const cameraArea = document.getElementById("camera-area");
+      const video = document.getElementById("video-camera");
+      const canvas = document.getElementById("canvas-camera");
+      const statusEl = document.getElementById("camera-status");
+      const erroEl = document.getElementById("camera-erro");
+      const btnCancelar = document.getElementById("btn-cancelar-camera");
+
+      // Reduzido de 700ms: com a mão tremendo, cada captura é uma foto
+      // instantânea do frame naquele exato momento -- tentar mais vezes
+      // por segundo aumenta a chance de pegar um instante mais parado
+      // (o próprio fetch/decodificação no servidor já limita a cadência
+      // real, então isto não sobrecarrega sem necessidade).
+      const INTERVALO_CAPTURA_MS = 300;
+      // QR Codes pequenos (ex.: ~1,4x1,4cm) precisam de mais pixels por
+      // módulo do que um stream de câmera em resolução padrão consegue
+      // entregar -- por isso pedimos resolução alta abaixo (getUserMedia,
+      // ideal 3840x2160) e mantemos um alvo de captura também alto, sem
+      // reduzir de volta a um tamanho pequeno.
+      const LADO_MAIOR_ALVO_PX = 2560;
+
+      let stream = null;
+      let capturaAtiva = false;
+      let timeoutId = null;
+
+      function suportaCameraNoNavegador() {
+        return (
+          window.isSecureContext &&
+          !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+        );
+      }
+
+      function mostrarStatus(texto) {
+        statusEl.textContent = texto;
+        statusEl.style.display = "block";
+      }
+
+      function mostrarErroCamera(texto) {
+        erroEl.textContent = texto;
+        erroEl.style.display = "block";
+      }
+
+      function limparErroCamera() {
+        erroEl.style.display = "none";
+        erroEl.textContent = "";
+      }
+
+      function pararCameraELimpar() {
+        capturaAtiva = false;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        if (stream) {
+          stream.getTracks().forEach((faixa) => faixa.stop());
+          stream = null;
+        }
+        video.srcObject = null;
+        cameraArea.style.display = "none";
+        btnCamera.style.display = "block";
+        limparErroCamera();
+      }
+
+      function agendarProximaCaptura() {
+        if (!capturaAtiva) return;
+        timeoutId = setTimeout(capturarEEnviar, INTERVALO_CAPTURA_MS);
+      }
+
+      async function capturarEEnviar() {
+        if (!capturaAtiva || video.readyState < 2) {
+          agendarProximaCaptura();
+          return;
+        }
+        const escala = Math.min(
+          1,
+          LADO_MAIOR_ALVO_PX / Math.max(video.videoWidth, video.videoHeight)
+        );
+        canvas.width = Math.round(video.videoWidth * escala);
+        canvas.height = Math.round(video.videoHeight * escala);
+        canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob(
+          async (blob) => {
+            if (!blob || !capturaAtiva) {
+              agendarProximaCaptura();
+              return;
+            }
+            try {
+              const resposta = await fetch("/notas/qrcode-frame", {
+                method: "POST",
+                headers: { "Content-Type": "image/jpeg" },
+                body: blob,
+              });
+              const corpo = await resposta.json();
+              if (corpo.entrada) {
+                await tratarQrCodeEncontrado(corpo.entrada);
+                return;
+              }
+            } catch (erro) {
+              // Falha de rede pontual -- tenta de novo no próximo frame,
+              // sem travar a leitura (Princípio VII).
+            }
+            agendarProximaCaptura();
+          },
+          "image/jpeg",
+          0.85
+        );
+      }
+
+      async function tratarQrCodeEncontrado(entrada) {
+        mostrarStatus("QR Code encontrado, importando...");
+        const { ok, corpo } = await enviarEntrada(entrada);
+        if (!ok) {
+          mostrarErroCamera(corpo.erro || "Não foi possível importar a partir do QR Code lido.");
+          mostrarStatus("Buscando QR Code...");
+          agendarProximaCaptura();
+          return;
+        }
+        pararCameraELimpar();
+        exibirResultadoImportacao(corpo);
+      }
+
+      async function iniciarLeitura() {
+        limparErroCamera();
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: "environment",
+              // Resolucao alta de proposito: QR Codes pequenos (ex.: ~1,4cm)
+              // precisam de mais pixels por modulo do que a resolucao padrao
+              // de um stream de camera costuma entregar -- "ideal" deixa o
+              // navegador cair para o que a camera suportar, sem falhar.
+              width: { ideal: 3840 },
+              height: { ideal: 2160 },
+              // Taxa de quadros alta tende a reduzir o tempo de exposicao
+              // de cada frame (obturador mais rapido), o que ajuda com
+              // borrao de movimento causado por tremor na mao.
+              frameRate: { ideal: 30 },
+            },
+          });
+        } catch (erro) {
+          mostrarErroCamera(
+            "Não foi possível acessar a câmera. Você pode usar as outras opções de importação."
+          );
+          return;
+        }
+        video.srcObject = stream;
+        btnCamera.style.display = "none";
+        cameraArea.style.display = "block";
+        capturaAtiva = true;
+        mostrarStatus("Buscando QR Code...");
+        video.addEventListener(
+          "loadedmetadata",
+          () => {
+            // Diagnostico temporario (feature 007): mostra a resolucao real
+            // que o navegador negociou, para confirmar empiricamente se o
+            // pedido de resolucao alta acima esta sendo atendido.
+            mostrarStatus(
+              `Buscando QR Code... (câmera em ${video.videoWidth}x${video.videoHeight})`
+            );
+          },
+          { once: true }
+        );
+        agendarProximaCaptura();
+      }
+
+      if (!suportaCameraNoNavegador()) {
+        btnCamera.style.display = "none";
+        cameraIndisponivel.style.display = "block";
+      } else {
+        btnCamera.addEventListener("click", iniciarLeitura);
+      }
+
+      btnCancelar.addEventListener("click", pararCameraELimpar);
+    })();
   </script>
 {% endblock %}

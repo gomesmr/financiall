@@ -17,6 +17,11 @@ _UF_POR_CODIGO = {
 }
 
 _DIGITOS_RE = re.compile(r"\d+")
+# Exclui espaco, aspas, colchetes e angulos do fim do casamento -- sem
+# isso, uma URL envolvida em `<![CDATA[...]]>` levaria o `]]>` de
+# fechamento junto (nenhum desses caracteres aparece numa URL de QR Code
+# de nota fiscal real).
+_URL_RE = re.compile(r"https?://[^\s<>\[\]\"']+", re.IGNORECASE)
 
 
 class ChaveInvalidaError(ValueError):
@@ -98,15 +103,33 @@ def normalizar_chave_colada(entrada: str) -> str:
     return re.sub(r"\D", "", entrada)
 
 
+def extrair_url(texto: str) -> str | None:
+    """Encontra a primeira URL http(s) em qualquer parte do texto (não só
+    no início) e retorna só esse trecho, ou None se não houver nenhuma.
+    Único ponto de detecção de URL usado tanto por `extrair_e_validar`
+    quanto pelo importador (research.md da feature 007) -- evita duas
+    checagens divergentes: o conteúdo bruto de um QR Code lido pela
+    câmera pode vir envolvido em `<![CDATA[...]]>`, e um `startswith`
+    ingênuo perderia a URL nesse caso."""
+    match = _URL_RE.search(texto)
+    return match.group(0) if match else None
+
+
 def extrair_e_validar(entrada: str) -> str:
-    """Ponto de entrada usado pelo importador: aceita uma URL ou uma chave
-    colada (com ou sem caracteres nao numericos) e retorna a chave de 44
-    digitos validada. Levanta ChaveInvalidaError com mensagem em portugues
-    quando nao for possivel (FR-004)."""
+    """Ponto de entrada usado pelo importador: aceita uma URL (pura ou
+    embutida em texto ao redor, ex.: QR Code lido pela câmera cujo
+    conteúdo bruto vem envolvido em `<![CDATA[...]]>` — o app nativo de
+    câmera do celular nunca expõe esse texto ao redor porque extrai só a
+    URL antes de abrir no navegador, mas o decodificador desta aplicação
+    lê o conteúdo bruto do código) ou uma chave colada (com ou sem
+    caracteres não numéricos) e retorna a chave de 44 dígitos validada.
+    Levanta ChaveInvalidaError com mensagem em português quando não for
+    possível (FR-004)."""
     entrada = entrada.strip()
 
-    if entrada.lower().startswith(("http://", "https://")):
-        chave = extrair_chave_de_url(entrada)
+    url = extrair_url(entrada)
+    if url:
+        chave = extrair_chave_de_url(url)
         if chave is None:
             raise ChaveInvalidaError(
                 f'Não foi possível identificar uma chave de acesso válida de 44 dígitos em "{entrada}".'
