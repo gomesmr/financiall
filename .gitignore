@@ -12,7 +12,3 @@ data/
 uploads/
 assets/
 
-# Documentos com dado pessoal real (lista de compras, etc.) -- nunca versionar
-# em repositorio publico. Ver specs/008-categorizacao-itens/proposta-classificacao.md
-proposta-classificacao.md
-
