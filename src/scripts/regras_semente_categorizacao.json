@@ -1,1 +1,121 @@
-[]
+[
+  {
+    "padrao": "HIGIENICO",
+    "categoria": "Higiene pessoal e perfumaria",
+    "subcategoria": "Papel higiênico",
+    "prioridade": 10,
+    "_evidencia": "143 de 327 descrições do corpus real (research.md #13)"
+  },
+  {
+    "padrao": "CANINO",
+    "categoria": "Pet",
+    "subcategoria": "Petisco",
+    "prioridade": 20,
+    "_evidencia": "'BISCOITO CANINO ...' -- prioridade maior que a regra BISCOITO abaixo, para vencer o desempate (research.md #6)"
+  },
+  {
+    "padrao": "CAES",
+    "categoria": "Pet",
+    "subcategoria": "Petisco",
+    "prioridade": 20,
+    "_evidencia": "'BISCOITO P/CAES ...' -- mesmo raciocínio de CANINO"
+  },
+  {
+    "padrao": "BISCOITO",
+    "categoria": "Alimentação",
+    "subcategoria": "Matinais e doces",
+    "prioridade": 5,
+    "_evidencia": "95 de 327 descrições do corpus real"
+  },
+  {
+    "padrao": "DUNGA",
+    "categoria": "Alimentação",
+    "subcategoria": "Matinais e doces",
+    "prioridade": 5,
+    "_evidencia": "marca com 21 ocorrências no corpus"
+  },
+  {
+    "padrao": "CHELKEN",
+    "categoria": "Alimentação",
+    "subcategoria": "Matinais e doces",
+    "prioridade": 5,
+    "_evidencia": "marca com 5 ocorrências no corpus"
+  },
+  {
+    "padrao": "MARILAN",
+    "categoria": "Alimentação",
+    "subcategoria": "Matinais e doces",
+    "prioridade": 5,
+    "_evidencia": "marca com 4 ocorrências no corpus"
+  },
+  {
+    "padrao": "KARINTO",
+    "categoria": "Alimentação",
+    "subcategoria": "Matinais e doces",
+    "prioridade": 5,
+    "_evidencia": "produto com 4 ocorrências no corpus"
+  },
+  {
+    "padrao": "CLUB SOCIAL",
+    "categoria": "Alimentação",
+    "subcategoria": "Matinais e doces",
+    "prioridade": 5,
+    "_evidencia": "5 ocorrências, inclusive uma sem o token BISCOITO"
+  },
+  {
+    "padrao": "GOSTO DE AMOR",
+    "categoria": "Alimentação",
+    "subcategoria": "Matinais e doces",
+    "prioridade": 5,
+    "_evidencia": "marca com 5 ocorrências no corpus"
+  },
+  {
+    "padrao": "BUCAL",
+    "categoria": "Higiene pessoal e perfumaria",
+    "subcategoria": "Bucal",
+    "prioridade": 10,
+    "_evidencia": "35 de 327 descrições do corpus real"
+  },
+  {
+    "padrao": "LISTERINE",
+    "categoria": "Higiene pessoal e perfumaria",
+    "subcategoria": "Bucal",
+    "prioridade": 10,
+    "_evidencia": "marca com 13 ocorrências no corpus"
+  },
+  {
+    "padrao": "COLGATE",
+    "categoria": "Higiene pessoal e perfumaria",
+    "subcategoria": "Bucal",
+    "prioridade": 10,
+    "_evidencia": "marca com 11 ocorrências no corpus"
+  },
+  {
+    "padrao": "PLAX",
+    "categoria": "Higiene pessoal e perfumaria",
+    "subcategoria": "Bucal",
+    "prioridade": 10,
+    "_evidencia": "linha de produto com 11 ocorrências no corpus"
+  },
+  {
+    "padrao": "DENTALCLEAN",
+    "categoria": "Higiene pessoal e perfumaria",
+    "subcategoria": "Bucal",
+    "prioridade": 10,
+    "_evidencia": "marca com 5 ocorrências no corpus"
+  },
+  {
+    "padrao": "SORRISO",
+    "categoria": "Higiene pessoal e perfumaria",
+    "subcategoria": "Bucal",
+    "prioridade": 10,
+    "_evidencia": "3 ocorrências, sem o token BUCAL (descrições abreviadas 'ANTISEP SORRISO ...')"
+  },
+  {
+    "padrao": "ORAL-B",
+    "categoria": "Higiene pessoal e perfumaria",
+    "subcategoria": "Bucal",
+    "prioridade": 10,
+    "_evidencia": "marca com 4 ocorrências no corpus"
+  }
+]

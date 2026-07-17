@@ -13,7 +13,7 @@ pytest tests/unit tests/integration tests/contract -v
 
 Espera-se cobertura nova para: normalização (`test_normalizacao.py`),
 cascata de classificação (`test_classificacao_itens.py`, incluindo um
-teste parametrizado sobre o corpus real de 330 descrições —
+teste parametrizado sobre o corpus real de 327 descrições —
 `assets/files.zip/corpus-descricoes-produtos.txt`, copiado para
 `tests/fixtures/`), CRUD de taxonomia hierárquica e exclusão com
 destino/bloqueio (`test_categorias.py`), e os contratos novos de

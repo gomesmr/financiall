@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from src.models.item_nota import ItemNota
 from src.models.nota_fiscal import CanalOrigem, NotaFiscal, StatusNota
+from src.scripts.seed_taxonomia_categorizacao import seed_regras, seed_taxonomia
 from src.services import classificacao_itens
 from src.storage import db as storage_db
 from tests.helpers import gerar_chave_valida
@@ -455,3 +458,96 @@ def test_corrigir_item_classificado_por_regra_sobrescreve_cache_para_novos_itens
     assert item_2.id == item_2_id
     assert item_2.categoria_id == categoria_correta
     assert item_2.metodo_classificacao == "cache"
+
+
+# --- US3: prioridade e desempate de regra (T031/T032) ----------------------
+
+
+def test_classificar_item_regra_mais_especifica_prioridade_maior_vence(db_path):
+    """research.md #6: quando duas regras casam a mesma descrição, a de
+    maior prioridade vence -- aqui, 'CANINO' (mais especifica, Pet) deve
+    vencer sobre 'BISCOITO' (mais generica, Alimentação), mesmo padrão de
+    curadoria usado nas regras-semente reais (T030)."""
+    categoria_pet = storage_db.criar_categoria("Pet", db_path=db_path)
+    categoria_alimentacao = storage_db.criar_categoria("Alimentação", db_path=db_path)
+    conn = storage_db.get_connection(db_path)
+    conn.execute(
+        "INSERT INTO regra_categoria (padrao, categoria_id, prioridade, ativa) VALUES (?, ?, 5, 1)",
+        ("BISCOITO", categoria_alimentacao),
+    )
+    conn.execute(
+        "INSERT INTO regra_categoria (padrao, categoria_id, prioridade, ativa) VALUES (?, ?, 20, 1)",
+        ("CANINO", categoria_pet),
+    )
+    conn.commit()
+    conn.close()
+
+    categoria_id, metodo = classificacao_itens.classificar_item("BISCOITO CANINO BANCOOK BIG", db_path=db_path)
+
+    assert categoria_id == categoria_pet
+    assert metodo == "regra"
+
+
+def test_classificar_item_empate_de_prioridade_resolve_pelo_menor_id(db_path):
+    """research.md #6: em empate de prioridade, vence a regra de menor
+    id (mais antiga) -- comportamento deterministico."""
+    categoria_1 = storage_db.criar_categoria("Categoria 1", db_path=db_path)
+    categoria_2 = storage_db.criar_categoria("Categoria 2", db_path=db_path)
+    conn = storage_db.get_connection(db_path)
+    conn.execute(
+        "INSERT INTO regra_categoria (padrao, categoria_id, prioridade, ativa) VALUES (?, ?, 10, 1)",
+        ("ALFA", categoria_1),
+    )
+    conn.execute(
+        "INSERT INTO regra_categoria (padrao, categoria_id, prioridade, ativa) VALUES (?, ?, 10, 1)",
+        ("BETA", categoria_2),
+    )
+    conn.commit()
+    conn.close()
+
+    categoria_id, metodo = classificacao_itens.classificar_item("PRODUTO ALFA BETA", db_path=db_path)
+
+    assert categoria_id == categoria_1
+    assert metodo == "regra"
+
+
+# --- US3: cascata contra o corpus real (T033) -------------------------------
+
+_CORPUS_PATH = Path(__file__).resolve().parent.parent / "fixtures" / "corpus_descricoes_produtos.txt"
+
+
+@pytest.fixture()
+def db_com_regras_semente(tmp_path):
+    """Banco com a taxonomia e as regras-semente reais carregadas (T007/T030) --
+    usado só pelo teste de cobertura do corpus, distinto do fixture `db_path`
+    (vazio) usado pelos demais testes desta suíte."""
+    caminho = str(tmp_path / "financiall.db")
+    storage_db.init_db(caminho)
+    seed_taxonomia(db_path=caminho)
+    seed_regras(db_path=caminho)
+    return caminho
+
+
+def test_cascata_contra_corpus_real_registra_taxa_de_cobertura(db_com_regras_semente):
+    """research.md #13: o corpus é enviesado para papel higiênico, não é
+    amostra representativa de cesta de compra -- por isso este teste
+    registra quantas descrições classificam via regra-semente vs. ficam
+    pendentes, sem exigir 100% (T033). O piso de 250/327 é uma margem
+    abaixo do valor real observado (282/327) na curadoria da T030 --
+    serve para detectar regressão na cascata ou nas regras-semente, não
+    para travar em um número exato."""
+    with open(_CORPUS_PATH, encoding="utf-8") as f:
+        descricoes = [linha.strip() for linha in f if linha.strip()]
+
+    classificadas_via_regra = 0
+    pendentes = 0
+    for descricao in descricoes:
+        categoria_id, metodo = classificacao_itens.classificar_item(descricao, db_path=db_com_regras_semente)
+        if categoria_id is not None:
+            assert metodo == "regra"
+            classificadas_via_regra += 1
+        else:
+            pendentes += 1
+
+    assert classificadas_via_regra + pendentes == len(descricoes)
+    assert classificadas_via_regra >= 250

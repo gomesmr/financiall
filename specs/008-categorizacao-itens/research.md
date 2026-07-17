@@ -8,7 +8,7 @@ sem dependência nova), colapso de espaços múltiplos. Um dicionário pequeno
 de expansão de abreviações (`REFRIG→REFRIGERANTE`, `FGO→FRANGO`, etc.) é
 incluído desde o v1, mas **curado a partir do corpus real** (`assets/
 files.zip/corpus-descricoes-produtos.txt`, 760 descrições originais,
-reduzidas a 330 em `tests/fixtures/corpus_descricoes_produtos.txt` —
+reduzidas a 327 em `tests/fixtures/corpus_descricoes_produtos.txt` —
 Tarefa 1, decisão de implementação: sem código de barras/NCM nesta
 feature, a granularidade de SKU/tamanho/quantidade do corpus original não
 agrega valor de teste; a redução manteve uma linha por combinação única
@@ -218,12 +218,12 @@ Princípio V como "qualquer parsing de formato não controlado pelo
 projeto". Dimensões de variação real identificadas para a validação
 obrigatória antes de promover:
 
-1. **Amostra real do corpus** (`corpus-descricoes-produtos.txt`, 330
+1. **Amostra real do corpus** (`corpus-descricoes-produtos.txt`, 327
    descrições — reduzidas das 760 originais para uma linha por
    combinação única de estilo de escrita × marca, já que sem código de
    barras/NCM nesta feature a repetição de tamanho/quantidade da mesma
    marca não agregava sinal de teste novo) — ainda enviesado para papel
-   higiênico (153 das 330); serve para testar robustez do normalizador e
+   higiênico (153 das 327); serve para testar robustez do normalizador e
    semear regras de Higiene, **não** para medir taxa de pendente
    representativa (o corpus não é uma cesta
    de compra típica).

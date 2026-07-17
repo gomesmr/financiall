@@ -49,7 +49,7 @@ o corpus real de validação (Tarefa 1 do brief de preparação).
       fallback "Outros" — nem como topo, nem repetida embaixo de mais de uma categoria-pai
       (research.md #17); item sem categoria clara permanece pendente
 - [X] T002 [P] Copiar `assets/files.zip/corpus-descricoes-produtos.txt` (760 descrições
-      reais) para `tests/fixtures/corpus_descricoes_produtos.txt`, reduzido a 330 linhas
+      reais) para `tests/fixtures/corpus_descricoes_produtos.txt`, reduzido a 327 linhas
       (uma por combinação única de estilo de escrita × marca — sem código de barras/NCM
       nesta feature, a repetição de tamanho/quantidade da mesma marca não agregava sinal de
       teste) — fixture da primeira barreira do Princípio V (research.md #13)
@@ -303,18 +303,27 @@ casa esse padrão pela primeira vez e confirmar que chega classificado sem passa
 
 ### Implementation for User Story 3
 
-- [ ] T030 [US3] Curar o conteúdo definitivo das regras-semente a partir da taxonomia (T001)
-      e do corpus real (T002) — pelo menos as regras de "papel higiênico" (153 das 330
-      descrições do corpus, research.md #13) e mais 10-15 padrões comuns de outras
-      categorias — no arquivo de regras lido por `seed_taxonomia_categorizacao.py` (T007);
-      completar o dicionário de abreviações de `normalizacao.py` (T006) com as abreviações
-      que o corpus comprova serem comuns
-- [ ] T031 [US3] Confirmar/ajustar em `classificacao_itens.py` (T008) o desempate
+- [X] T030 [US3] Curar o conteúdo definitivo das regras-semente a partir da taxonomia (T001)
+      e do corpus real (T002) — pelo menos as regras de "papel higiênico" (143 das 327
+      descrições do corpus via token `HIGIENICO`, research.md #13) e mais 10-15 padrões
+      comuns de outras categorias — no arquivo de regras lido por
+      `seed_taxonomia_categorizacao.py` (T007); completar o dicionário de abreviações de
+      `normalizacao.py` (T006) com as abreviações que o corpus comprova serem comuns.
+      17 regras curadas ao todo (`src/scripts/regras_semente_categorizacao.json`): papel
+      higiênico (1), Pet/Petisco (`CANINO`/`CAES`, prioridade alta — vence sobre a regra
+      genérica de biscoito), Alimentação/Matinais e doces (7 marcas/produtos: `BISCOITO`,
+      `DUNGA`, `CHELKEN`, `MARILAN`, `KARINTO`, `CLUB SOCIAL`, `GOSTO DE AMOR`) e Higiene/Bucal
+      (7: `BUCAL`, `LISTERINE`, `COLGATE`, `PLAX`, `DENTALCLEAN`, `SORRISO`, `ORAL-B`) —
+      cobertura medida em 282/327 (86%) do corpus. Abreviação `HIGIE`→`HIGIENICO` adicionada
+      (3 ocorrências reais); abreviação de "H" isolado (17 ocorrências em "PAPEL H ...")
+      descartada por risco de falso positivo (token de uma letra só)
+- [X] T031 [US3] Confirmar/ajustar em `classificacao_itens.py` (T008) o desempate
       determinístico de prioridade (maior `prioridade` vence; empate resolvido pelo menor
-      `id` — research.md #6)
-- [ ] T032 [P] [US3] Unit tests de prioridade de regra: duas regras casando o mesmo item,
+      `id` — research.md #6) — já implementado corretamente desde a Fase 2
+      (`ORDER BY prioridade DESC, id ASC`), sem mudança necessária
+- [X] T032 [P] [US3] Unit tests de prioridade de regra: duas regras casando o mesmo item,
       mais específica vence; caso de empate — `tests/unit/test_classificacao_itens.py`
-- [ ] T033 [P] [US3] Teste parametrizado da cascata contra as 330 descrições do corpus real
+- [X] T033 [P] [US3] Teste parametrizado da cascata contra as 327 descrições do corpus real
       (`tests/fixtures/corpus_descricoes_produtos.txt`), registrando quantas classificam via
       regra-semente vs. ficam pendentes — sem asserção de "100% classificado" (o corpus é
       enviesado para papel higiênico, não é amostra representativa — research.md #13) —

@@ -49,7 +49,7 @@ substituído por dois índices parciais escopados por nível (research.md
 regra → pendente), CRUD de taxonomia hierárquica, exclusão com
 destino/bloqueio, e os contratos HTTP novos — mesmo padrão dos testes já
 existentes (unit/integration/contract). Teste parametrizado sobre o
-corpus real de 330 descrições (`assets/files.zip/corpus-descricoes-produtos.txt`,
+corpus real de 327 descrições (`assets/files.zip/corpus-descricoes-produtos.txt`,
 copiado para `tests/fixtures/`) como primeira barreira do Princípio V.
 Validação com amostra real (segunda barreira, distinta) obrigatória antes
 de promover: rodar a cascata sobre o backlog real de notas já importadas

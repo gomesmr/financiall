@@ -5,10 +5,14 @@ import unicodedata
 
 # Dicionário de expansão de abreviações -- curado a partir do corpus real
 # (tests/fixtures/corpus_descricoes_produtos.txt), não uma lista genérica
-# especulativa (research.md #1). Populado na Tarefa T030 (US3); vazio até lá
-# não quebra a cascata -- só significa que menos descrições abreviadas batem
-# no cache/regra antes da curadoria acontecer.
-ABREVIACOES: dict[str, str] = {}
+# especulativa (research.md #1). "H" isolado (ex.: "PAPEL H CARINHO") não
+# entra apesar de aparecer 17 vezes no corpus -- token de uma letra só é
+# risco alto demais de falso positivo em descrições futuras não relacionadas
+# a papel higiênico (Princípio I: expandir só o que é seguro, não só o que
+# é frequente).
+ABREVIACOES: dict[str, str] = {
+    "HIGIE": "HIGIENICO",
+}
 
 
 def normalizar_descricao(descricao: str | None) -> str:
