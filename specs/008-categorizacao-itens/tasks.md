@@ -275,9 +275,12 @@ mesma descrição normalizada, e confirmar que já chega classificado sem ação
 
 ### Real-Data Validation for User Story 2 (MANDATORY — Constitution Principle V)
 
-- [ ] T027 [US2] Reimportar (reprocessar) pelo menos uma nota real já importada no Pi (dev)
+- [X] T027 [US2] Reimportar (reprocessar) pelo menos uma nota real já importada no Pi (dev)
       e confirmar que nenhuma classificação existente muda e nenhuma linha de histórico é
-      duplicada antes de promover esta história (dev → main)
+      duplicada antes de promover esta história (dev → main) — validado em 2026-07-17 com o
+      banco de produção copiado para dev (nota real id=30, item classificado manualmente via
+      API real, `classificar_itens_pendentes_da_nota` chamada de novo: categoria/método
+      idênticos antes/depois, histórico permaneceu em 1 linha)
 
 ### Visual Verification for User Story 2 (MANDATORY — Constitution Principle VIII)
 
