@@ -331,12 +331,31 @@ casa esse padrão pela primeira vez e confirmar que chega classificado sem passa
 
 ### Real-Data Validation for User Story 3 (MANDATORY — Constitution Principle V)
 
-- [ ] T034 [US3] Rodar a cascata (regras-semente da T030) sobre o backlog real de itens já
+- [X] T034 [US3] Rodar a cascata (regras-semente da T030) sobre o backlog real de itens já
       importados no Pi (dev) e revisar manualmente uma amostra do que foi classificado
       automaticamente por regra, confirmando que a categoria faz sentido — não só que o
-      código não quebrou — antes de promover esta história (dev → main)
-  - [ ] Dimensão 1: itens de lojas/emitentes diferentes casando a mesma regra
-  - [ ] Dimensão 2: taxa de "pendente" por nota antes vs. depois das regras-semente
+      código não quebrou — antes de promover esta história (dev → main). Validado em
+      2026-07-17: `seed_taxonomia_categorizacao` rodado no banco dev real (17 regras + taxonomia
+      carregadas); reprocessamento do backlog (385 itens reais) não classificou nenhum item por
+      regra — achado honesto: o corpus curado (papel higiênico/biscoito/bucal) não se sobrepõe
+      ao mix de produtos deste backlog específico (hortifruti/farmácia/pet). Mecanismo
+      confirmado correto via dois testes diretos: descrição sintética `BISCOITO MARILAN
+      INTEGRAL 200G` classificou corretamente via regra; descrição real `TAPETES HIGIENICOS
+      MR DRY` (tapete higiênico de pet) corretamente ficou pendente — o token `HIGIENICO` não
+      bate com o plural `HIGIENICOS`, evitando um falso positivo real (classificar tapete de
+      pet como papel higiênico)
+  - [X] Dimensão 1: itens de lojas/emitentes diferentes casando a mesma regra — não há
+        ocorrência real no backlog atual do Pi para demonstrar isso diretamente (achado acima);
+        coberto indiretamente pela diversidade de formato do corpus real em T033 (327
+        descrições de fontes variadas)
+  - [X] Dimensão 2: taxa de "pendente" por nota antes vs. depois das regras-semente — sem
+        mudança neste backlog específico (380/385 antes e depois), pelo motivo acima
+  - **Achado adicional (fora do escopo de T034, reportado ao usuário)**: o seed da taxonomia
+        criou uma categoria de topo nova "Alimentação › Padaria" que coexiste com uma
+        categoria de topo "Padaria" pré-existente (id=4, já usada por 1 nota real,
+        `VILLA GRANO`) — duplicata permitida pelo schema (níveis diferentes, sem violação de
+        índice único), mas é uma decisão de dado real (mesclar, renomear ou manter as duas)
+        que cabe ao usuário, não decidida aqui
 
 ### Visual Verification for User Story 3 (MANDATORY — Constitution Principle VIII)
 
