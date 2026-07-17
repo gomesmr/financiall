@@ -85,11 +85,11 @@ categoria de item e usa fallback corretamente; alternar nível 1/2.
 
 ### Real-Data Validation for User Story 1 (MANDATORY — Princípio V)
 
-- [ ] T010 [US1] Validar contra o backlog real do Pi (dev): nota real com
+- [X] T010 [US1] Validar contra o backlog real do Pi (dev): nota real com
       itens em categorias diferentes; nota real sem nenhum item classificado
       (fallback); nota real com itens parcialmente classificados
-  - [ ] Dimensão 1: nota com mistura real de categorias de item (supermercado com Alimentação + Higiene + Pet)
-  - [ ] Dimensão 2: nota real sem nenhum item classificado (fallback para categoria da nota)
+  - [X] Dimensão 1: nota com mistura real de categorias de item (supermercado com Alimentação + Higiene + Pet)
+  - [X] Dimensão 2: nota real sem nenhum item classificado (fallback para categoria da nota)
 
 ### Visual Verification for User Story 1 (MANDATORY — Princípio VIII)
 
@@ -250,10 +250,10 @@ independente da categoria dos itens.
 
 ### Real-Data Validation for User Story 5 (MANDATORY — Princípio V)
 
-- [ ] T032 [US5] Validar contra o backlog real do Pi (dev): mês com notas em
+- [X] T032 [US5] Validar contra o backlog real do Pi (dev): mês com notas em
       tipos de estabelecimento diferentes
-  - [ ] Dimensão 1: mês real com notas em pelo menos 3 tipos de estabelecimento distintos
-  - [ ] Dimensão 2: nota real sem tipo de estabelecimento atribuído ("Sem tipo de estabelecimento")
+  - [X] Dimensão 1: mês real com notas em pelo menos 3 tipos de estabelecimento distintos
+  - [X] Dimensão 2: nota real sem tipo de estabelecimento atribuído ("Sem tipo de estabelecimento")
 
 ### Visual Verification for User Story 5 (MANDATORY — Princípio VIII)
 
@@ -288,17 +288,27 @@ nota real; confirmar reflexo imediato no resumo por estabelecimento.
       reaproveitar o autocomplete hierárquico de `classificacao.js` (feature
       008) no lugar do `<select>` plano, em
       `src/api/templates/nota_detalhe.html`
-- [ ] T037 [US6] Rodar o seed contra o banco de dev do Pi e reclassificar as
+- [X] T037 [US6] Rodar o seed contra o banco de dev do Pi e reclassificar as
       notas reais existentes via `atribuir_categoria_a_nota` (operação de
       dado, não de código — revisão feita diretamente na conversa,
       research.md #8)
 
 ### Real-Data Validation for User Story 6 (MANDATORY — Princípio V)
 
-- [ ] T038 [US6] Confirmar no Pi (dev) que cada nota real reclassificada
+- [X] T038 [US6] Confirmar no Pi (dev) que cada nota real reclassificada
       reflete corretamente em `/ver/resumo?dimensao=estabelecimento`
-  - [ ] Dimensão 1: nota reclassificada para uma subcategoria nova (ex.: Saúde › Dentista)
-  - [ ] Dimensão 2: nota reclassificada para um tipo de estabelecimento de topo novo (ex.: Mercearia)
+  - [X] Dimensão 1: notas reais reclassificadas para um tipo de estabelecimento
+        de topo novo (9 notas HORTIFRUTI POMAR DA VILA: Supermercado →
+        Mercearia; 3 notas RAIA DROGASIL: Saúde → Farmácia) — confirmado via
+        `/notas/resumo/categorias?dimensao=estabelecimento` nos meses afetados
+  - [ ] Dimensão 2: reclassificação para uma **subcategoria** nova (ex.: Saúde
+        › Dentista) — não validada com dado real: o backlog real atual não
+        tem nenhuma nota de estabelecimento que se encaixe em "Dentista"/
+        "Plano de Saúde" (nenhuma consulta odontológica ou plano de saúde
+        registrado ainda). Path de subcategoria já coberto por teste
+        automatizado sintético (`test_gasto_por_estabelecimento_nivel_1_agrupa_subcategoria_no_pai`)
+        — falta só a confirmação com amostra real quando existir uma nota
+        desse tipo.
 
 ### Visual Verification for User Story 6 (MANDATORY — Princípio VIII)
 
@@ -313,7 +323,7 @@ nota real; confirmar reflexo imediato no resumo por estabelecimento.
 
 - [X] T040 Rodar a suíte de testes completa (`python -m pytest -q`) — todas as
       histórias juntas
-- [ ] T041 Rodar os 6 cenários de `quickstart.md` contra o app local com dado
+- [X] T041 Rodar os 6 cenários de `quickstart.md` contra o app local com dado
       de teste
 - [X] T042 [P] Revisar que nenhuma referência ao nome antigo `gasto_por_categoria`
       restou no código ou nos testes (grep)
