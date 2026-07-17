@@ -46,8 +46,16 @@ def pagina_nota_detalhe(nota_id: int):
         return render_template("nota_detalhe.html", nota=None, pagina_ativa="notas"), 404
     itens = storage_db.listar_itens_por_nota(nota_id, db_path=db_path)
     categorias = storage_db.listar_categorias(db_path=db_path)
+    categorias_por_id = {c.id: c for c in categorias}
+    categorias_json = [{"id": c.id, "nome": c.nome, "parent_id": c.parent_id} for c in categorias]
     return render_template(
-        "nota_detalhe.html", nota=nota, itens=itens, categorias=categorias, pagina_ativa="notas"
+        "nota_detalhe.html",
+        nota=nota,
+        itens=itens,
+        categorias=categorias,
+        categorias_por_id=categorias_por_id,
+        categorias_json=categorias_json,
+        pagina_ativa="notas",
     )
 
 

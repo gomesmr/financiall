@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% block title %}financiALL - Pendentes{% endblock %}
+{% block titulo_pagina %}Itens pendentes{% endblock %}
+{% block content %}
+  <div class="card mb-4">
+    <div class="card-body">
+      <h6 class="text-uppercase text-xs font-weight-bolder opacity-7">Resumo</h6>
+      <h4 class="mb-0" id="resumo-texto">
+        {{ resumo.total_pendente }} pendente(s) de {{ resumo.total_itens }} item(ns) no total
+      </h4>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header pb-0">
+      <h6 class="mb-0">Evolução da classificação</h6>
+    </div>
+    <div class="card-body">
+      {% if evolucao.itens_totais %}
+      <div id="grafico-evolucao" style="max-width: 720px; height: 400px;"></div>
+      {% else %}
+      <p class="vazio mb-0">Nenhuma nota importada ainda.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header pb-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <h6 class="mb-0">Fila de pendentes</h6>
+      <div class="d-flex gap-2 align-items-center">
+        <select id="select-visao" class="form-select form-select-sm w-auto">
+          <option value="descricao">Agrupado por descrição</option>
+          <option value="nota">Por nota</option>
+        </select>
+        <input
+          type="number"
+          id="input-nota-id"
+          class="form-control form-control-sm d-none"
+          style="width: 120px;"
+          placeholder="ID da nota"
+        >
+      </div>
+    </div>
+    <div class="card-body px-0 pb-0">
+      <div id="visao-descricao">
+        {% if grupos %}
+        <div class="d-flex flex-wrap gap-2 align-items-center px-4 pb-3" id="barra-classificacao-lote">
+          <div class="categoria-autocomplete position-relative" id="autocomplete-lote" style="min-width: 240px;">
+            <input type="text" class="form-control form-control-sm categoria-input" placeholder="Categoria › Subcategoria" autocomplete="off">
+            <div class="categoria-sugestoes list-group position-absolute" style="display:none; z-index:10; max-height:200px; overflow-y:auto; width:100%;"></div>
+            <input type="hidden" class="categoria-id-selecionada">
+          </div>
+          <button type="button" id="btn-aplicar-lote" class="btn btn-sm bg-gradient-primary mb-0" disabled>Aplicar aos selecionados</button>
+          <span class="text-sm vazio" id="contagem-selecionados">0 selecionado(s)</span>
+        </div>
+        <div class="table-responsive-argon">
+          <table class="table align-items-center mb-0">
+            <thead>
+              <tr>
+                <th style="width:1%;"><input type="checkbox" id="checkbox-selecionar-todos"></th>
+                <th class="text-uppercase text-xs font-weight-bolder opacity-7">Descrição</th>
+                <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Qtd. itens</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for grupo in grupos %}
+              <tr>
+                <td><input type="checkbox" class="checkbox-grupo" data-descricao="{{ grupo.descricao_normalizada }}"></td>
+                <td class="text-sm">{{ grupo.descricao_normalizada }}</td>
+                <td class="text-sm">{{ grupo.quantidade_itens }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="vazio px-4 pb-3">Nenhum item pendente — tudo classificado.</p>
+        {% endif %}
+      </div>
+      <div id="visao-nota" class="d-none px-4 pb-3">
+        <div id="lista-itens-nota"></div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+{% block extra_scripts %}
+  <script src="/static/plotly-basic.min.js"></script>
+  <script src="{{ url_for('static', filename='classificacao.js') }}"></script>
+  <script>
+    const CATEGORIAS = {{ categorias_json | tojson }};
+    const EVOLUCAO = {{ evolucao | tojson }};
+
+    // Paleta validada (research.md #2 da feature 005) -- reaproveitada aqui.
+    const PALETA = {
+      light: { itensTotais: "#898781", itensClassificados: "#1baf7a", superficie: "#fcfcfb", texto: "#0b0b0b", gridline: "#e1e0d9" },
+      dark: { itensTotais: "#898781", itensClassificados: "#199e70", superficie: "#1a1a19", texto: "#ffffff", gridline: "#2c2c2a" },
+    };
+
+    function paletaAtual() {
+      const escuro = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      return escuro ? PALETA.dark : PALETA.light;
+    }
+
+    (function renderizarGraficoEvolucao() {
+      const divGrafico = document.getElementById("grafico-evolucao");
+      if (!divGrafico) return;
+
+      const paleta = paletaAtual();
+      const dados = [
+        {
+          type: "scatter",
+          mode: "lines",
+          name: "Itens totais",
+          x: EVOLUCAO.itens_totais.map((p) => p.timestamp),
+          y: EVOLUCAO.itens_totais.map((p) => p.total),
+          line: { shape: "hv", color: paleta.itensTotais },
+        },
+        {
+          type: "scatter",
+          mode: "lines",
+          name: "Itens classificados",
+          x: EVOLUCAO.itens_classificados.map((p) => p.timestamp),
+          y: EVOLUCAO.itens_classificados.map((p) => p.total),
+          line: { shape: "hv", color: paleta.itensClassificados },
+        },
+      ];
+      const layout = {
+        height: 400,
+        showlegend: true,
+        paper_bgcolor: paleta.superficie,
+        plot_bgcolor: paleta.superficie,
+        font: { color: paleta.texto, family: "system-ui, -apple-system, 'Segoe UI', sans-serif" },
+        margin: { t: 20, b: 40, l: 40, r: 20 },
+        xaxis: { gridcolor: paleta.gridline },
+        yaxis: { gridcolor: paleta.gridline },
+      };
+      Plotly.newPlot("grafico-evolucao", dados, layout, { responsive: true, displayModeBar: false });
+    })();
+
+    (function inicializarClassificacaoEmLote() {
+      const barra = document.getElementById("barra-classificacao-lote");
+      if (!barra) return;
+
+      const checkboxSelecionarTodos = document.getElementById("checkbox-selecionar-todos");
+      const botaoAplicar = document.getElementById("btn-aplicar-lote");
+      const contagemEl = document.getElementById("contagem-selecionados");
+      let categoriaSelecionadaId = null;
+
+      function checkboxesGrupo() {
+        return Array.from(document.querySelectorAll(".checkbox-grupo"));
+      }
+
+      function atualizarEstado() {
+        const selecionados = checkboxesGrupo().filter((cb) => cb.checked).length;
+        contagemEl.textContent = `${selecionados} selecionado(s)`;
+        botaoAplicar.disabled = !(selecionados > 0 && categoriaSelecionadaId);
+      }
+
+      checkboxSelecionarTodos.addEventListener("change", (evento) => {
+        checkboxesGrupo().forEach((cb) => {
+          cb.checked = evento.target.checked;
+        });
+        atualizarEstado();
+      });
+
+      checkboxesGrupo().forEach((cb) => cb.addEventListener("change", atualizarEstado));
+
+      inicializarAutocompleteCategoria(document.getElementById("autocomplete-lote"), CATEGORIAS, "", (categoriaId) => {
+        categoriaSelecionadaId = categoriaId;
+        atualizarEstado();
+      });
+
+      botaoAplicar.addEventListener("click", async () => {
+        const descricoes = checkboxesGrupo()
+          .filter((cb) => cb.checked)
+          .map((cb) => cb.dataset.descricao);
+
+        let totalAfetado = 0;
+        for (const descricaoNormalizada of descricoes) {
+          const resposta = await fetch("/itens/pendentes/classificar-grupo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ descricao_normalizada: descricaoNormalizada, categoria_id: categoriaSelecionadaId }),
+          });
+          const corpo = await resposta.json();
+          if (!resposta.ok) {
+            alert(corpo.erro || `Não foi possível classificar o grupo "${descricaoNormalizada}".`);
+            return;
+          }
+          totalAfetado += corpo.quantidade_itens_afetados;
+        }
+
+        alert(`${totalAfetado} item(ns) classificado(s).`);
+        window.location.reload();
+      });
+    })();
+
+    const selectVisao = document.getElementById("select-visao");
+    const inputNotaId = document.getElementById("input-nota-id");
+    const visaoDescricao = document.getElementById("visao-descricao");
+    const visaoNota = document.getElementById("visao-nota");
+    const listaItensNota = document.getElementById("lista-itens-nota");
+
+    selectVisao.addEventListener("change", () => {
+      if (selectVisao.value === "nota") {
+        visaoDescricao.classList.add("d-none");
+        visaoNota.classList.remove("d-none");
+        inputNotaId.classList.remove("d-none");
+      } else {
+        visaoDescricao.classList.remove("d-none");
+        visaoNota.classList.add("d-none");
+        inputNotaId.classList.add("d-none");
+      }
+    });
+
+    function renderizarItemPorNota(item) {
+      const linha = document.createElement("div");
+      linha.className = "d-flex align-items-center gap-2 py-2 border-bottom flex-wrap";
+      linha.innerHTML = `
+        <span class="text-sm flex-grow-1">${item.descricao || "não disponível"}</span>
+        <div class="categoria-autocomplete position-relative" style="min-width: 220px;">
+          <input type="text" class="form-control form-control-sm categoria-input" placeholder="Categoria › Subcategoria" autocomplete="off">
+          <div class="categoria-sugestoes list-group position-absolute" style="display:none; z-index:10; max-height:200px; overflow-y:auto; width:100%;"></div>
+          <input type="hidden" class="categoria-id-selecionada">
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-primary mb-0 btn-classificar-item" disabled>Classificar</button>
+      `;
+      const container = linha.querySelector(".categoria-autocomplete");
+      const botao = linha.querySelector(".btn-classificar-item");
+      inicializarAutocompleteCategoria(container, CATEGORIAS, "", (categoriaId) => {
+        botao.disabled = !categoriaId;
+      });
+      botao.addEventListener("click", async () => {
+        const categoriaId = parseInt(container.querySelector(".categoria-id-selecionada").value, 10);
+        const resposta = await fetch(`/itens/${item.id}/categoria`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ categoria_id: categoriaId }),
+        });
+        const corpo = await resposta.json();
+        if (!resposta.ok) {
+          alert(corpo.erro || "Não foi possível classificar o item.");
+          return;
+        }
+        window.location.reload();
+      });
+      return linha;
+    }
+
+    async function carregarItensDaNota(notaId) {
+      listaItensNota.innerHTML = "";
+      if (!notaId) return;
+      const resposta = await fetch(`/itens/pendentes?nota_id=${encodeURIComponent(notaId)}`);
+      const corpo = await resposta.json();
+      if (!corpo.itens || !corpo.itens.length) {
+        listaItensNota.innerHTML = '<p class="vazio">Nenhum item pendente nesta nota.</p>';
+        return;
+      }
+      corpo.itens.forEach((item) => listaItensNota.appendChild(renderizarItemPorNota(item)));
+    }
+
+    inputNotaId.addEventListener("change", () => carregarItensDaNota(inputNotaId.value));
+  </script>
+{% endblock %}

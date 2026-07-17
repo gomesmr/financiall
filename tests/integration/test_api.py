@@ -546,6 +546,63 @@ def test_filtrar_notas_por_titular(app_e_db, client, tmp_path):
     assert so_marcelo[0]["chave_acesso"] == chave_marcelo
 
 
+def test_item_classificado_manualmente_chega_ja_classificado_em_nota_futura(app_e_db, client, monkeypatch):
+    """US2: classificar manualmente um item numa nota, depois importar uma
+    segunda nota com item de mesma descricao normalizada, e confirmar que
+    ja chega classificado automaticamente (via cache), sem passar pela
+    fila de pendentes."""
+    _, db_path = app_e_db
+
+    def mock_dados_nota(descricao):
+        return lambda url: DadosNotaSefaz(
+            emitente_nome="Mercado Exemplo",
+            data_emissao="2026-06-10",
+            valor_total=1000,
+            itens=[
+                {
+                    "codigo_item": "1",
+                    "descricao": descricao,
+                    "quantidade": 1.0,
+                    "valor_unitario": 1000,
+                    "valor_total_item": 1000,
+                }
+            ],
+        )
+
+    categoria_id = client.post("/categorias", json={"nome": "Bebidas"}).get_json()["categoria"]["id"]
+
+    monkeypatch.setattr(
+        "src.services.importador.sefaz_client.buscar_dados_nota",
+        mock_dados_nota("Refrigerante Coca Cola 2L"),
+    )
+    chave_1 = gerar_chave_valida(numero="000000501")
+    url_1 = f"https://www.sefaz.sp.gov.br/nfce/qrcode?p={chave_1}|2|1|1|hash"
+    resposta_1 = client.post("/notas", json={"entrada": url_1})
+    nota_1_id = resposta_1.get_json()["nota"]["id"]
+    item_1_id = storage_db.listar_itens_por_nota(nota_1_id, db_path=db_path)[0].id
+
+    resposta_pendentes_antes = client.get("/itens/pendentes")
+    assert resposta_pendentes_antes.get_json()["resumo"]["total_pendente"] == 1
+
+    client.put(f"/itens/{item_1_id}/categoria", json={"categoria_id": categoria_id})
+
+    monkeypatch.setattr(
+        "src.services.importador.sefaz_client.buscar_dados_nota",
+        mock_dados_nota("REFRIGERANTE COCA COLA 2L"),
+    )
+    chave_2 = gerar_chave_valida(numero="000000502")
+    url_2 = f"https://www.sefaz.sp.gov.br/nfce/qrcode?p={chave_2}|2|1|1|hash"
+    resposta_2 = client.post("/notas", json={"entrada": url_2})
+    nota_2_id = resposta_2.get_json()["nota"]["id"]
+    item_2 = storage_db.listar_itens_por_nota(nota_2_id, db_path=db_path)[0]
+
+    assert item_2.categoria_id == categoria_id
+    assert item_2.metodo_classificacao == "cache"
+
+    resposta_pendentes_depois = client.get("/itens/pendentes")
+    assert resposta_pendentes_depois.get_json()["resumo"]["total_pendente"] == 0
+
+
 def test_resumo_historico_com_notas_em_meses_diferentes(app_e_db, client):
     chave_jan = gerar_chave_valida(numero="000000030", aamm="2501")
     chave_fev = gerar_chave_valida(numero="000000031", aamm="2502")
