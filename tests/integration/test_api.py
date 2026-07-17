@@ -305,6 +305,38 @@ def _aamm_do_mes_corrente() -> str:
     return f"{hoje.year % 100:02d}{hoje.month:02d}"
 
 
+# --- feature 009 (US3): drill-down do resumo para as notas do mes ----------
+
+
+def test_drilldown_resumo_para_notas_filtra_por_mes_e_estabelecimento(app_e_db, client, monkeypatch):
+    """US3/FR-006: a mesma URL que o clique numa fatia de estabelecimento
+    monta (/ver/notas?mes=...&estabelecimento=...) retorna exatamente as
+    notas daquele mes E daquele tipo de estabelecimento -- nao mistura com
+    notas de outros estabelecimentos no mesmo mes."""
+    monkeypatch.setattr(
+        "src.services.importador.sefaz_client.buscar_dados_nota",
+        lambda url: DadosNotaSefaz(emitente_nome="Restaurante Exemplo", valor_total=5000, itens=[]),
+    )
+    supermercado_id = client.post("/categorias", json={"nome": "Supermercado"}).get_json()["categoria"]["id"]
+    restaurante_id = client.post("/categorias", json={"nome": "Restaurante"}).get_json()["categoria"]["id"]
+
+    chave_super = gerar_chave_valida(numero="000000072", aamm="2506")
+    chave_rest = gerar_chave_valida(numero="000000073", aamm="2506")
+    url_super = f"https://www.sefaz.sp.gov.br/nfce/qrcode?p={chave_super}|2|1|1|hash"
+    url_rest = f"https://www.sefaz.sp.gov.br/nfce/qrcode?p={chave_rest}|2|1|1|hash"
+    nota_super_id = client.post("/notas", json={"entrada": url_super}).get_json()["nota"]["id"]
+    nota_rest_id = client.post("/notas", json={"entrada": url_rest}).get_json()["nota"]["id"]
+    client.put(f"/notas/{nota_super_id}/categoria", json={"categoria_id": supermercado_id})
+    client.put(f"/notas/{nota_rest_id}/categoria", json={"categoria_id": restaurante_id})
+
+    resposta = client.get(f"/ver/notas?mes=2025-06&estabelecimento={restaurante_id}")
+    texto = resposta.get_data(as_text=True)
+
+    assert resposta.status_code == 200
+    assert f"/ver/notas/{nota_rest_id}" in texto
+    assert f"/ver/notas/{nota_super_id}" not in texto
+
+
 def test_criar_categoria_aparece_na_listagem(app_e_db, client):
     """US1: POST /categorias cria a categoria e ela aparece em GET /categorias."""
     resposta = client.post("/categorias", json={"nome": "Alimentação"})

@@ -25,6 +25,71 @@ def mes_atual() -> str:
     return f"{hoje.year:04d}-{hoje.month:02d}"
 
 
+def _bucket_por_nivel(
+    categoria_id: int | None, nivel: int, categorias_por_id: dict
+) -> tuple[int | None, str]:
+    """Resolve o par (categoria_id, nome) usado para agrupar um gasto dado o
+    nivel escolhido -- nivel 1 agrupa pela categoria de topo (resolve o pai
+    quando a categoria e uma subcategoria); nivel 2 usa a categoria tal como
+    esta atribuida. categoria_id=None (ou categoria inexistente) sempre vira
+    o bucket "Sem categoria" (feature 009, data-model.md)."""
+    if categoria_id is None:
+        return (None, "Sem categoria")
+    categoria = categorias_por_id.get(categoria_id)
+    if categoria is None:
+        return (None, "Sem categoria")
+    if nivel == 1 and categoria.parent_id is not None:
+        pai = categorias_por_id.get(categoria.parent_id)
+        if pai is not None:
+            return (pai.id, pai.nome)
+    return (categoria.id, categoria.nome)
+
+
+def listar_meses_com_notas(db_path: str = storage_db.DEFAULT_DB_PATH) -> list[str]:
+    """Meses (AAAA-MM) que tem pelo menos uma nota, do mais recente para o
+    mais antigo (US2, FR-004) -- base da navegacao por mes do resumo."""
+    return [r.mes for r in _query_resumo_por_mes(db_path)]
+
+
+def resumo_de_mes(mes: str, db_path: str = storage_db.DEFAULT_DB_PATH) -> ResumoMes | None:
+    """Total e quantidade de notas de um mes qualquer (US2) -- None se o mes
+    nao tem nenhuma nota."""
+    for resumo in _query_resumo_por_mes(db_path):
+        if resumo.mes == mes:
+            return resumo
+    return None
+
+
+def _mes_da_nota(nota) -> str:
+    if nota.data_emissao:
+        return nota.data_emissao[:7]
+    if nota.ano_mes_emissao:
+        return f"20{nota.ano_mes_emissao[:2]}-{nota.ano_mes_emissao[2:4]}"
+    return "Sem data"
+
+
+def agrupar_notas_por_mes(notas: list) -> list[tuple[str, list]]:
+    """Agrupa notas (ja ordenadas por mes desc, id desc -- storage_db.listar_notas)
+    em secoes por mes, mes mais recente primeiro (US4, FR-007). Assume a
+    ordenacao ja existente da query -- so consolida linhas consecutivas do
+    mesmo mes, sem SQL novo (research.md #6). Nota sem data_emissao nem
+    ano_mes_emissao agrupa sob "Sem data"."""
+    grupos: list[tuple[str, list]] = []
+    mes_atual_do_grupo: str | None = None
+    notas_do_grupo: list = []
+    for nota in notas:
+        mes = _mes_da_nota(nota)
+        if mes != mes_atual_do_grupo:
+            if notas_do_grupo:
+                grupos.append((mes_atual_do_grupo, notas_do_grupo))
+            mes_atual_do_grupo = mes
+            notas_do_grupo = []
+        notas_do_grupo.append(nota)
+    if notas_do_grupo:
+        grupos.append((mes_atual_do_grupo, notas_do_grupo))
+    return grupos
+
+
 def _query_resumo_por_mes(db_path: str) -> list[ResumoMes]:
     """Agrupa as notas por mês (data_emissao, com fallback para
     ano_mes_emissao decodificado da chave), somando valor_total em
@@ -69,32 +134,113 @@ def historico_meses_anteriores(db_path: str = storage_db.DEFAULT_DB_PATH) -> lis
     return [resumo for resumo in _query_resumo_por_mes(db_path) if resumo.mes < mes]
 
 
-def gasto_por_categoria(mes: str, db_path: str = storage_db.DEFAULT_DB_PATH) -> list[GastoCategoria]:
-    """Soma o valor_total das notas do mes informado (AAAA-MM), agrupado
-    por categoria -- notas sem categoria_id agrupam sob nome "Sem
-    categoria" (FR-002); notas com valor_total nulo sao excluidas da
-    soma (mesma regra de _query_resumo_por_mes, garante FR-006).
-    Ordenado do maior para o menor gasto (feature 005, data-model.md)."""
+def gasto_por_categoria_item(
+    mes: str, nivel: int = 1, db_path: str = storage_db.DEFAULT_DB_PATH
+) -> list[GastoCategoria]:
+    """Soma o gasto do mes informado (AAAA-MM) agrupado pela categoria dos
+    itens de cada nota (feature 008/009, FR-001/002/003, data-model.md).
+    Quando a nota tem pelo menos um item classificado, cada item soma na sua
+    propria categoria (nivel 1 resolve a categoria de topo; nivel 2 usa a
+    categoria tal como esta atribuida) e os itens ainda pendentes da mesma
+    nota somam em "Sem categoria" -- nunca caem na categoria da nota. Quando
+    a nota nao tem nenhum item classificado (incluindo nota sem nenhum item
+    extraido), o valor total da nota inteira cai de volta na categoria da
+    propria nota, ou em "Sem categoria" se a nota tambem nao tiver
+    categoria. Item com valor nulo nunca contribui para nenhuma soma."""
     conn = storage_db.get_connection(db_path)
     try:
         rows = conn.execute(
             """
             SELECT
-                categoria.id AS categoria_id,
-                COALESCE(categoria.nome, 'Sem categoria') AS nome,
-                SUM(nota_fiscal.valor_total) AS total_gasto
-            FROM nota_fiscal
-            LEFT JOIN categoria ON categoria.id = nota_fiscal.categoria_id
-            WHERE COALESCE(substr(nota_fiscal.data_emissao, 1, 7), '20' || substr(nota_fiscal.ano_mes_emissao, 1, 2) || '-' || substr(nota_fiscal.ano_mes_emissao, 3, 2)) = ?
-              AND nota_fiscal.valor_total IS NOT NULL
-            GROUP BY categoria.id
-            ORDER BY total_gasto DESC
+                nf.id AS nota_id,
+                nf.categoria_id AS nota_categoria_id,
+                nf.valor_total AS nota_valor_total,
+                it.categoria_id AS item_categoria_id,
+                it.valor_total_item AS item_valor_total
+            FROM nota_fiscal nf
+            LEFT JOIN item_nota it ON it.nota_fiscal_id = nf.id
+            WHERE COALESCE(substr(nf.data_emissao, 1, 7), '20' || substr(nf.ano_mes_emissao, 1, 2) || '-' || substr(nf.ano_mes_emissao, 3, 2)) = ?
+              AND nf.valor_total IS NOT NULL
             """,
             (mes,),
         ).fetchall()
-        return [
-            GastoCategoria(categoria_id=row["categoria_id"], nome=row["nome"], total_gasto=row["total_gasto"])
-            for row in rows
-        ]
     finally:
         conn.close()
+
+    categorias_por_id = {c.id: c for c in storage_db.listar_categorias(db_path=db_path)}
+
+    por_nota: dict[int, list] = {}
+    for row in rows:
+        por_nota.setdefault(row["nota_id"], []).append(row)
+
+    acumulado: dict[int | None, list] = {}
+
+    def _somar(categoria_id: int | None, valor: int) -> None:
+        bucket_id, nome = _bucket_por_nivel(categoria_id, nivel, categorias_por_id)
+        atual = acumulado.get(bucket_id)
+        if atual is None:
+            acumulado[bucket_id] = [nome, valor]
+        else:
+            atual[1] += valor
+
+    for linhas in por_nota.values():
+        tem_item_classificado = any(linha["item_categoria_id"] is not None for linha in linhas)
+        if tem_item_classificado:
+            for linha in linhas:
+                if linha["item_valor_total"] is None:
+                    continue
+                _somar(linha["item_categoria_id"], linha["item_valor_total"])
+        else:
+            primeira = linhas[0]
+            _somar(primeira["nota_categoria_id"], primeira["nota_valor_total"])
+
+    resultado = [
+        GastoCategoria(categoria_id=cat_id, nome=nome, total_gasto=total)
+        for cat_id, (nome, total) in acumulado.items()
+    ]
+    resultado.sort(key=lambda g: g.total_gasto, reverse=True)
+    return resultado
+
+
+def gasto_por_estabelecimento(
+    mes: str, nivel: int = 1, db_path: str = storage_db.DEFAULT_DB_PATH
+) -> list[GastoCategoria]:
+    """Soma o valor_total das notas do mes informado (AAAA-MM), agrupado
+    pelo tipo de estabelecimento da nota (nota_fiscal.categoria_id,
+    feature 003/009) -- eixo independente da categoria do item (US5).
+    Notas sem tipo de estabelecimento agrupam sob "Sem categoria" (FR-002);
+    notas com valor_total nulo sao excluidas da soma (mesma regra de
+    _query_resumo_por_mes). nivel 1 resolve subcategoria -> categoria-pai
+    (ex.: Saude > Dentista some sob Saude); nivel 2 usa a categoria tal
+    como esta atribuida. Ordenado do maior para o menor gasto."""
+    conn = storage_db.get_connection(db_path)
+    try:
+        rows = conn.execute(
+            """
+            SELECT nota_fiscal.categoria_id AS categoria_id, nota_fiscal.valor_total AS total_gasto
+            FROM nota_fiscal
+            WHERE COALESCE(substr(nota_fiscal.data_emissao, 1, 7), '20' || substr(nota_fiscal.ano_mes_emissao, 1, 2) || '-' || substr(nota_fiscal.ano_mes_emissao, 3, 2)) = ?
+              AND nota_fiscal.valor_total IS NOT NULL
+            """,
+            (mes,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    categorias_por_id = {c.id: c for c in storage_db.listar_categorias(db_path=db_path)}
+
+    acumulado: dict[int | None, list] = {}
+    for row in rows:
+        bucket_id, nome = _bucket_por_nivel(row["categoria_id"], nivel, categorias_por_id)
+        atual = acumulado.get(bucket_id)
+        if atual is None:
+            acumulado[bucket_id] = [nome, row["total_gasto"]]
+        else:
+            atual[1] += row["total_gasto"]
+
+    resultado = [
+        GastoCategoria(categoria_id=cat_id, nome=nome, total_gasto=total)
+        for cat_id, (nome, total) in acumulado.items()
+    ]
+    resultado.sort(key=lambda g: g.total_gasto, reverse=True)
+    return resultado

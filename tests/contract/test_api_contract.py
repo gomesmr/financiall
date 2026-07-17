@@ -300,7 +300,7 @@ def test_pagina_ver_resumo_inclui_graficos_com_notas_em_varios_meses(client, mon
     resposta = client.get("/ver/resumo")
     texto = resposta.get_data(as_text=True)
     assert resposta.status_code == 200
-    assert 'id="grafico-pizza"' in texto
+    assert 'id="grafico-item"' in texto
     assert 'id="grafico-barras"' in texto
     assert "plotly-basic.min.js" in texto
 
@@ -309,6 +309,45 @@ def test_pagina_ver_resumo_carrega(client):
     resposta = client.get("/ver/resumo")
     assert resposta.status_code == 200
     assert "Resumo de gastos" in resposta.get_data(as_text=True)
+
+
+# --- feature 009: contrato estendido de /notas/resumo/categorias -----------
+
+
+def test_get_resumo_categorias_dimensao_item_default(client):
+    """GET /notas/resumo/categorias sem `dimensao` usa `item` como default
+    (contracts/api.md) -- mudanca de comportamento em relacao a feature 005."""
+    resposta = client.get("/notas/resumo/categorias?mes=2020-01")
+    corpo = resposta.get_json()
+    assert resposta.status_code == 200
+    assert corpo["dimensao"] == "item"
+    assert corpo["nivel"] == 1
+    assert corpo["categorias"] == []
+
+
+def test_get_resumo_categorias_dimensao_estabelecimento(client):
+    chave = gerar_chave_valida(numero="000000090", aamm="2506")
+    client.post("/notas", json={"entrada": chave})
+
+    resposta = client.get("/notas/resumo/categorias?mes=2025-06&dimensao=estabelecimento")
+    corpo = resposta.get_json()
+    assert resposta.status_code == 200
+    assert corpo["dimensao"] == "estabelecimento"
+
+
+def test_get_resumo_categorias_valor_invalido_cai_no_default(client):
+    resposta = client.get("/notas/resumo/categorias?mes=2020-01&dimensao=xpto&nivel=9")
+    corpo = resposta.get_json()
+    assert resposta.status_code == 200
+    assert corpo["dimensao"] == "item"
+    assert corpo["nivel"] == 1
+
+
+def test_pagina_ver_notas_filtra_por_mes_e_estabelecimento(client):
+    resposta = client.get("/ver/notas?mes=2025-06&estabelecimento=999")
+    assert resposta.status_code == 200
+    texto = resposta.get_data(as_text=True)
+    assert "Nenhuma nota importada" in texto or "vazio" in texto
 
 
 def test_pagina_ver_envio_pendente_tem_meta_refresh(client):

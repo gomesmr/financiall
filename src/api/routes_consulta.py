@@ -21,17 +21,33 @@ def pagina_upload():
 def pagina_notas():
     """Visao HTML de navegacao (distinta do endpoint JSON GET /notas do
     contrato da API) — lista as notas para o usuario navegar pelo
-    navegador, com a mesma navegacao principal das demais paginas."""
+    navegador, com a mesma navegacao principal das demais paginas.
+
+    Sem `mes` explicito, as notas aparecem agrupadas visualmente por mes
+    (US4, FR-007). `estabelecimento` (categoria_id) filtra pelo tipo de
+    estabelecimento da nota, usado pelo drill-down a partir do resumo
+    (US3, FR-006)."""
     db_path = current_app.config["DB_PATH"]
     mes = request.args.get("mes")
     titular = request.args.get("titular")
-    notas = storage_db.listar_notas(mes=mes, titular=titular, db_path=db_path)
-    categorias_por_id = {c.id: c.nome for c in storage_db.listar_categorias(db_path=db_path)}
+    estabelecimento_raw = request.args.get("estabelecimento")
+    estabelecimento_id = int(estabelecimento_raw) if estabelecimento_raw and estabelecimento_raw.isdigit() else None
+    notas = storage_db.listar_notas(
+        mes=mes, titular=titular, categoria_id=estabelecimento_id, db_path=db_path
+    )
+    categorias = storage_db.listar_categorias(db_path=db_path)
+    categorias_por_id = {c.id: c.nome for c in categorias}
+    estabelecimento_nome = categorias_por_id.get(estabelecimento_id) if estabelecimento_id else None
+    grupos_por_mes = resumo_service.agrupar_notas_por_mes(notas) if not mes else None
     return render_template(
         "notas.html",
         notas=notas,
+        grupos_por_mes=grupos_por_mes,
         categorias_por_id=categorias_por_id,
         titular_filtro=titular,
+        mes_filtro=mes,
+        estabelecimento_filtro=estabelecimento_id,
+        estabelecimento_nome=estabelecimento_nome,
         pagina_ativa="notas",
     )
 
@@ -61,19 +77,47 @@ def pagina_nota_detalhe(nota_id: int):
 
 @bp.get("/ver/resumo")
 def pagina_resumo():
-    """Visao HTML de navegacao do resumo mensal (mes corrente + historico
-    + graficos de pizza/barras, feature 005)."""
+    """Visao HTML de navegacao do resumo mensal (feature 005, redesenhada na
+    feature 009): navegacao unificada por mes (US2), gasto por categoria do
+    item com fallback para a categoria da nota (US1) ou por tipo de
+    estabelecimento (US5), com toggle de nivel 1/2 (FR-009)."""
     db_path = current_app.config["DB_PATH"]
-    mes_corrente = resumo_service.gasto_mes_corrente(db_path=db_path)
+    mes_atual = resumo_service.mes_atual()
+    meses_com_notas = resumo_service.listar_meses_com_notas(db_path=db_path)
+
+    mes_selecionado = request.args.get("mes") or mes_atual
+    meses_navegaveis = sorted({mes_atual, mes_selecionado, *meses_com_notas}, reverse=True)
+    idx = meses_navegaveis.index(mes_selecionado)
+    mes_anterior = meses_navegaveis[idx + 1] if idx + 1 < len(meses_navegaveis) else None
+    mes_seguinte = meses_navegaveis[idx - 1] if idx > 0 else None
+    mes_mais_recente = meses_navegaveis[0]
+
+    dimensao = request.args.get("dimensao")
+    if dimensao not in ("item", "estabelecimento", "ambos"):
+        dimensao = "item"
+    nivel = 2 if request.args.get("nivel") == "2" else 1
+
+    resumo_mes_selecionado = resumo_service.resumo_de_mes(mes_selecionado, db_path=db_path)
+
+    # Evolucao mensal (feature 005) -- mantida como visao complementar de
+    # longo prazo abaixo da navegacao principal, sem sobrepor a ela.
     historico = resumo_service.historico_meses_anteriores(db_path=db_path)
     historico_json = [{"mes": r.mes, "total_gasto": r.total_gasto} for r in historico]
-    meses_disponiveis = [resumo_service.mes_atual()] + [r.mes for r in historico]
+
     return render_template(
         "resumo.html",
-        mes_corrente=mes_corrente,
+        mes_selecionado=mes_selecionado,
+        mes_atual=mes_atual,
+        mes_anterior=mes_anterior,
+        mes_seguinte=mes_seguinte,
+        mes_mais_recente=mes_mais_recente,
+        tem_mes_anterior=mes_anterior is not None,
+        tem_mes_seguinte=mes_seguinte is not None,
+        dimensao=dimensao,
+        nivel=nivel,
+        resumo_mes=resumo_mes_selecionado,
         historico=historico,
         historico_json=historico_json,
-        meses_disponiveis=meses_disponiveis,
         pagina_ativa="resumo",
     )
 
@@ -171,13 +215,28 @@ def resumo_historico():
 
 @bp.get("/notas/resumo/categorias")
 def resumo_categorias():
+    """Contrato estendido na feature 009 (contracts/api.md): `dimensao`
+    (item|estabelecimento, default item) e `nivel` (1|2, default 1). Valor
+    invalido de qualquer um dos dois cai silenciosamente no default —
+    endpoint de uso interno da propria pagina, sem consumidor externo."""
     db_path = current_app.config["DB_PATH"]
     mes = request.args.get("mes") or resumo_service.mes_atual()
-    gastos = resumo_service.gasto_por_categoria(mes, db_path=db_path)
+    dimensao = request.args.get("dimensao")
+    if dimensao not in ("item", "estabelecimento"):
+        dimensao = "item"
+    nivel = 2 if request.args.get("nivel") == "2" else 1
+
+    if dimensao == "estabelecimento":
+        gastos = resumo_service.gasto_por_estabelecimento(mes, nivel=nivel, db_path=db_path)
+    else:
+        gastos = resumo_service.gasto_por_categoria_item(mes, nivel=nivel, db_path=db_path)
+
     return (
         jsonify(
             {
                 "mes": mes,
+                "dimensao": dimensao,
+                "nivel": nivel,
                 "categorias": [
                     {"categoria_id": g.categoria_id, "nome": g.nome, "total_gasto": g.total_gasto}
                     for g in gastos

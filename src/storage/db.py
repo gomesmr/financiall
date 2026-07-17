@@ -397,11 +397,15 @@ def listar_itens_por_nota(nota_fiscal_id: int, db_path: str = DEFAULT_DB_PATH) -
 
 
 def listar_notas(
-    mes: str | None = None, titular: str | None = None, db_path: str = DEFAULT_DB_PATH
+    mes: str | None = None,
+    titular: str | None = None,
+    categoria_id: int | None = None,
+    db_path: str = DEFAULT_DB_PATH,
 ) -> list[NotaFiscal]:
     """Lista notas ordenadas pela data de emissao (ou ano-mes, quando o dia
-    exato nao foi obtido) desc. Filtros opcionais por mes (AAAA-MM) e por
-    titular (feature 004)."""
+    exato nao foi obtido) desc. Filtros opcionais por mes (AAAA-MM), por
+    titular (feature 004) e por categoria_id -- tipo de estabelecimento da
+    nota (feature 009)."""
     conn = get_connection(db_path)
     try:
         query = """
@@ -418,6 +422,9 @@ def listar_notas(
         if titular:
             condicoes.append("titular = ?")
             params.append(titular)
+        if categoria_id is not None:
+            condicoes.append("categoria_id = ?")
+            params.append(categoria_id)
         if condicoes:
             query += " WHERE " + " AND ".join(condicoes)
         query += " ORDER BY mes_ordenacao DESC, id DESC"

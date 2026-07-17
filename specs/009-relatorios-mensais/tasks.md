@@ -36,14 +36,14 @@ histórias de usuário.
 
 **⚠️ CRITICAL**: nenhuma história começa antes desta fase estar completa.
 
-- [ ] T002 [P] Implementar helper `_bucket_por_nivel(categoria_id, nivel, categorias_por_id)`
+- [X] T002 [P] Implementar helper `_bucket_por_nivel(categoria_id, nivel, categorias_por_id)`
       em `src/services/resumo.py` (research.md #3/#3, data-model.md "Regra de
       negócio: resolução de nível") — resolve subcategoria → categoria-pai
       quando `nivel=1`, usa a própria categoria quando `nivel=2`.
-- [ ] T003 [P] Implementar `listar_meses_com_notas(db_path)` e `resumo_de_mes(mes, db_path)`
+- [X] T003 [P] Implementar `listar_meses_com_notas(db_path)` e `resumo_de_mes(mes, db_path)`
       em `src/services/resumo.py` (research.md #4) — reaproveita
       `_query_resumo_por_mes` já existente.
-- [ ] T004 Adicionar parâmetro opcional `categoria_id` a `listar_notas` em
+- [X] T004 Adicionar parâmetro opcional `categoria_id` a `listar_notas` em
       `src/storage/db.py` (data-model.md "Relação com a listagem de notas") —
       filtro por tipo de estabelecimento, aditivo e retrocompatível.
 
@@ -62,23 +62,23 @@ categoria de item e usa fallback corretamente; alternar nível 1/2.
 
 ### Tests for User Story 1
 
-- [ ] T005 [P] [US1] Testes unitários de `gasto_por_categoria_item` (fallback
+- [X] T005 [P] [US1] Testes unitários de `gasto_por_categoria_item` (fallback
       item→nota, "Sem categoria" para item pendente de nota já classificada,
       nível 1 vs. nível 2, item com valor nulo excluído) em
       `tests/unit/test_resumo.py`
-- [ ] T006 [P] [US1] Teste de contrato para
+- [X] T006 [P] [US1] Teste de contrato para
       `GET /notas/resumo/categorias?mes=&dimensao=item&nivel=1|2` em
       `tests/contract/test_api_contract.py` (contracts/api.md)
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Implementar `gasto_por_categoria_item(mes, nivel=1, db_path)`
+- [X] T007 [US1] Implementar `gasto_por_categoria_item(mes, nivel=1, db_path)`
       em `src/services/resumo.py` (depende de T002; regra de fallback em
       data-model.md)
-- [ ] T008 [US1] Estender `GET /notas/resumo/categorias` para aceitar
+- [X] T008 [US1] Estender `GET /notas/resumo/categorias` para aceitar
       `dimensao` (default `item`) e `nivel` (default `1`), despachando para
       `gasto_por_categoria_item` em `src/api/routes_consulta.py`
-- [ ] T009 [US1] Redesenhar `src/api/templates/resumo.html`: estrutura de
+- [X] T009 [US1] Redesenhar `src/api/templates/resumo.html`: estrutura de
       cartões nova, gráfico de pizza consumindo `dimensao=item`, seletor de
       nível 1/2 (dimensão "por estabelecimento" e navegação por mês entram
       nas histórias seguintes, mas o layout base já é criado aqui)
@@ -93,7 +93,7 @@ categoria de item e usa fallback corretamente; alternar nível 1/2.
 
 ### Visual Verification for User Story 1 (MANDATORY — Princípio VIII)
 
-- [ ] T011 [US1] Captura de tela headless de `/ver/resumo?dimensao=item` (nível
+- [X] T011 [US1] Captura de tela headless de `/ver/resumo?dimensao=item` (nível
       1 e nível 2) + checagem de zero erros de console
 
 **Checkpoint**: US1 funcional e testável de forma independente.
@@ -109,16 +109,16 @@ voltar ao mês mais recente.
 
 ### Tests for User Story 2
 
-- [ ] T012 [P] [US2] Testes unitários de `listar_meses_com_notas`/`resumo_de_mes`
+- [X] T012 [P] [US2] Testes unitários de `listar_meses_com_notas`/`resumo_de_mes`
       e da lógica de vizinhança (mês anterior/seguinte nunca aponta para mês
       sem nota; mês corrente sempre incluído) em `tests/unit/test_resumo.py`
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Implementar cálculo de navegação (`meses_navegaveis`,
+- [X] T013 [US2] Implementar cálculo de navegação (`meses_navegaveis`,
       `mes_anterior`, `mes_seguinte`, mês-mais-recente) em `pagina_resumo()`,
       `src/api/routes_consulta.py` (depende de T003; research.md #4)
-- [ ] T014 [US2] Adicionar UI de navegação (botões anterior/seguinte, ação
+- [X] T014 [US2] Adicionar UI de navegação (botões anterior/seguinte, ação
       "mês mais recente", indicação visual do mês ativo) em
       `src/api/templates/resumo.html`
 
@@ -129,7 +129,7 @@ notas já importadas), nenhuma entrada externa nova processada.
 
 ### Visual Verification for User Story 2 (MANDATORY — Princípio VIII)
 
-- [ ] T015 [US2] Captura de tela headless de `/ver/resumo` navegando entre
+- [X] T015 [US2] Captura de tela headless de `/ver/resumo` navegando entre
       mês com dado e mês corrente vazio + checagem de zero erros de console
 
 **Checkpoint**: US1 + US2 funcionam juntas de forma independente.
@@ -146,21 +146,21 @@ filtrado exatamente pelo mês (e estabelecimento, se aplicável).
 
 ### Tests for User Story 3
 
-- [ ] T016 [P] [US3] Teste de contrato para
+- [X] T016 [P] [US3] Teste de contrato para
       `GET /ver/notas?mes=&estabelecimento=` em
       `tests/contract/test_api_contract.py`
-- [ ] T017 [P] [US3] Teste de integração do fluxo ponta a ponta (resumo →
+- [X] T017 [P] [US3] Teste de integração do fluxo ponta a ponta (resumo →
       clique na fatia → notas filtradas) em `tests/integration/test_api.py`
 
 ### Implementation for User Story 3
 
-- [ ] T018 [US3] Tratar `mes` e `estabelecimento` em `pagina_notas()`,
+- [X] T018 [US3] Tratar `mes` e `estabelecimento` em `pagina_notas()`,
       `src/api/routes_consulta.py` (depende de T004)
-- [ ] T019 [US3] Adicionar handler `plotly_click` em `resumo.html` que monta
+- [X] T019 [US3] Adicionar handler `plotly_click` em `resumo.html` que monta
       `/ver/notas?mes=...` (dimensão item) ou
       `/ver/notas?mes=...&estabelecimento=...` (dimensão estabelecimento) e
       navega (depende de T009)
-- [ ] T020 [US3] Adicionar ação direta "Ver notas deste mês" em
+- [X] T020 [US3] Adicionar ação direta "Ver notas deste mês" em
       `resumo.html`, independente do clique no gráfico (garante FR-006 mesmo
       sem interação com o gráfico)
 
@@ -170,7 +170,7 @@ N/A — navegação interna, nenhuma entrada externa nova processada.
 
 ### Visual Verification for User Story 3 (MANDATORY — Princípio VIII)
 
-- [ ] T021 [US3] Captura de tela headless da página de destino do drill-down
+- [X] T021 [US3] Captura de tela headless da página de destino do drill-down
       (`/ver/notas?mes=...&estabelecimento=...`) + checagem de zero erros de
       console
 
@@ -188,19 +188,19 @@ visualmente a que mês cada nota pertence, sem tabela plana única.
 
 ### Tests for User Story 4
 
-- [ ] T022 [P] [US4] Teste unitário de `agrupar_notas_por_mes` (agrupamento
+- [X] T022 [P] [US4] Teste unitário de `agrupar_notas_por_mes` (agrupamento
       preserva ordem desc já existente, mês mais recente primeiro) em
       `tests/unit/test_resumo.py`
 
 ### Implementation for User Story 4
 
-- [ ] T023 [US4] Implementar `agrupar_notas_por_mes(notas)` em
+- [X] T023 [US4] Implementar `agrupar_notas_por_mes(notas)` em
       `src/services/resumo.py` (research.md #6 — `itertools.groupby` sobre
       resultado já ordenado)
-- [ ] T024 [US4] Atualizar `pagina_notas()` para agrupar por mês via
+- [X] T024 [US4] Atualizar `pagina_notas()` para agrupar por mês via
       `agrupar_notas_por_mes` quando nenhum `mes` explícito for informado,
       em `src/api/routes_consulta.py`
-- [ ] T025 [US4] Redesenhar `src/api/templates/notas.html`: renderizar notas
+- [X] T025 [US4] Redesenhar `src/api/templates/notas.html`: renderizar notas
       em seções por mês em vez de tabela única, mantendo os filtros de
       titular/estabelecimento já existentes dentro de cada seção
 
@@ -210,7 +210,7 @@ N/A — apresentação de dado interno já validado, nenhuma entrada externa nov
 
 ### Visual Verification for User Story 4 (MANDATORY — Princípio VIII)
 
-- [ ] T026 [US4] Captura de tela headless de `/ver/notas` agrupada (dado real
+- [X] T026 [US4] Captura de tela headless de `/ver/notas` agrupada (dado real
       multi-mês) + checagem de zero erros de console
 
 **Checkpoint**: US1-US4 funcionam de forma independente.
@@ -228,22 +228,22 @@ independente da categoria dos itens.
 
 ### Tests for User Story 5
 
-- [ ] T027 [P] [US5] Migrar testes de `gasto_por_categoria` para
+- [X] T027 [P] [US5] Migrar testes de `gasto_por_categoria` para
       `gasto_por_estabelecimento` (mesmo comportamento + novos casos de
       `nivel`) em `tests/unit/test_resumo.py`
-- [ ] T028 [P] [US5] Teste de contrato para
+- [X] T028 [P] [US5] Teste de contrato para
       `GET /notas/resumo/categorias?dimensao=estabelecimento&nivel=1|2` em
       `tests/contract/test_api_contract.py`
 
 ### Implementation for User Story 5
 
-- [ ] T029 [US5] Renomear `gasto_por_categoria` → `gasto_por_estabelecimento`
+- [X] T029 [US5] Renomear `gasto_por_categoria` → `gasto_por_estabelecimento`
       com parâmetro `nivel` em `src/services/resumo.py` (depende de T002;
       research.md #2)
-- [ ] T030 [US5] Adicionar branch `dimensao=estabelecimento` em
+- [X] T030 [US5] Adicionar branch `dimensao=estabelecimento` em
       `GET /notas/resumo/categorias`, `src/api/routes_consulta.py` (depende
       de T008)
-- [ ] T031 [US5] Adicionar seletor de dimensão ("Por item" / "Por
+- [X] T031 [US5] Adicionar seletor de dimensão ("Por item" / "Por
       estabelecimento" / "Os dois") em `resumo.html`, renderizando o segundo
       gráfico quando "estabelecimento" ou "ambos" estiver ativo (depende de
       T009)
@@ -257,7 +257,7 @@ independente da categoria dos itens.
 
 ### Visual Verification for User Story 5 (MANDATORY — Princípio VIII)
 
-- [ ] T033 [US5] Captura de tela headless de `/ver/resumo?dimensao=estabelecimento`
+- [X] T033 [US5] Captura de tela headless de `/ver/resumo?dimensao=estabelecimento`
       e da visão "os dois" + checagem de zero erros de console
 
 **Checkpoint**: US1-US5 funcionam de forma independente.
@@ -274,17 +274,17 @@ nota real; confirmar reflexo imediato no resumo por estabelecimento.
 
 ### Tests for User Story 6
 
-- [ ] T034 [P] [US6] Teste unitário de idempotência de
+- [X] T034 [P] [US6] Teste unitário de idempotência de
       `seed_taxonomia_estabelecimento` (rodar duas vezes não duplica) em
       `tests/unit/test_seed_taxonomia_estabelecimento.py`
 
 ### Implementation for User Story 6
 
-- [ ] T035 [US6] Criar `src/scripts/seed_taxonomia_estabelecimento.py`
+- [X] T035 [US6] Criar `src/scripts/seed_taxonomia_estabelecimento.py`
       (idempotente, mesmo padrão de `seed_taxonomia_categorizacao.py` —
       research.md #7): Supermercado, Mercearia, Restaurante, Bar, Farmácia,
       Pet Shop, Saúde (com Dentista e Plano de Saúde)
-- [ ] T036 [US6] Trocar rótulo "Categoria" → "Tipo de estabelecimento" e
+- [X] T036 [US6] Trocar rótulo "Categoria" → "Tipo de estabelecimento" e
       reaproveitar o autocomplete hierárquico de `classificacao.js` (feature
       008) no lugar do `<select>` plano, em
       `src/api/templates/nota_detalhe.html`
@@ -302,7 +302,7 @@ nota real; confirmar reflexo imediato no resumo por estabelecimento.
 
 ### Visual Verification for User Story 6 (MANDATORY — Princípio VIII)
 
-- [ ] T039 [US6] Captura de tela headless de `nota_detalhe.html` com o campo
+- [X] T039 [US6] Captura de tela headless de `nota_detalhe.html` com o campo
       "Tipo de estabelecimento" novo + checagem de zero erros de console
 
 **Checkpoint**: todas as histórias funcionam de forma independente.
@@ -311,11 +311,11 @@ nota real; confirmar reflexo imediato no resumo por estabelecimento.
 
 ## Final Phase: Polish & Cross-Cutting Concerns
 
-- [ ] T040 Rodar a suíte de testes completa (`python -m pytest -q`) — todas as
+- [X] T040 Rodar a suíte de testes completa (`python -m pytest -q`) — todas as
       histórias juntas
 - [ ] T041 Rodar os 6 cenários de `quickstart.md` contra o app local com dado
       de teste
-- [ ] T042 [P] Revisar que nenhuma referência ao nome antigo `gasto_por_categoria`
+- [X] T042 [P] Revisar que nenhuma referência ao nome antigo `gasto_por_categoria`
       restou no código ou nos testes (grep)
 
 ---
