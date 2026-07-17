@@ -261,14 +261,14 @@ mesma descrição normalizada, e confirmar que já chega classificado sem ação
 > as histórias) — esta fase valida e fecha o comportamento ponta a ponta específico do
 > reaproveitamento e da idempotência.
 
-- [ ] T024 [P] [US2] Integration test: classificar item manualmente numa nota, importar uma
+- [X] T024 [P] [US2] Integration test: classificar item manualmente numa nota, importar uma
       segunda nota com item de descrição igual (ou que normaliza igual), confirmar
       classificação automática sem passar pela fila de pendentes — `tests/integration/test_api.py`
-- [ ] T025 [P] [US2] Unit test de idempotência: chamar `classificar_itens_pendentes_da_nota`
+- [X] T025 [P] [US2] Unit test de idempotência: chamar `classificar_itens_pendentes_da_nota`
       duas vezes seguidas para a mesma nota não duplica linhas em
       `historico_classificacao_item` nem altera classificações já existentes (FR-015) —
       `tests/unit/test_classificacao_itens.py`
-- [ ] T026 [US2] Unit test de precedência: corrigir manualmente um item já classificado por
+- [X] T026 [US2] Unit test de precedência: corrigir manualmente um item já classificado por
       cache/regra sobrescreve a entrada de `cache_descricao_categoria`, e um item novo com a
       mesma descrição normalizada passa a receber a categoria corrigida (FR-012 cenário 2) —
       `tests/unit/test_classificacao_itens.py`

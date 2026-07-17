@@ -389,3 +389,69 @@ def test_obter_evolucao_classificacao_series_cumulativas_ordenadas(db_path):
 
     classificados = [p["total"] for p in evolucao["itens_classificados"]]
     assert classificados == [1]
+
+
+# --- US2: idempotencia e precedencia -----------------------------------
+
+
+def test_classificar_itens_pendentes_da_nota_chamada_duas_vezes_e_idempotente(db_path):
+    """FR-015: reprocessar uma nota ja classificada nao duplica linhas de
+    historico nem altera a classificacao existente."""
+    categoria_id = storage_db.criar_categoria("Higiene pessoal e perfumaria", db_path=db_path)
+    conn = storage_db.get_connection(db_path)
+    conn.execute(
+        "INSERT INTO regra_categoria (padrao, categoria_id, prioridade, ativa) VALUES (?, ?, 10, 1)",
+        ("HIGIENICO", categoria_id),
+    )
+    conn.commit()
+    conn.close()
+
+    nota_id = _inserir_nota(db_path)
+    item_id = _inserir_item(nota_id, "PAPEL HIGIENICO NEVE C/4", db_path=db_path)
+
+    classificacao_itens.classificar_itens_pendentes_da_nota(nota_id, db_path=db_path)
+    item_apos_primeira = storage_db.listar_itens_por_nota(nota_id, db_path=db_path)[0]
+    historico_apos_primeira = _historico_do_item(item_id, db_path)
+
+    classificacao_itens.classificar_itens_pendentes_da_nota(nota_id, db_path=db_path)
+    item_apos_segunda = storage_db.listar_itens_por_nota(nota_id, db_path=db_path)[0]
+    historico_apos_segunda = _historico_do_item(item_id, db_path)
+
+    assert item_apos_segunda.categoria_id == item_apos_primeira.categoria_id
+    assert item_apos_segunda.metodo_classificacao == item_apos_primeira.metodo_classificacao
+    assert len(historico_apos_segunda) == len(historico_apos_primeira) == 1
+
+
+def test_corrigir_item_classificado_por_regra_sobrescreve_cache_para_novos_itens(db_path):
+    """FR-012 cenario 2: corrigir manualmente um item que tinha sido
+    classificado por regra sobrescreve cache_descricao_categoria -- um
+    item NOVO com a mesma descricao normalizada passa a receber a
+    categoria corrigida (via cache, precedencia sobre a regra antiga --
+    research.md #10/#11)."""
+    categoria_errada = storage_db.criar_categoria("Categoria Errada", db_path=db_path)
+    categoria_correta = storage_db.criar_categoria("Categoria Correta", db_path=db_path)
+    conn = storage_db.get_connection(db_path)
+    conn.execute(
+        "INSERT INTO regra_categoria (padrao, categoria_id, prioridade, ativa) VALUES (?, ?, 10, 1)",
+        ("HIGIENICO", categoria_errada),
+    )
+    conn.commit()
+    conn.close()
+
+    nota_1 = _inserir_nota(db_path)
+    item_1 = _inserir_item(nota_1, "PAPEL HIGIENICO NEVE C/4", db_path=db_path)
+    classificacao_itens.classificar_itens_pendentes_da_nota(nota_1, db_path=db_path)
+    item_1_classificado = storage_db.listar_itens_por_nota(nota_1, db_path=db_path)[0]
+    assert item_1_classificado.categoria_id == categoria_errada
+    assert item_1_classificado.metodo_classificacao == "regra"
+
+    storage_db.atribuir_categoria_manual(item_1, categoria_correta, db_path=db_path)
+
+    nota_2 = _inserir_nota(db_path)
+    item_2_id = _inserir_item(nota_2, "PAPEL HIGIENICO NEVE C/4", db_path=db_path)
+    classificacao_itens.classificar_itens_pendentes_da_nota(nota_2, db_path=db_path)
+
+    item_2 = storage_db.listar_itens_por_nota(nota_2, db_path=db_path)[0]
+    assert item_2.id == item_2_id
+    assert item_2.categoria_id == categoria_correta
+    assert item_2.metodo_classificacao == "cache"
