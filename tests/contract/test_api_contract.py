@@ -432,6 +432,79 @@ def test_post_categorias_quase_duplicata_com_forcar_cria_mesmo_assim(client):
     assert resposta.status_code == 201
 
 
+def test_get_impacto_exclusao_categoria_inexistente_retorna_404(client):
+    resposta = client.get("/categorias/999999/impacto-exclusao")
+    assert resposta.status_code == 404
+
+
+def test_get_impacto_exclusao_com_subcategorias(client):
+    topo_id = client.post("/categorias", json={"nome": "Alimentação"}).get_json()["categoria"]["id"]
+    client.post("/categorias", json={"nome": "Mercearia seca", "parent_id": topo_id})
+
+    resposta = client.get(f"/categorias/{topo_id}/impacto-exclusao")
+    corpo = resposta.get_json()
+
+    assert resposta.status_code == 200
+    assert corpo["tem_subcategorias"] is True
+
+
+def test_delete_categoria_bloqueada_por_subcategoria_retorna_422(client):
+    topo_id = client.post("/categorias", json={"nome": "Alimentação"}).get_json()["categoria"]["id"]
+    client.post("/categorias", json={"nome": "Mercearia seca", "parent_id": topo_id})
+
+    resposta = client.delete(f"/categorias/{topo_id}")
+
+    assert resposta.status_code == 422
+    assert "subcategorias" in resposta.get_json()["erro"]
+
+
+def test_delete_categoria_em_uso_sem_destino_retorna_422(client, app_e_db, tmp_path):
+    _, db_path = app_e_db
+    categoria_id = client.post("/categorias", json={"nome": "Alimentação"}).get_json()["categoria"]["id"]
+    _importar_historico_com_um_item(db_path, tmp_path, "Item Exclusao", "000000080")
+    item_id = client.get("/itens/pendentes").get_json()["grupos"][0]["exemplo_item_id"]
+    client.put(f"/itens/{item_id}/categoria", json={"categoria_id": categoria_id})
+
+    resposta = client.delete(f"/categorias/{categoria_id}")
+
+    assert resposta.status_code == 422
+    assert "destino" in resposta.get_json()["erro"]
+
+
+def test_delete_categoria_com_destino_substituta_reatribui_item(client, app_e_db, tmp_path):
+    from src.storage import db as storage_db
+
+    _, db_path = app_e_db
+    categoria_antiga_id = client.post("/categorias", json={"nome": "Antiga"}).get_json()["categoria"]["id"]
+    categoria_nova_id = client.post("/categorias", json={"nome": "Nova"}).get_json()["categoria"]["id"]
+    _importar_historico_com_um_item(db_path, tmp_path, "Item Substituta", "000000081")
+    item_id = client.get("/itens/pendentes").get_json()["grupos"][0]["exemplo_item_id"]
+    client.put(f"/itens/{item_id}/categoria", json={"categoria_id": categoria_antiga_id})
+
+    resposta = client.delete(
+        f"/categorias/{categoria_antiga_id}",
+        json={"destino": "substituta", "categoria_substituta_id": categoria_nova_id},
+    )
+
+    assert resposta.status_code == 200
+    item = storage_db.buscar_categoria_por_id(categoria_antiga_id, db_path=db_path)
+    assert item is None
+
+
+def test_delete_categoria_com_destino_pendente_zera_item(client, app_e_db, tmp_path):
+    _, db_path = app_e_db
+    categoria_id = client.post("/categorias", json={"nome": "Alimentação"}).get_json()["categoria"]["id"]
+    _importar_historico_com_um_item(db_path, tmp_path, "Item Pendente Destino", "000000082")
+    item_id = client.get("/itens/pendentes").get_json()["grupos"][0]["exemplo_item_id"]
+    client.put(f"/itens/{item_id}/categoria", json={"categoria_id": categoria_id})
+
+    resposta = client.delete(f"/categorias/{categoria_id}", json={"destino": "pendente"})
+
+    assert resposta.status_code == 200
+    resumo = client.get("/itens/pendentes").get_json()["resumo"]
+    assert resumo["total_pendente"] == 1
+
+
 def _importar_historico_com_um_item(db_path, tmp_path, descricao: str, sufixo_chave: str):
     import json
 

@@ -999,3 +999,106 @@ def corrigir_fonte_e_reclassificar(
         return len(itens_afetados_ids)
     finally:
         conn.close()
+
+
+def calcular_impacto_exclusao(categoria_id: int, db_path: str = DEFAULT_DB_PATH) -> dict | None:
+    """Previa de exclusao (FR-004, FR-017, data-model.md). Retorna None se
+    a categoria nao existe; senao {"tem_subcategorias", "quantidade_itens",
+    "quantidade_cache", "quantidade_regras"}. tem_subcategorias=True MUST
+    bloquear a exclusao antes de qualquer outro calculo (FR-017) --
+    calculado aqui mesmo assim, para o cliente montar a previa completa."""
+    conn = get_connection(db_path)
+    try:
+        existe = conn.execute("SELECT 1 FROM categoria WHERE id = ?", (categoria_id,)).fetchone()
+        if existe is None:
+            return None
+
+        tem_subcategorias = (
+            conn.execute("SELECT 1 FROM categoria WHERE parent_id = ?", (categoria_id,)).fetchone()
+            is not None
+        )
+        quantidade_itens = conn.execute(
+            "SELECT COUNT(*) FROM item_nota WHERE categoria_id = ?", (categoria_id,)
+        ).fetchone()[0]
+        quantidade_cache = conn.execute(
+            "SELECT COUNT(*) FROM cache_descricao_categoria WHERE categoria_id = ?", (categoria_id,)
+        ).fetchone()[0]
+        quantidade_regras = conn.execute(
+            "SELECT COUNT(*) FROM regra_categoria WHERE categoria_id = ?", (categoria_id,)
+        ).fetchone()[0]
+
+        return {
+            "tem_subcategorias": tem_subcategorias,
+            "quantidade_itens": quantidade_itens,
+            "quantidade_cache": quantidade_cache,
+            "quantidade_regras": quantidade_regras,
+        }
+    finally:
+        conn.close()
+
+
+def excluir_categoria_com_destino(
+    categoria_id: int,
+    destino: str,
+    categoria_substituta_id: int | None = None,
+    db_path: str = DEFAULT_DB_PATH,
+) -> bool | None:
+    """Exclusao com destino explicito (research.md #12, data-model.md).
+    `destino` e "substituta" ou "pendente". Retorna None se a categoria
+    nao existe; False se tem subcategorias (bloqueado, FR-017), se
+    `destino` for invalido, ou se `categoria_substituta_id` for
+    invalido/de nivel diferente da categoria excluida; True em sucesso.
+    Nota fiscal que usava a categoria (feature 003) sempre volta a 'sem
+    categoria', independente do destino escolhido para item/cache/regra."""
+    conn = get_connection(db_path)
+    try:
+        categoria = conn.execute("SELECT parent_id FROM categoria WHERE id = ?", (categoria_id,)).fetchone()
+        if categoria is None:
+            return None
+
+        tem_subcategorias = (
+            conn.execute("SELECT 1 FROM categoria WHERE parent_id = ?", (categoria_id,)).fetchone()
+            is not None
+        )
+        if tem_subcategorias:
+            return False
+
+        if destino == "substituta":
+            if categoria_substituta_id is None:
+                return False
+            substituta = conn.execute(
+                "SELECT parent_id FROM categoria WHERE id = ?", (categoria_substituta_id,)
+            ).fetchone()
+            if substituta is None:
+                return False
+            if (categoria["parent_id"] is None) != (substituta["parent_id"] is None):
+                return False
+
+            conn.execute(
+                "UPDATE item_nota SET categoria_id = ? WHERE categoria_id = ?",
+                (categoria_substituta_id, categoria_id),
+            )
+            conn.execute(
+                "UPDATE cache_descricao_categoria SET categoria_id = ? WHERE categoria_id = ?",
+                (categoria_substituta_id, categoria_id),
+            )
+            conn.execute(
+                "UPDATE regra_categoria SET categoria_id = ? WHERE categoria_id = ?",
+                (categoria_substituta_id, categoria_id),
+            )
+        elif destino == "pendente":
+            conn.execute(
+                "UPDATE item_nota SET categoria_id = NULL, metodo_classificacao = NULL WHERE categoria_id = ?",
+                (categoria_id,),
+            )
+            conn.execute("DELETE FROM cache_descricao_categoria WHERE categoria_id = ?", (categoria_id,))
+            conn.execute("DELETE FROM regra_categoria WHERE categoria_id = ?", (categoria_id,))
+        else:
+            return False
+
+        conn.execute("UPDATE nota_fiscal SET categoria_id = NULL WHERE categoria_id = ?", (categoria_id,))
+        conn.execute("DELETE FROM categoria WHERE id = ?", (categoria_id,))
+        conn.commit()
+        return True
+    finally:
+        conn.close()

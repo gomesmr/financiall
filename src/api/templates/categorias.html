@@ -4,7 +4,7 @@
 {% block content %}
   <div class="card mb-4">
     <div class="card-header pb-0">
-      <h6>Nova categoria</h6>
+      <h6>Nova categoria de topo</h6>
     </div>
     <div class="card-body">
       <form id="form-categoria" class="d-flex flex-wrap gap-2 align-items-start">
@@ -17,33 +17,67 @@
     </div>
   </div>
 
+  <div class="card mb-4">
+    <div class="card-header pb-0">
+      <h6>Nova subcategoria</h6>
+    </div>
+    <div class="card-body">
+      <form id="form-subcategoria" class="d-flex flex-wrap gap-2 align-items-start">
+        <select id="select-categoria-pai" class="form-select" style="min-width: 220px;" required>
+          <option value="" disabled selected>Categoria-pai</option>
+          {% for categoria in categorias_topo %}
+          <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+          {% endfor %}
+        </select>
+        <div class="input-group input-group-outline flex-grow-1" style="min-width: 220px;">
+          <input type="text" class="form-control" id="nome-subcategoria" placeholder="Nome da subcategoria (ex.: Mercearia seca)" required>
+        </div>
+        <button type="submit" class="btn bg-gradient-primary mb-0">Criar</button>
+      </form>
+      <div id="mensagem-subcategoria" class="text-sm text-danger mt-2"></div>
+    </div>
+  </div>
+
   <div class="card">
     <div class="card-header pb-0">
       <h6>Categorias existentes</h6>
     </div>
     <div class="card-body px-0 pb-0">
-      {% if categorias %}
+      {% if categorias_topo %}
       <div class="table-responsive-argon">
-        <table class="table align-items-center mb-0" style="max-width:500px;">
+        <table class="table align-items-center mb-0">
           <thead>
             <tr>
-              <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="max-width:280px;">Nome</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Nome</th>
               <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Ações</th>
             </tr>
           </thead>
           <tbody>
-            {% for categoria in categorias %}
+            {% for categoria in categorias_topo %}
             <tr>
-              <td class="text-sm">
+              <td class="text-sm fw-bold">
                 <span id="nome-exibicao-{{ categoria.id }}">{{ categoria.nome }}</span>
                 <input type="text" class="form-control form-control-sm d-none" id="nome-edicao-{{ categoria.id }}" value="{{ categoria.nome }}">
               </td>
-              <td>
+              <td style="white-space:nowrap;">
                 <button class="btn btn-sm btn-outline-secondary mb-0" id="btn-editar-{{ categoria.id }}" onclick="iniciarEdicao({{ categoria.id }})">Editar</button>
                 <button class="btn btn-sm btn-outline-primary mb-0 d-none" id="btn-salvar-{{ categoria.id }}" onclick="salvarEdicao({{ categoria.id }})">Salvar</button>
                 <button class="btn btn-sm btn-outline-danger mb-0" onclick="excluirCategoria({{ categoria.id }})">Excluir</button>
               </td>
             </tr>
+            {% for subcategoria in subcategorias_por_pai.get(categoria.id, []) %}
+            <tr>
+              <td class="text-sm ps-4">
+                › <span id="nome-exibicao-{{ subcategoria.id }}">{{ subcategoria.nome }}</span>
+                <input type="text" class="form-control form-control-sm d-none" id="nome-edicao-{{ subcategoria.id }}" value="{{ subcategoria.nome }}">
+              </td>
+              <td style="white-space:nowrap;">
+                <button class="btn btn-sm btn-outline-secondary mb-0" id="btn-editar-{{ subcategoria.id }}" onclick="iniciarEdicao({{ subcategoria.id }})">Editar</button>
+                <button class="btn btn-sm btn-outline-primary mb-0 d-none" id="btn-salvar-{{ subcategoria.id }}" onclick="salvarEdicao({{ subcategoria.id }})">Salvar</button>
+                <button class="btn btn-sm btn-outline-danger mb-0" onclick="excluirCategoria({{ subcategoria.id }})">Excluir</button>
+              </td>
+            </tr>
+            {% endfor %}
             {% endfor %}
           </tbody>
         </table>
@@ -57,6 +91,8 @@
 {% block extra_scripts %}
   <script>
     const mensagem = document.getElementById("mensagem");
+    const mensagemSubcategoria = document.getElementById("mensagem-subcategoria");
+    const TODAS_CATEGORIAS = {{ categorias_json | tojson }};
 
     document.getElementById("form-categoria").addEventListener("submit", async (evento) => {
       evento.preventDefault();
@@ -67,8 +103,59 @@
         body: JSON.stringify({ nome }),
       });
       const corpo = await resposta.json();
+      if (resposta.status === 409) {
+        const usarSugestao = confirm(
+          `${corpo.aviso} Sugestão: "${corpo.sugestao.nome}". Cancelar para criar "${nome}" mesmo assim.`
+        );
+        if (usarSugestao) return;
+        const respostaForcada = await fetch("/categorias", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nome, forcar: true }),
+        });
+        if (!respostaForcada.ok) {
+          mensagem.textContent = (await respostaForcada.json()).erro;
+          return;
+        }
+        window.location.reload();
+        return;
+      }
       if (!resposta.ok) {
         mensagem.textContent = corpo.erro;
+        return;
+      }
+      window.location.reload();
+    });
+
+    document.getElementById("form-subcategoria").addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      const parentId = parseInt(document.getElementById("select-categoria-pai").value, 10);
+      const nome = document.getElementById("nome-subcategoria").value;
+      const resposta = await fetch("/categorias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome, parent_id: parentId }),
+      });
+      const corpo = await resposta.json();
+      if (resposta.status === 409) {
+        const usarSugestao = confirm(
+          `${corpo.aviso} Sugestão: "${corpo.sugestao.nome}". Cancelar para criar "${nome}" mesmo assim.`
+        );
+        if (usarSugestao) return;
+        const respostaForcada = await fetch("/categorias", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nome, parent_id: parentId, forcar: true }),
+        });
+        if (!respostaForcada.ok) {
+          mensagemSubcategoria.textContent = (await respostaForcada.json()).erro;
+          return;
+        }
+        window.location.reload();
+        return;
+      }
+      if (!resposta.ok) {
+        mensagemSubcategoria.textContent = corpo.erro;
         return;
       }
       window.location.reload();
@@ -97,13 +184,62 @@
     }
 
     async function excluirCategoria(categoriaId) {
-      if (!confirm("Excluir esta categoria? As notas que a usam voltam a ficar sem categoria.")) {
+      const respostaImpacto = await fetch(`/categorias/${categoriaId}/impacto-exclusao`);
+      const impacto = await respostaImpacto.json();
+      if (!respostaImpacto.ok) {
+        alert(impacto.erro || "Não foi possível calcular o impacto da exclusão.");
         return;
       }
-      const resposta = await fetch(`/categorias/${categoriaId}`, { method: "DELETE" });
+
+      if (impacto.tem_subcategorias) {
+        alert("Exclua ou mova as subcategorias antes de excluir esta categoria.");
+        return;
+      }
+
+      const emUso = impacto.quantidade_itens > 0 || impacto.quantidade_cache > 0 || impacto.quantidade_regras > 0;
+      let corpoRequisicao = {};
+
+      if (emUso) {
+        const resumoImpacto =
+          `${impacto.quantidade_itens} item(ns), ${impacto.quantidade_cache} entrada(s) de cache ` +
+          `e ${impacto.quantidade_regras} regra(s) serão afetados.`;
+        const usarSubstituta = confirm(
+          `${resumoImpacto}\n\nClique OK para escolher uma categoria substituta, ou Cancelar para enviar ` +
+          `os itens/cache/regras afetados de volta para pendente.`
+        );
+        if (usarSubstituta) {
+          const categoria = TODAS_CATEGORIAS.find((c) => c.id === categoriaId);
+          const candidatas = TODAS_CATEGORIAS.filter(
+            (c) => c.id !== categoriaId && (c.parent_id === null) === (categoria.parent_id === null)
+          );
+          const nomeSubstituta = prompt(
+            `Nome da categoria substituta (mesmo nível):\n${candidatas.map((c) => c.nome).join(", ")}`
+          );
+          if (!nomeSubstituta) return;
+          const substituta = candidatas.find(
+            (c) => c.nome.trim().toLowerCase() === nomeSubstituta.trim().toLowerCase()
+          );
+          if (!substituta) {
+            alert("Categoria substituta não encontrada entre as opções do mesmo nível.");
+            return;
+          }
+          corpoRequisicao = { destino: "substituta", categoria_substituta_id: substituta.id };
+        } else {
+          if (!confirm("Confirma enviar os itens/cache/regras afetados de volta para pendente?")) return;
+          corpoRequisicao = { destino: "pendente" };
+        }
+      } else if (!confirm("Excluir esta categoria?")) {
+        return;
+      }
+
+      const resposta = await fetch(`/categorias/${categoriaId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(corpoRequisicao),
+      });
       const corpo = await resposta.json();
       if (!resposta.ok) {
-        mensagem.textContent = corpo.erro;
+        alert(corpo.erro || "Não foi possível excluir a categoria.");
         return;
       }
       window.location.reload();

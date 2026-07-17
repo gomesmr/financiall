@@ -433,27 +433,27 @@ impacto antes de confirmar.
 
 ### Implementation for User Story 5
 
-- [ ] T047 [US5] `calcular_impacto_exclusao(categoria_id, db_path)` em `src/storage/db.py`
+- [X] T047 [US5] `calcular_impacto_exclusao(categoria_id, db_path)` em `src/storage/db.py`
       (data-model.md) — inclui `tem_subcategorias`
-- [ ] T048 [US5] `excluir_categoria_com_destino(categoria_id, destino,
+- [X] T048 [US5] `excluir_categoria_com_destino(categoria_id, destino,
       categoria_substituta_id, db_path)` em `src/storage/db.py`: bloqueia se
       `tem_subcategorias` (FR-017); com destino `"substituta"`, reatribui item/cache/regra
       (validando mesmo nível); com destino `"pendente"`, zera item e remove cache/regra
       associados; depois `DELETE FROM categoria` (research.md #12, data-model.md)
-- [ ] T049 [US5] Atualizar `src/api/routes_categorias.py`: novo `GET
+- [X] T049 [US5] Atualizar `src/api/routes_categorias.py`: novo `GET
       /categorias/<id>/impacto-exclusao`; `DELETE /categorias/<id>` passa a exigir corpo com
       `destino` quando há referências em uso (contracts/api.md) — `parent_id`/quase-duplicata
       de `POST /categorias` já foram feitos em T012 (Fase 2), esta tarefa só cobre exclusão
-- [ ] T050 [US5] Atualizar `src/api/templates/categorias.html`: exibição hierárquica
+- [X] T050 [US5] Atualizar `src/api/templates/categorias.html`: exibição hierárquica
       (subcategorias aninhadas sob a categoria de topo), formulário de criar subcategoria
       (reaproveitando `POST /categorias` de T012, com aviso de quase-duplicata), e fluxo de
       exclusão que busca a prévia (`GET .../impacto-exclusao`) e — quando não bloqueado por
       subcategoria — pede o destino (substituta ou pendente) antes de confirmar
-- [ ] T051 [P] [US5] Contract tests para os endpoints de exclusão em
+- [X] T051 [P] [US5] Contract tests para os endpoints de exclusão em
       `tests/contract/test_api_contract.py`: impacto-exclusão, exclusão bloqueada por
       subcategoria, exclusão com destino substituta e com destino pendente (quase-duplicata
       e `parent_id` de criação já cobertos em T012)
-- [ ] T052 [P] [US5] Unit tests em `tests/unit/test_categorias.py`: exclusão bloqueada por
+- [X] T052 [P] [US5] Unit tests em `tests/unit/test_categorias.py`: exclusão bloqueada por
       subcategoria, exclusão com destino substituta (nível igual exigido) e com destino
       pendente, e renomear uma categoria/subcategoria preserva `parent_id` e não gera nenhuma
       linha em `historico_classificacao_item` (FR-003) — quase-duplicata e rejeição de 3º
@@ -467,7 +467,7 @@ impacto antes de confirmar.
 ### Visual Verification for User Story 5 (MANDATORY — Constitution Principle VIII)
 
 - [X] T054 [US5] Integridade de asset de terceiro vendorizado: **N/A**
-- [ ] T055 [US5] Captura de tela via navegador headless local de `/ver/categorias` com a
+- [X] T055 [US5] Captura de tela via navegador headless local de `/ver/categorias` com a
       hierarquia categoria → subcategoria visível e o fluxo de exclusão com prévia/destino,
       checagem de zero erros de console JS
 
