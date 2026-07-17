@@ -9,7 +9,7 @@ bp = Blueprint("categorias", __name__)
 
 
 def categoria_to_dict(categoria) -> dict:
-    return {"id": categoria.id, "nome": categoria.nome}
+    return {"id": categoria.id, "nome": categoria.nome, "parent_id": categoria.parent_id}
 
 
 @bp.get("/ver/categorias")
@@ -31,10 +31,16 @@ def criar_categoria():
     db_path = current_app.config["DB_PATH"]
     corpo = request.get_json(silent=True) or {}
     nome = corpo.get("nome", "")
+    parent_id = corpo.get("parent_id")
+    forcar = bool(corpo.get("forcar", False))
 
-    categoria_id, erro = categorias_service.validar_e_criar_categoria(nome, db_path=db_path)
+    categoria_id, erro, aviso = categorias_service.validar_e_criar_categoria(
+        nome, parent_id=parent_id, forcar=forcar, db_path=db_path
+    )
     if erro is not None:
         return jsonify({"erro": erro}), 422
+    if aviso is not None:
+        return jsonify(aviso), 409
 
     categoria = storage_db.buscar_categoria_por_id(categoria_id, db_path=db_path)
     return (

@@ -6,6 +6,7 @@ from src.models.item_nota import ItemNota
 from src.models.nota_fiscal import CanalOrigem, NotaFiscal, StatusNota
 from src.services import campos_ocr as campos_ocr_service
 from src.services import chave_acesso as chave_acesso_service
+from src.services import classificacao_itens
 from src.services import sefaz_client
 from src.storage import db as storage_db
 
@@ -97,6 +98,7 @@ def importar_por_url_ou_chave(
     for item in itens:
         item.nota_fiscal_id = nota.id
     storage_db.inserir_itens(itens, db_path=db_path)
+    classificacao_itens.classificar_itens_pendentes_da_nota(nota.id, db_path=db_path)
 
     return ResultadoImportacao(status=status, nota=nota, itens=itens)
 
@@ -159,5 +161,6 @@ def importar_por_ocr(
     for item in itens:
         item.nota_fiscal_id = nota.id
     storage_db.inserir_itens(itens, db_path=db_path)
+    classificacao_itens.classificar_itens_pendentes_da_nota(nota.id, db_path=db_path)
 
     return ResultadoImportacao(status=status, nota=nota, itens=itens)

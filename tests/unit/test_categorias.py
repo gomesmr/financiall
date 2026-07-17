@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from src.models.nota_fiscal import CanalOrigem, NotaFiscal, StatusNota
+from src.services import categorias as categorias_service
 from src.storage import db as storage_db
 from tests.helpers import gerar_chave_valida
 
@@ -158,3 +159,98 @@ def test_excluir_categoria_com_notas_desassocia(db_path):
 def test_excluir_categoria_inexistente_retorna_false(db_path):
     resultado = storage_db.excluir_categoria(999, db_path=db_path)
     assert resultado is False
+
+
+# --- Foundational (T011): hierarquia (parent_id) e quase-duplicata --------
+
+
+def test_criar_categoria_com_parent_id_valido_retorna_id(db_path):
+    topo_id = storage_db.criar_categoria("Alimentação", db_path=db_path)
+
+    sub_id = storage_db.criar_categoria("Mercearia seca", parent_id=topo_id, db_path=db_path)
+
+    assert isinstance(sub_id, int)
+    subcategoria = storage_db.buscar_categoria_por_id(sub_id, db_path=db_path)
+    assert subcategoria.parent_id == topo_id
+
+
+def test_criar_categoria_parent_id_de_subcategoria_retorna_none(db_path):
+    """2 niveis fixos (research.md #3): uma subcategoria nao pode, por sua
+    vez, ser parent_id de outra."""
+    topo_id = storage_db.criar_categoria("Alimentação", db_path=db_path)
+    sub_id = storage_db.criar_categoria("Mercearia seca", parent_id=topo_id, db_path=db_path)
+
+    resultado = storage_db.criar_categoria("Nível 3", parent_id=sub_id, db_path=db_path)
+
+    assert resultado is None
+
+
+def test_criar_categoria_parent_id_inexistente_retorna_none(db_path):
+    resultado = storage_db.criar_categoria("Mercearia seca", parent_id=999, db_path=db_path)
+    assert resultado is None
+
+
+def test_subcategorias_de_pais_diferentes_podem_ter_mesmo_nome(db_path):
+    """Indice unico escopado por nivel (research.md #19): duas
+    subcategorias de categorias-pai diferentes podem reaproveitar o mesmo
+    nome, algo que o indice unico global antigo (feature 003) proibiria."""
+    topo_1 = storage_db.criar_categoria("Alimentação", db_path=db_path)
+    topo_2 = storage_db.criar_categoria("Higiene pessoal e perfumaria", db_path=db_path)
+
+    sub_1 = storage_db.criar_categoria("Outros", parent_id=topo_1, db_path=db_path)
+    sub_2 = storage_db.criar_categoria("Outros", parent_id=topo_2, db_path=db_path)
+
+    assert sub_1 is not None
+    assert sub_2 is not None
+
+
+def test_quase_duplicata_escopada_por_nivel_nao_avisa_entre_pais_diferentes(db_path):
+    """research.md #19: quase-duplicata so compara dentro do mesmo nivel
+    -- subcategorias de pais diferentes com nomes parecidos nao geram
+    aviso entre si."""
+    topo_1 = storage_db.criar_categoria("Alimentação", db_path=db_path)
+    topo_2 = storage_db.criar_categoria("Limpeza doméstica", db_path=db_path)
+    storage_db.criar_categoria("Mercearia Seca", parent_id=topo_1, db_path=db_path)
+
+    categoria_id, erro, aviso = categorias_service.validar_e_criar_categoria(
+        "Mercearia", parent_id=topo_2, db_path=db_path
+    )
+
+    assert erro is None
+    assert aviso is None
+    assert isinstance(categoria_id, int)
+
+
+def test_quase_duplicata_mesmo_nivel_gera_aviso_com_sugestao(db_path):
+    original_id = storage_db.criar_categoria("Mercearia Seca", db_path=db_path)
+
+    categoria_id, erro, aviso = categorias_service.validar_e_criar_categoria("Mercearia", db_path=db_path)
+
+    assert categoria_id is None
+    assert erro is None
+    assert aviso["sugestao"]["id"] == original_id
+
+
+def test_quase_duplicata_com_forcar_cria_mesmo_assim(db_path):
+    storage_db.criar_categoria("Mercearia Seca", db_path=db_path)
+
+    categoria_id, erro, aviso = categorias_service.validar_e_criar_categoria(
+        "Mercearia", forcar=True, db_path=db_path
+    )
+
+    assert erro is None
+    assert aviso is None
+    assert isinstance(categoria_id, int)
+
+
+def test_validar_e_criar_categoria_parent_id_de_subcategoria_retorna_erro(db_path):
+    topo_id = storage_db.criar_categoria("Alimentação", db_path=db_path)
+    sub_id = storage_db.criar_categoria("Mercearia seca", parent_id=topo_id, db_path=db_path)
+
+    categoria_id, erro, aviso = categorias_service.validar_e_criar_categoria(
+        "Nível 3", parent_id=sub_id, db_path=db_path
+    )
+
+    assert categoria_id is None
+    assert erro == "Categoria pai não pode ser uma subcategoria."
+    assert aviso is None
