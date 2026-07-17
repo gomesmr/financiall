@@ -7,3 +7,4 @@ from dataclasses import dataclass
 class Categoria:
     nome: str
     id: int | None = None
+    parent_id: int | None = None

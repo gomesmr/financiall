@@ -12,3 +12,6 @@ class ItemNota:
     quantidade: float | None = None
     valor_unitario: int | None = None
     valor_total_item: int | None = None
+    categoria_id: int | None = None
+    descricao_normalizada: str | None = None
+    metodo_classificacao: str | None = None

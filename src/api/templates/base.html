@@ -59,6 +59,14 @@
           </a>
         </li>
         <li class="nav-item">
+          <a class="nav-link text-white {{ 'active bg-primary' if pagina_ativa == 'pendentes' else '' }}" href="/ver/pendentes">
+            <div class="icon icon-shape icon-sm border-radius-md text-center me-2 d-flex align-items-center justify-content-center bg-white">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="text-dark" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+            </div>
+            <span class="nav-link-text ms-1">Pendentes</span>
+          </a>
+        </li>
+        <li class="nav-item">
           <a class="nav-link text-white {{ 'active bg-primary' if pagina_ativa == 'resumo' else '' }}" href="/ver/resumo">
             <div class="icon icon-shape icon-sm border-radius-md text-center me-2 d-flex align-items-center justify-content-center bg-white">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="text-dark" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l7 4"/></svg>

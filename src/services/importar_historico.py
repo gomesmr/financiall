@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from src.models.item_nota import ItemNota
 from src.models.nota_fiscal import CanalOrigem, NotaFiscal, StatusNota
+from src.services import classificacao_itens
 from src.storage import db as storage_db
 
 _TITULARES_CONHECIDOS = {"marcelo", "cristine"}
@@ -116,6 +117,7 @@ def importar_historico(caminho_arquivo: str, db_path: str = storage_db.DEFAULT_D
 
         nota, itens = _mapear_registro(chave, registro)
         storage_db.inserir_nota_com_itens(nota, itens, db_path=db_path)
+        classificacao_itens.classificar_itens_pendentes_da_nota(nota.id, db_path=db_path)
         resumo.importadas += 1
 
     return resumo
