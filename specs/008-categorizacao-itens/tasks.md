@@ -381,15 +381,15 @@ prévia, aplicar, e verificar que a outra ocorrência foi atualizada.
 
 ### Implementation for User Story 4
 
-- [ ] T037 [US4] `calcular_impacto_correcao_fonte(item_id, db_path)` em `src/storage/db.py`
+- [X] T037 [US4] `calcular_impacto_correcao_fonte(item_id, db_path)` em `src/storage/db.py`
       (data-model.md)
-- [ ] T038 [US4] `corrigir_fonte_e_reclassificar(item_id, nova_categoria_id, db_path)` em
+- [X] T038 [US4] `corrigir_fonte_e_reclassificar(item_id, nova_categoria_id, db_path)` em
       `src/storage/db.py`: upsert do cache para a descrição normalizada do item + `UPDATE`
       em lote dos itens com mesma descrição e mesma categoria antiga + uma linha de
       histórico por item afetado (research.md #11, data-model.md)
-- [ ] T039 [US4] `GET /itens/<id>/impacto-correcao-fonte` em `src/api/routes_itens.py`
-- [ ] T040 [US4] `POST /itens/<id>/corrigir-fonte` em `src/api/routes_itens.py`
-- [ ] T041 [US4] Estender `src/api/templates/nota_detalhe.html`: cada item da tabela ganha
+- [X] T039 [US4] `GET /itens/<id>/impacto-correcao-fonte` em `src/api/routes_itens.py`
+- [X] T040 [US4] `POST /itens/<id>/corrigir-fonte` em `src/api/routes_itens.py`
+- [X] T041 [US4] Estender `src/api/templates/nota_detalhe.html`: cada item da tabela ganha
       exibição da categoria/subcategoria atual (ou "pendente") e o mesmo campo de
       autocomplete único de T018, incluindo a criação inline de subcategoria nova (nunca
       categoria de topo isolada — research.md #16, #18) para corrigi-la via `PUT
@@ -397,10 +397,10 @@ prévia, aplicar, e verificar que a outra ocorrência foi atualizada.
       `metodo_classificacao` em `cache`/`regra`, oferecer a ação separada e explícita
       "Corrigir a fonte e reclassificar o passado" que busca a prévia
       (`GET .../impacto-correcao-fonte`) antes de habilitar a confirmação (FR-013, SC-006)
-- [ ] T042 [P] [US4] Contract tests para os 3 endpoints (`PUT categoria` já coberto em T019;
+- [X] T042 [P] [US4] Contract tests para os 3 endpoints (`PUT categoria` já coberto em T019;
       `GET impacto-correcao-fonte`, `POST corrigir-fonte`) em
       `tests/contract/test_api_contract.py`
-- [ ] T043 [P] [US4] Unit tests para `calcular_impacto_correcao_fonte` e
+- [X] T043 [P] [US4] Unit tests para `calcular_impacto_correcao_fonte` e
       `corrigir_fonte_e_reclassificar` — casos de zero itens afetados (só o próprio item) e
       de vários — `tests/unit/test_classificacao_itens.py`
 
@@ -413,7 +413,7 @@ prévia, aplicar, e verificar que a outra ocorrência foi atualizada.
 ### Visual Verification for User Story 4 (MANDATORY — Constitution Principle VIII)
 
 - [X] T045 [US4] Integridade de asset de terceiro vendorizado: **N/A**
-- [ ] T046 [US4] Captura de tela via navegador headless local de `nota_detalhe.html` com a
+- [X] T046 [US4] Captura de tela via navegador headless local de `nota_detalhe.html` com a
       edição de categoria por item e a prévia de "corrigir a fonte" visíveis, checagem de
       zero erros de console JS
 

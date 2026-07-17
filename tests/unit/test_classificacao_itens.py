@@ -551,3 +551,100 @@ def test_cascata_contra_corpus_real_registra_taxa_de_cobertura(db_com_regras_sem
 
     assert classificadas_via_regra + pendentes == len(descricoes)
     assert classificadas_via_regra >= 250
+
+
+# --- US4: corrigir a fonte e reclassificar o passado (T037/T038/T043) ------
+
+
+def test_calcular_impacto_correcao_fonte_item_inexistente_retorna_none(db_path):
+    resultado = storage_db.calcular_impacto_correcao_fonte(999, db_path=db_path)
+    assert resultado is None
+
+
+def test_calcular_impacto_correcao_fonte_apenas_o_proprio_item(db_path):
+    categoria_id = storage_db.criar_categoria("Higiene pessoal e perfumaria", db_path=db_path)
+    nota_id = _inserir_nota(db_path)
+    item_id = _inserir_item(nota_id, "Item Unico", db_path=db_path)
+    classificacao_itens.classificar_itens_pendentes_da_nota(nota_id, db_path=db_path)
+    storage_db.atribuir_categoria_manual(item_id, categoria_id, db_path=db_path)
+
+    impacto = storage_db.calcular_impacto_correcao_fonte(item_id, db_path=db_path)
+
+    assert impacto["descricao_normalizada"] == "ITEM UNICO"
+    assert impacto["categoria_id_atual"] == categoria_id
+    assert impacto["quantidade_itens_afetados"] == 1
+
+
+def test_calcular_impacto_correcao_fonte_varios_itens_afetados(db_path):
+    categoria_errada = storage_db.criar_categoria("Categoria Errada", db_path=db_path)
+    conn = storage_db.get_connection(db_path)
+    conn.execute(
+        "INSERT INTO regra_categoria (padrao, categoria_id, prioridade, ativa) VALUES (?, ?, 10, 1)",
+        ("HIGIENICO", categoria_errada),
+    )
+    conn.commit()
+    conn.close()
+
+    nota_1 = _inserir_nota(db_path)
+    item_1 = _inserir_item(nota_1, "PAPEL HIGIENICO NEVE C/4", db_path=db_path)
+    nota_2 = _inserir_nota(db_path)
+    _inserir_item(nota_2, "PAPEL HIGIENICO NEVE C/4", db_path=db_path)
+    classificacao_itens.classificar_itens_pendentes_da_nota(nota_1, db_path=db_path)
+    classificacao_itens.classificar_itens_pendentes_da_nota(nota_2, db_path=db_path)
+
+    impacto = storage_db.calcular_impacto_correcao_fonte(item_1, db_path=db_path)
+
+    assert impacto["quantidade_itens_afetados"] == 2
+
+
+def test_corrigir_fonte_e_reclassificar_item_inexistente_retorna_none(db_path):
+    resultado = storage_db.corrigir_fonte_e_reclassificar(999, 1, db_path=db_path)
+    assert resultado is None
+
+
+def test_corrigir_fonte_e_reclassificar_atualiza_todas_as_ocorrencias_passadas(db_path):
+    categoria_errada = storage_db.criar_categoria("Categoria Errada", db_path=db_path)
+    categoria_correta = storage_db.criar_categoria("Categoria Correta", db_path=db_path)
+    conn = storage_db.get_connection(db_path)
+    conn.execute(
+        "INSERT INTO regra_categoria (padrao, categoria_id, prioridade, ativa) VALUES (?, ?, 10, 1)",
+        ("HIGIENICO", categoria_errada),
+    )
+    conn.commit()
+    conn.close()
+
+    nota_1 = _inserir_nota(db_path)
+    item_1 = _inserir_item(nota_1, "PAPEL HIGIENICO NEVE C/4", db_path=db_path)
+    nota_2 = _inserir_nota(db_path)
+    item_2 = _inserir_item(nota_2, "PAPEL HIGIENICO NEVE C/4", db_path=db_path)
+    classificacao_itens.classificar_itens_pendentes_da_nota(nota_1, db_path=db_path)
+    classificacao_itens.classificar_itens_pendentes_da_nota(nota_2, db_path=db_path)
+
+    quantidade = storage_db.corrigir_fonte_e_reclassificar(item_1, categoria_correta, db_path=db_path)
+
+    assert quantidade == 2
+    for item_id in (item_1, item_2):
+        historico = _historico_do_item(item_id, db_path)
+        assert historico[-1]["categoria_id_nova"] == categoria_correta
+        assert historico[-1]["metodo"] == "manual"
+
+    # cache sobrescrito -- um item NOVO com a mesma descricao ja chega correto
+    nota_3 = _inserir_nota(db_path)
+    item_3 = _inserir_item(nota_3, "PAPEL HIGIENICO NEVE C/4", db_path=db_path)
+    classificacao_itens.classificar_itens_pendentes_da_nota(nota_3, db_path=db_path)
+    item_3_atual = storage_db.listar_itens_por_nota(nota_3, db_path=db_path)[0]
+    assert item_3_atual.categoria_id == categoria_correta
+    assert item_3_atual.metodo_classificacao == "cache"
+
+
+def test_corrigir_fonte_e_reclassificar_zero_outras_ocorrencias(db_path):
+    categoria_errada = storage_db.criar_categoria("Categoria Errada", db_path=db_path)
+    categoria_correta = storage_db.criar_categoria("Categoria Correta", db_path=db_path)
+    nota_id = _inserir_nota(db_path)
+    item_id = _inserir_item(nota_id, "Item Unico Aqui", db_path=db_path)
+    classificacao_itens.classificar_itens_pendentes_da_nota(nota_id, db_path=db_path)
+    storage_db.atribuir_categoria_manual(item_id, categoria_errada, db_path=db_path)
+
+    quantidade = storage_db.corrigir_fonte_e_reclassificar(item_id, categoria_correta, db_path=db_path)
+
+    assert quantidade == 1

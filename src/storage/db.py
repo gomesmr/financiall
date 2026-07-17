@@ -913,3 +913,89 @@ def classificar_grupo_pendente(
 
     atribuir_categoria_manual(itens_ids[0], categoria_id, db_path=db_path)
     return len(itens_ids)
+
+
+def calcular_impacto_correcao_fonte(item_id: int, db_path: str = DEFAULT_DB_PATH) -> dict | None:
+    """Previa de 'corrigir a fonte e reclassificar o passado' (FR-013,
+    SC-006, data-model.md). Retorna None se o item nao existe; senao a
+    contagem de item_nota com a mesma descricao_normalizada E a mesma
+    categoria_id atual do item -- o raio de efeito real da correcao
+    abaixo, antes de aplicar."""
+    conn = get_connection(db_path)
+    try:
+        item = conn.execute(
+            "SELECT descricao_normalizada, categoria_id FROM item_nota WHERE id = ?", (item_id,)
+        ).fetchone()
+        if item is None:
+            return None
+
+        quantidade = conn.execute(
+            "SELECT COUNT(*) FROM item_nota WHERE descricao_normalizada = ? AND categoria_id = ?",
+            (item["descricao_normalizada"], item["categoria_id"]),
+        ).fetchone()[0]
+
+        return {
+            "descricao_normalizada": item["descricao_normalizada"],
+            "categoria_id_atual": item["categoria_id"],
+            "quantidade_itens_afetados": quantidade,
+        }
+    finally:
+        conn.close()
+
+
+def corrigir_fonte_e_reclassificar(
+    item_id: int, nova_categoria_id: int, db_path: str = DEFAULT_DB_PATH
+) -> int | None:
+    """Aplica a correcao de research.md #11: upsert do cache para a
+    descricao_normalizada do item corrigido, `UPDATE` em lote de todos os
+    `item_nota` com a mesma descricao_normalizada e a mesma categoria
+    antiga (incorreta) para a nova, e uma linha de historico por item
+    afetado. Retorna a quantidade de itens atualizados, ou None se o
+    item de origem nao existe."""
+    conn = get_connection(db_path)
+    try:
+        item = conn.execute(
+            "SELECT descricao_normalizada, categoria_id FROM item_nota WHERE id = ?", (item_id,)
+        ).fetchone()
+        if item is None:
+            return None
+
+        descricao_normalizada = item["descricao_normalizada"]
+        categoria_anterior = item["categoria_id"]
+
+        if descricao_normalizada:
+            conn.execute(
+                """
+                INSERT INTO cache_descricao_categoria (descricao_normalizada, categoria_id)
+                VALUES (?, ?)
+                ON CONFLICT(descricao_normalizada) DO UPDATE SET categoria_id = excluded.categoria_id
+                """,
+                (descricao_normalizada, nova_categoria_id),
+            )
+
+        itens_afetados_ids = [
+            row["id"]
+            for row in conn.execute(
+                "SELECT id FROM item_nota WHERE descricao_normalizada = ? AND categoria_id = ?",
+                (descricao_normalizada, categoria_anterior),
+            ).fetchall()
+        ]
+
+        for afetado_id in itens_afetados_ids:
+            conn.execute(
+                "UPDATE item_nota SET categoria_id = ?, metodo_classificacao = 'manual' WHERE id = ?",
+                (nova_categoria_id, afetado_id),
+            )
+            conn.execute(
+                """
+                INSERT INTO historico_classificacao_item
+                    (item_nota_id, categoria_id_anterior, categoria_id_nova, metodo, timestamp)
+                VALUES (?, ?, ?, 'manual', ?)
+                """,
+                (afetado_id, categoria_anterior, nova_categoria_id, datetime.now().isoformat()),
+            )
+
+        conn.commit()
+        return len(itens_afetados_ids)
+    finally:
+        conn.close()

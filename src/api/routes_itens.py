@@ -50,6 +50,34 @@ def atribuir_categoria_item(item_id: int):
     return jsonify({"mensagem": "Categoria do item atualizada com sucesso."}), 200
 
 
+@bp.get("/itens/<int:item_id>/impacto-correcao-fonte")
+def impacto_correcao_fonte(item_id: int):
+    db_path = current_app.config["DB_PATH"]
+    impacto = storage_db.calcular_impacto_correcao_fonte(item_id, db_path=db_path)
+    if impacto is None:
+        return jsonify({"erro": "Item não encontrado."}), 404
+    return jsonify(impacto), 200
+
+
+@bp.post("/itens/<int:item_id>/corrigir-fonte")
+def corrigir_fonte(item_id: int):
+    db_path = current_app.config["DB_PATH"]
+    corpo = request.get_json(silent=True) or {}
+    categoria_id = corpo.get("categoria_id")
+
+    if storage_db.calcular_impacto_correcao_fonte(item_id, db_path=db_path) is None:
+        return jsonify({"erro": "Item não encontrado."}), 404
+    if storage_db.buscar_categoria_por_id(categoria_id, db_path=db_path) is None:
+        return jsonify({"erro": "Categoria não encontrada."}), 422
+
+    quantidade = storage_db.corrigir_fonte_e_reclassificar(item_id, categoria_id, db_path=db_path)
+
+    return (
+        jsonify({"mensagem": f"{quantidade} itens reclassificados.", "quantidade_itens_afetados": quantidade}),
+        200,
+    )
+
+
 @bp.get("/ver/pendentes")
 def pagina_pendentes():
     db_path = current_app.config["DB_PATH"]

@@ -59,14 +59,16 @@
       <div class="card-body px-0 pb-0">
         {% if itens %}
         <div class="table-responsive-argon">
-          <table class="table align-items-center mb-0" style="max-width:720px;">
+          <table class="table align-items-center mb-0" style="max-width:960px;">
             <thead>
               <tr>
                 <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Código</th>
-                <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="max-width:280px;">Descrição</th>
+                <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="max-width:220px;">Descrição</th>
                 <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Qtd</th>
                 <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Vl. Unit.</th>
                 <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Vl. Total</th>
+                <th class="text-uppercase text-xs font-weight-bolder opacity-7">Categoria</th>
+                <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Ação</th>
               </tr>
             </thead>
             <tbody>
@@ -77,6 +79,31 @@
                 <td class="text-sm" style="white-space:nowrap;">{{ item.quantidade if item.quantidade is not none else "—" }}</td>
                 <td class="text-sm" style="white-space:nowrap;">{% if item.valor_unitario is not none %}R$ {{ "%.2f"|format(item.valor_unitario / 100) }}{% else %}—{% endif %}</td>
                 <td class="text-sm" style="white-space:nowrap;">{% if item.valor_total_item is not none %}R$ {{ "%.2f"|format(item.valor_total_item / 100) }}{% else %}—{% endif %}</td>
+                <td>
+                  <div class="mb-1 text-sm" id="categoria-atual-{{ item.id }}">
+                    {% if item.categoria_id %}
+                      {% set categoria_item = categorias_por_id.get(item.categoria_id) %}
+                      {% if categoria_item and categoria_item.parent_id %}
+                        {{ categorias_por_id.get(categoria_item.parent_id).nome }} › {{ categoria_item.nome }}
+                      {% elif categoria_item %}
+                        {{ categoria_item.nome }}
+                      {% endif %}
+                    {% else %}
+                      <span class="vazio">pendente</span>
+                    {% endif %}
+                  </div>
+                  <div class="categoria-autocomplete position-relative" data-item-id="{{ item.id }}" style="min-width: 200px;">
+                    <input type="text" class="form-control form-control-sm categoria-input" placeholder="Categoria › Subcategoria" autocomplete="off">
+                    <div class="categoria-sugestoes list-group position-absolute" style="display:none; z-index:10; max-height:200px; overflow-y:auto; width:100%;"></div>
+                    <input type="hidden" class="categoria-id-selecionada">
+                  </div>
+                </td>
+                <td style="white-space:nowrap;">
+                  <button type="button" class="btn btn-sm btn-outline-primary mb-1 btn-salvar-item" data-item-id="{{ item.id }}" disabled>Salvar</button>
+                  {% if item.metodo_classificacao in ("cache", "regra") %}
+                  <button type="button" class="btn btn-sm btn-outline-warning mb-0 btn-corrigir-fonte" data-item-id="{{ item.id }}" disabled>Corrigir a fonte</button>
+                  {% endif %}
+                </td>
               </tr>
               {% endfor %}
             </tbody>
@@ -90,6 +117,7 @@
   {% endif %}
 {% endblock %}
 {% block extra_scripts %}
+  <script src="{{ url_for('static', filename='classificacao.js') }}"></script>
   <script>
     async function excluirNota(notaId) {
       if (!confirm("Excluir esta nota? Essa ação não pode ser desfeita.")) {
@@ -135,5 +163,67 @@
       }
       window.location.reload();
     }
+
+    const CATEGORIAS_ITENS = {{ categorias_json | default([]) | tojson }};
+
+    document.querySelectorAll(".categoria-autocomplete").forEach((container) => {
+      const itemId = container.dataset.itemId;
+      const botaoSalvar = document.querySelector(`.btn-salvar-item[data-item-id="${itemId}"]`);
+      const botaoCorrigirFonte = document.querySelector(`.btn-corrigir-fonte[data-item-id="${itemId}"]`);
+
+      inicializarAutocompleteCategoria(container, CATEGORIAS_ITENS, "", (categoriaId) => {
+        botaoSalvar.disabled = !categoriaId;
+        if (botaoCorrigirFonte) {
+          botaoCorrigirFonte.disabled = !categoriaId;
+        }
+      });
+
+      botaoSalvar.addEventListener("click", async () => {
+        const categoriaId = parseInt(container.querySelector(".categoria-id-selecionada").value, 10);
+        const resposta = await fetch(`/itens/${itemId}/categoria`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ categoria_id: categoriaId }),
+        });
+        const corpo = await resposta.json();
+        if (!resposta.ok) {
+          alert(corpo.erro || "Não foi possível atualizar a categoria do item.");
+          return;
+        }
+        window.location.reload();
+      });
+
+      if (botaoCorrigirFonte) {
+        botaoCorrigirFonte.addEventListener("click", async () => {
+          const categoriaId = parseInt(container.querySelector(".categoria-id-selecionada").value, 10);
+
+          const respostaImpacto = await fetch(`/itens/${itemId}/impacto-correcao-fonte`);
+          const impacto = await respostaImpacto.json();
+          if (!respostaImpacto.ok) {
+            alert(impacto.erro || "Não foi possível calcular o impacto da correção.");
+            return;
+          }
+
+          const confirmado = confirm(
+            `Isso vai corrigir a fonte (cache) e reclassificar ${impacto.quantidade_itens_afetados} ` +
+            `item(ns) passado(s) com a mesma descrição e categoria atual. Confirmar?`
+          );
+          if (!confirmado) return;
+
+          const respostaCorrecao = await fetch(`/itens/${itemId}/corrigir-fonte`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ categoria_id: categoriaId }),
+          });
+          const corpoCorrecao = await respostaCorrecao.json();
+          if (!respostaCorrecao.ok) {
+            alert(corpoCorrecao.erro || "Não foi possível corrigir a fonte.");
+            return;
+          }
+          alert(corpoCorrecao.mensagem);
+          window.location.reload();
+        });
+      }
+    });
   </script>
 {% endblock %}

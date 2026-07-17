@@ -509,6 +509,59 @@ def test_pagina_ver_pendentes_carrega(client):
     assert "pendente" in resposta.get_data(as_text=True).lower()
 
 
+def test_get_impacto_correcao_fonte_item_inexistente_retorna_404(client):
+    resposta = client.get("/itens/999999/impacto-correcao-fonte")
+    assert resposta.status_code == 404
+    assert resposta.get_json()["erro"] == "Item não encontrado."
+
+
+def test_get_impacto_correcao_fonte_sucesso(client, app_e_db, tmp_path):
+    _, db_path = app_e_db
+    _importar_historico_com_um_item(db_path, tmp_path, "Item Fonte", "000000074")
+    categoria_id = client.post("/categorias", json={"nome": "Alimentação"}).get_json()["categoria"]["id"]
+    item_id = client.get("/itens/pendentes").get_json()["grupos"][0]["exemplo_item_id"]
+    client.put(f"/itens/{item_id}/categoria", json={"categoria_id": categoria_id})
+
+    resposta = client.get(f"/itens/{item_id}/impacto-correcao-fonte")
+    corpo = resposta.get_json()
+
+    assert resposta.status_code == 200
+    assert corpo["descricao_normalizada"] == "ITEM FONTE"
+    assert corpo["quantidade_itens_afetados"] == 1
+
+
+def test_post_corrigir_fonte_item_inexistente_retorna_404(client):
+    resposta = client.post("/itens/999999/corrigir-fonte", json={"categoria_id": 1})
+    assert resposta.status_code == 404
+    assert resposta.get_json()["erro"] == "Item não encontrado."
+
+
+def test_post_corrigir_fonte_categoria_inexistente_retorna_422(client, app_e_db, tmp_path):
+    _, db_path = app_e_db
+    _importar_historico_com_um_item(db_path, tmp_path, "Item Fonte 2", "000000075")
+    item_id = client.get("/itens/pendentes").get_json()["grupos"][0]["exemplo_item_id"]
+
+    resposta = client.post(f"/itens/{item_id}/corrigir-fonte", json={"categoria_id": 999})
+
+    assert resposta.status_code == 422
+    assert resposta.get_json()["erro"] == "Categoria não encontrada."
+
+
+def test_post_corrigir_fonte_sucesso(client, app_e_db, tmp_path):
+    _, db_path = app_e_db
+    _importar_historico_com_um_item(db_path, tmp_path, "Item Fonte 3", "000000076")
+    categoria_errada_id = client.post("/categorias", json={"nome": "Errada"}).get_json()["categoria"]["id"]
+    categoria_certa_id = client.post("/categorias", json={"nome": "Certa"}).get_json()["categoria"]["id"]
+    item_id = client.get("/itens/pendentes").get_json()["grupos"][0]["exemplo_item_id"]
+    client.put(f"/itens/{item_id}/categoria", json={"categoria_id": categoria_errada_id})
+
+    resposta = client.post(f"/itens/{item_id}/corrigir-fonte", json={"categoria_id": categoria_certa_id})
+    corpo = resposta.get_json()
+
+    assert resposta.status_code == 200
+    assert corpo["quantidade_itens_afetados"] == 1
+
+
 def test_pagina_ver_notas_mostra_titular_e_filtra(client, app_e_db, tmp_path):
     import json
 
