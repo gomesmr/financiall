@@ -2,49 +2,92 @@
 {% block title %}financiALL - Resumo{% endblock %}
 {% block titulo_pagina %}Resumo de gastos{% endblock %}
 {% block content %}
-  <h4 class="mb-0">Resumo de gastos</h4>
   <p class="vazio">Parcial — reflete apenas notas fiscais importadas, não o gasto total do mês.</p>
 
-  <div class="row">
-    <div class="col-12 col-md-6 mb-4">
-      <div class="card h-100">
-        <div class="card-body">
-          <h6 class="text-uppercase text-xs font-weight-bolder opacity-7">Mês corrente</h6>
-          {% if mes_corrente %}
-          <h4 class="mb-0">R$ {{ "%.2f"|format((mes_corrente.total_gasto or 0) / 100) }}</h4>
-          <p class="text-sm text-secondary mb-0">{{ mes_corrente.mes | mes_ano_br }} — {{ mes_corrente.quantidade_notas }} nota(s)</p>
-          {% else %}
-          <p class="vazio mb-0">Nenhuma nota importada no mês corrente.</p>
+  <div class="card mb-4">
+    <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div class="d-flex align-items-center gap-2">
+        {% if mes_anterior %}
+        <a class="btn btn-sm btn-outline-secondary mb-0" id="link-mes-anterior"
+           href="/ver/resumo?mes={{ mes_anterior }}&dimensao={{ dimensao }}&nivel={{ nivel }}"
+           aria-label="Mês anterior">←</a>
+        {% else %}
+        <button class="btn btn-sm btn-outline-secondary mb-0" disabled>←</button>
+        {% endif %}
+        <div class="text-center" style="min-width: 160px;">
+          <h5 class="mb-0" id="mes-ativo">{{ mes_selecionado | mes_ano_br }}</h5>
+          {% if mes_selecionado == mes_atual %}
+          <span class="text-xs text-secondary">mês corrente</span>
           {% endif %}
         </div>
+        {% if mes_seguinte %}
+        <a class="btn btn-sm btn-outline-secondary mb-0" id="link-mes-seguinte"
+           href="/ver/resumo?mes={{ mes_seguinte }}&dimensao={{ dimensao }}&nivel={{ nivel }}"
+           aria-label="Mês seguinte">→</a>
+        {% else %}
+        <button class="btn btn-sm btn-outline-secondary mb-0" disabled>→</button>
+        {% endif %}
+        {% if mes_selecionado != mes_mais_recente %}
+        <a class="btn btn-sm btn-outline-primary mb-0"
+           href="/ver/resumo?mes={{ mes_mais_recente }}&dimensao={{ dimensao }}&nivel={{ nivel }}">
+          Mês mais recente
+        </a>
+        {% endif %}
+      </div>
+      <div class="text-end">
+        {% if resumo_mes %}
+        <h4 class="mb-0">R$ {{ "%.2f"|format((resumo_mes.total_gasto or 0) / 100) }}</h4>
+        <p class="text-sm text-secondary mb-0">{{ resumo_mes.quantidade_notas }} nota(s)</p>
+        {% else %}
+        <p class="vazio mb-0">Nenhuma nota neste mês.</p>
+        {% endif %}
       </div>
     </div>
   </div>
 
   <div class="card mb-4">
     <div class="card-header pb-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
-      <h6 class="mb-0">Gasto por categoria</h6>
-      {% if meses_disponiveis %}
-      <select id="select-mes-categoria" class="form-select form-select-sm w-auto">
-        {% for mes in meses_disponiveis %}
-        <option value="{{ mes }}">{{ mes | mes_ano_br }}</option>
-        {% endfor %}
-      </select>
-      {% endif %}
+      <div class="btn-group" role="group" aria-label="Dimensão do gasto">
+        <a class="btn btn-sm {{ 'btn-primary' if dimensao == 'item' else 'btn-outline-primary' }} mb-0"
+           href="/ver/resumo?mes={{ mes_selecionado }}&dimensao=item&nivel={{ nivel }}">Por item</a>
+        <a class="btn btn-sm {{ 'btn-primary' if dimensao == 'estabelecimento' else 'btn-outline-primary' }} mb-0"
+           href="/ver/resumo?mes={{ mes_selecionado }}&dimensao=estabelecimento&nivel={{ nivel }}">Por estabelecimento</a>
+        <a class="btn btn-sm {{ 'btn-primary' if dimensao == 'ambos' else 'btn-outline-primary' }} mb-0"
+           href="/ver/resumo?mes={{ mes_selecionado }}&dimensao=ambos&nivel={{ nivel }}">Os dois</a>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <div class="btn-group" role="group" aria-label="Nível de detalhe">
+          <a class="btn btn-sm {{ 'btn-secondary' if nivel == 1 else 'btn-outline-secondary' }} mb-0"
+             href="/ver/resumo?mes={{ mes_selecionado }}&dimensao={{ dimensao }}&nivel=1">Nível 1</a>
+          <a class="btn btn-sm {{ 'btn-secondary' if nivel == 2 else 'btn-outline-secondary' }} mb-0"
+             href="/ver/resumo?mes={{ mes_selecionado }}&dimensao={{ dimensao }}&nivel=2">Nível 2</a>
+        </div>
+        <a class="btn btn-sm btn-outline-dark mb-0" href="/ver/notas?mes={{ mes_selecionado }}">Ver notas deste mês →</a>
+      </div>
     </div>
     <div class="card-body">
-      {% if meses_disponiveis %}
-      <div id="grafico-pizza" style="max-width: 480px; height: 420px;"></div>
-      <p id="mensagem-pizza-vazia" class="vazio" style="display:none">Nenhum gasto neste mês.</p>
-      {% else %}
-      <p class="vazio mb-0">Nenhuma nota importada ainda.</p>
-      {% endif %}
+      <div class="row">
+        {% if dimensao in ("item", "ambos") %}
+        <div class="col-12 {{ 'col-md-6' if dimensao == 'ambos' else '' }} mb-3">
+          <h6 class="text-uppercase text-xs font-weight-bolder opacity-7">Por categoria do item</h6>
+          <div id="grafico-item" style="max-width: 480px; height: 420px;"></div>
+          <p id="mensagem-item-vazia" class="vazio" style="display:none">Nenhum gasto neste mês.</p>
+        </div>
+        {% endif %}
+        {% if dimensao in ("estabelecimento", "ambos") %}
+        <div class="col-12 {{ 'col-md-6' if dimensao == 'ambos' else '' }} mb-3">
+          <h6 class="text-uppercase text-xs font-weight-bolder opacity-7">Por tipo de estabelecimento</h6>
+          <div id="grafico-estabelecimento" style="max-width: 480px; height: 420px;"></div>
+          <p id="mensagem-estabelecimento-vazia" class="vazio" style="display:none">Nenhum gasto neste mês.</p>
+        </div>
+        {% endif %}
+      </div>
     </div>
   </div>
 
   <div class="card mb-4">
     <div class="card-header pb-0">
-      <h6 class="mb-0">Meses anteriores</h6>
+      <h6 class="mb-0">Evolução mensal</h6>
     </div>
     <div class="card-body">
       {% if historico %}
@@ -74,8 +117,6 @@
       {% endif %}
     </div>
   </div>
-
-  <p><a href="/ver/notas">Ver todas as notas →</a></p>
 {% endblock %}
 {% block extra_scripts %}
   <script src="/static/plotly-basic.min.js"></script>
@@ -123,9 +164,9 @@
       return `${mes}/${ano}`;
     }
 
-    // research.md #4: cor estavel por categoria_id % 8; "Sem categoria" e a
-    // cauda dobrada em "Outros" (teto de 8 series, choosing-a-form.md da
-    // skill de dataviz) usam sempre o tom neutro, nunca um slot categorico.
+    // research.md #4 (feature 005): cor estavel por categoria_id % 8; "Sem
+    // categoria" e a cauda dobrada em "Outros" (teto de 8 series) usam
+    // sempre o tom neutro, nunca um slot categorico.
     function prepararFatias(categorias) {
       const semCategoria = categorias.find((c) => c.categoria_id === null);
       const comCategoria = categorias
@@ -149,9 +190,24 @@
       return paleta.categorica[fatia.categoria_id % 8];
     }
 
-    function renderizarPizza(categorias) {
-      const mensagemVazia = document.getElementById("mensagem-pizza-vazia");
-      const divPizza = document.getElementById("grafico-pizza");
+    const MES_SELECIONADO = {{ mes_selecionado | tojson }};
+    const ultimasFatias = {};
+
+    // US3/FR-006: clicar numa fatia leva as notas do mes (e do tipo de
+    // estabelecimento, quando a dimensao clicada for "estabelecimento").
+    function navegarParaNotas(dimensaoClicada, fatia) {
+      const base = `/ver/notas?mes=${encodeURIComponent(MES_SELECIONADO)}`;
+      if (dimensaoClicada === "estabelecimento" && fatia.categoria_id !== null) {
+        window.location.href = `${base}&estabelecimento=${fatia.categoria_id}`;
+      } else {
+        window.location.href = base;
+      }
+    }
+
+    function renderizarPizza(divId, mensagemVaziaId, dimensaoClicada, categorias) {
+      const mensagemVazia = document.getElementById(mensagemVaziaId);
+      const divPizza = document.getElementById(divId);
+      if (!divPizza) return;
       if (!categorias.length) {
         divPizza.style.display = "none";
         mensagemVazia.style.display = "block";
@@ -162,6 +218,7 @@
 
       const paleta = paletaAtual();
       const fatias = prepararFatias(categorias);
+      ultimasFatias[divId] = fatias;
       const dados = [
         {
           type: "pie",
@@ -177,24 +234,31 @@
       const layout = Object.assign({ showlegend: true, height: 420 }, layoutBase(paleta));
       const primeiraRenderizacao = !divPizza.dataset.renderizado;
       if (primeiraRenderizacao) {
-        Plotly.newPlot("grafico-pizza", dados, layout, { responsive: true, displayModeBar: false });
+        Plotly.newPlot(divId, dados, layout, { responsive: true, displayModeBar: false });
         divPizza.dataset.renderizado = "1";
+        divPizza.on("plotly_click", (evento) => {
+          const ponto = evento.points[0];
+          const fatia = ultimasFatias[divId][ponto.pointNumber];
+          navegarParaNotas(dimensaoClicada, fatia);
+        });
       } else {
-        Plotly.react("grafico-pizza", dados, layout, { responsive: true, displayModeBar: false });
+        Plotly.react(divId, dados, layout, { responsive: true, displayModeBar: false });
       }
     }
 
-    async function carregarPizza(mes) {
-      const resposta = await fetch(`/notas/resumo/categorias?mes=${encodeURIComponent(mes)}`);
+    async function carregarGrafico(divId, mensagemVaziaId, dimensaoClicada) {
+      const resposta = await fetch(
+        `/notas/resumo/categorias?mes=${encodeURIComponent(MES_SELECIONADO)}&dimensao=${dimensaoClicada}&nivel={{ nivel }}`
+      );
       const corpo = await resposta.json();
-      renderizarPizza(corpo.categorias);
+      renderizarPizza(divId, mensagemVaziaId, dimensaoClicada, corpo.categorias);
     }
 
-    {% if meses_disponiveis %}
-    document.getElementById("select-mes-categoria").addEventListener("change", (evento) => {
-      carregarPizza(evento.target.value);
-    });
-    carregarPizza("{{ meses_disponiveis[0] }}");
+    {% if dimensao in ("item", "ambos") %}
+    carregarGrafico("grafico-item", "mensagem-item-vazia", "item");
+    {% endif %}
+    {% if dimensao in ("estabelecimento", "ambos") %}
+    carregarGrafico("grafico-estabelecimento", "mensagem-estabelecimento-vazia", "estabelecimento");
     {% endif %}
 
     {% if historico %}

@@ -29,15 +29,31 @@
         <p class="text-sm mb-1">UF: {{ nota.uf or "não disponível" }}</p>
         <p class="text-sm mb-3">Total: {% if nota.valor_total is not none %}R$ {{ "%.2f"|format(nota.valor_total / 100) }}{% else %}não disponível{% endif %}</p>
 
-        <div class="d-flex align-items-center gap-2 mt-2">
-          <label for="select-categoria" class="mb-0 text-sm fw-bold">Categoria:</label>
-          <select id="select-categoria" class="form-select form-select-sm w-auto" style="min-width: 180px;">
-            <option value="">Sem categoria</option>
-            {% for categoria in categorias %}
-            <option value="{{ categoria.id }}" {{ "selected" if categoria.id == nota.categoria_id else "" }}>{{ categoria.nome }}</option>
-            {% endfor %}
-          </select>
-          <button class="btn btn-sm btn-outline-primary mb-0" onclick="salvarCategoria({{ nota.id }})">Salvar</button>
+        <div class="mt-2">
+          <label class="mb-1 text-sm fw-bold d-block">Tipo de estabelecimento:</label>
+          <div class="mb-1 text-sm" id="estabelecimento-atual">
+            {% if nota.categoria_id %}
+              {% set categoria_nota = categorias_por_id.get(nota.categoria_id) %}
+              {% if categoria_nota and categoria_nota.parent_id %}
+                {{ categorias_por_id.get(categoria_nota.parent_id).nome }} › {{ categoria_nota.nome }}
+              {% elif categoria_nota %}
+                {{ categoria_nota.nome }}
+              {% endif %}
+            {% else %}
+              <span class="vazio">sem tipo de estabelecimento</span>
+            {% endif %}
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <div class="categoria-autocomplete position-relative" id="estabelecimento-autocomplete" style="min-width: 240px;">
+              <input type="text" class="form-control form-control-sm categoria-input" placeholder="Ex.: Supermercado, Saúde › Dentista" autocomplete="off">
+              <div class="categoria-sugestoes list-group position-absolute" style="display:none; z-index:10; max-height:200px; overflow-y:auto; width:100%;"></div>
+              <input type="hidden" class="categoria-id-selecionada">
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-primary mb-0" id="btn-salvar-estabelecimento" disabled>Salvar</button>
+            {% if nota.categoria_id %}
+            <button type="button" class="btn btn-sm btn-outline-secondary mb-0" onclick="removerEstabelecimentoDaNota({{ nota.id }})">Remover</button>
+            {% endif %}
+          </div>
         </div>
 
         <div class="d-flex align-items-center gap-2 mt-2">
@@ -132,9 +148,7 @@
       window.location.href = "/ver/notas?excluida=1";
     }
 
-    async function salvarCategoria(notaId) {
-      const select = document.getElementById("select-categoria");
-      const categoriaId = select.value ? parseInt(select.value, 10) : null;
+    async function salvarEstabelecimentoDaNota(notaId, categoriaId) {
       const resposta = await fetch(`/notas/${notaId}/categoria`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -142,10 +156,14 @@
       });
       const corpo = await resposta.json();
       if (!resposta.ok) {
-        alert(corpo.erro || "Não foi possível atualizar a categoria.");
+        alert(corpo.erro || "Não foi possível atualizar o tipo de estabelecimento.");
         return;
       }
       window.location.reload();
+    }
+
+    function removerEstabelecimentoDaNota(notaId) {
+      salvarEstabelecimentoDaNota(notaId, null);
     }
 
     async function salvarTitular(notaId) {
@@ -164,14 +182,30 @@
       window.location.reload();
     }
 
-    const CATEGORIAS_ITENS = {{ categorias_json | default([]) | tojson }};
+    // Mesma lista serve os dois eixos (categoria do item e tipo de
+    // estabelecimento da nota, feature 009, data-model.md) -- e a mesma
+    // tabela de categoria compartilhada pelos dois.
+    const TODAS_CATEGORIAS = {{ categorias_json | default([]) | tojson }};
 
-    document.querySelectorAll(".categoria-autocomplete").forEach((container) => {
+    const containerEstabelecimento = document.getElementById("estabelecimento-autocomplete");
+    const botaoSalvarEstabelecimento = document.getElementById("btn-salvar-estabelecimento");
+    inicializarAutocompleteCategoria(containerEstabelecimento, TODAS_CATEGORIAS, "", (categoriaId) => {
+      botaoSalvarEstabelecimento.disabled = !categoriaId;
+    });
+    botaoSalvarEstabelecimento.addEventListener("click", () => {
+      const categoriaId = parseInt(
+        containerEstabelecimento.querySelector(".categoria-id-selecionada").value,
+        10
+      );
+      salvarEstabelecimentoDaNota({{ nota.id }}, categoriaId);
+    });
+
+    document.querySelectorAll(".categoria-autocomplete[data-item-id]").forEach((container) => {
       const itemId = container.dataset.itemId;
       const botaoSalvar = document.querySelector(`.btn-salvar-item[data-item-id="${itemId}"]`);
       const botaoCorrigirFonte = document.querySelector(`.btn-corrigir-fonte[data-item-id="${itemId}"]`);
 
-      inicializarAutocompleteCategoria(container, CATEGORIAS_ITENS, "", (categoriaId) => {
+      inicializarAutocompleteCategoria(container, TODAS_CATEGORIAS, "", (categoriaId) => {
         botaoSalvar.disabled = !categoriaId;
         if (botaoCorrigirFonte) {
           botaoCorrigirFonte.disabled = !categoriaId;
