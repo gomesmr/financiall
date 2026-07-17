@@ -44,31 +44,30 @@
     <div class="card-body px-0 pb-0">
       <div id="visao-descricao">
         {% if grupos %}
+        <div class="d-flex flex-wrap gap-2 align-items-center px-4 pb-3" id="barra-classificacao-lote">
+          <div class="categoria-autocomplete position-relative" id="autocomplete-lote" style="min-width: 240px;">
+            <input type="text" class="form-control form-control-sm categoria-input" placeholder="Categoria › Subcategoria" autocomplete="off">
+            <div class="categoria-sugestoes list-group position-absolute" style="display:none; z-index:10; max-height:200px; overflow-y:auto; width:100%;"></div>
+            <input type="hidden" class="categoria-id-selecionada">
+          </div>
+          <button type="button" id="btn-aplicar-lote" class="btn btn-sm bg-gradient-primary mb-0" disabled>Aplicar aos selecionados</button>
+          <span class="text-sm vazio" id="contagem-selecionados">0 selecionado(s)</span>
+        </div>
         <div class="table-responsive-argon">
           <table class="table align-items-center mb-0">
             <thead>
               <tr>
+                <th style="width:1%;"><input type="checkbox" id="checkbox-selecionar-todos"></th>
                 <th class="text-uppercase text-xs font-weight-bolder opacity-7">Descrição</th>
                 <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Qtd. itens</th>
-                <th class="text-uppercase text-xs font-weight-bolder opacity-7">Categoria</th>
-                <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Ação</th>
               </tr>
             </thead>
             <tbody>
               {% for grupo in grupos %}
               <tr>
+                <td><input type="checkbox" class="checkbox-grupo" data-descricao="{{ grupo.descricao_normalizada }}"></td>
                 <td class="text-sm">{{ grupo.descricao_normalizada }}</td>
                 <td class="text-sm">{{ grupo.quantidade_itens }}</td>
-                <td>
-                  <div class="categoria-autocomplete position-relative" data-descricao="{{ grupo.descricao_normalizada }}" style="min-width: 220px;">
-                    <input type="text" class="form-control form-control-sm categoria-input" placeholder="Categoria › Subcategoria" autocomplete="off">
-                    <div class="categoria-sugestoes list-group position-absolute" style="display:none; z-index:10; max-height:200px; overflow-y:auto; width:100%;"></div>
-                    <input type="hidden" class="categoria-id-selecionada">
-                  </div>
-                </td>
-                <td>
-                  <button type="button" class="btn btn-sm btn-outline-primary mb-0 btn-classificar-grupo" disabled>Classificar</button>
-                </td>
               </tr>
               {% endfor %}
             </tbody>
@@ -138,28 +137,63 @@
       Plotly.newPlot("grafico-evolucao", dados, layout, { responsive: true, displayModeBar: false });
     })();
 
-    document.querySelectorAll(".categoria-autocomplete").forEach((container) => {
-      const botao = container.closest("tr").querySelector(".btn-classificar-grupo");
-      inicializarAutocompleteCategoria(container, CATEGORIAS, "", (categoriaId) => {
-        botao.disabled = !categoriaId;
+    (function inicializarClassificacaoEmLote() {
+      const barra = document.getElementById("barra-classificacao-lote");
+      if (!barra) return;
+
+      const checkboxSelecionarTodos = document.getElementById("checkbox-selecionar-todos");
+      const botaoAplicar = document.getElementById("btn-aplicar-lote");
+      const contagemEl = document.getElementById("contagem-selecionados");
+      let categoriaSelecionadaId = null;
+
+      function checkboxesGrupo() {
+        return Array.from(document.querySelectorAll(".checkbox-grupo"));
+      }
+
+      function atualizarEstado() {
+        const selecionados = checkboxesGrupo().filter((cb) => cb.checked).length;
+        contagemEl.textContent = `${selecionados} selecionado(s)`;
+        botaoAplicar.disabled = !(selecionados > 0 && categoriaSelecionadaId);
+      }
+
+      checkboxSelecionarTodos.addEventListener("change", (evento) => {
+        checkboxesGrupo().forEach((cb) => {
+          cb.checked = evento.target.checked;
+        });
+        atualizarEstado();
       });
 
-      botao.addEventListener("click", async () => {
-        const descricaoNormalizada = container.dataset.descricao;
-        const categoriaId = parseInt(container.querySelector(".categoria-id-selecionada").value, 10);
-        const resposta = await fetch("/itens/pendentes/classificar-grupo", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ descricao_normalizada: descricaoNormalizada, categoria_id: categoriaId }),
-        });
-        const corpo = await resposta.json();
-        if (!resposta.ok) {
-          alert(corpo.erro || "Não foi possível classificar o grupo.");
-          return;
+      checkboxesGrupo().forEach((cb) => cb.addEventListener("change", atualizarEstado));
+
+      inicializarAutocompleteCategoria(document.getElementById("autocomplete-lote"), CATEGORIAS, "", (categoriaId) => {
+        categoriaSelecionadaId = categoriaId;
+        atualizarEstado();
+      });
+
+      botaoAplicar.addEventListener("click", async () => {
+        const descricoes = checkboxesGrupo()
+          .filter((cb) => cb.checked)
+          .map((cb) => cb.dataset.descricao);
+
+        let totalAfetado = 0;
+        for (const descricaoNormalizada of descricoes) {
+          const resposta = await fetch("/itens/pendentes/classificar-grupo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ descricao_normalizada: descricaoNormalizada, categoria_id: categoriaSelecionadaId }),
+          });
+          const corpo = await resposta.json();
+          if (!resposta.ok) {
+            alert(corpo.erro || `Não foi possível classificar o grupo "${descricaoNormalizada}".`);
+            return;
+          }
+          totalAfetado += corpo.quantidade_itens_afetados;
         }
+
+        alert(`${totalAfetado} item(ns) classificado(s).`);
         window.location.reload();
       });
-    });
+    })();
 
     const selectVisao = document.getElementById("select-visao");
     const inputNotaId = document.getElementById("input-nota-id");
