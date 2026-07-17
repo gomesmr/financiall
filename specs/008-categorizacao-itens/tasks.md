@@ -217,12 +217,21 @@ classificado.
 > sobrevivem ao contato com descrições reais, não só com dado sintético construído pelo
 > autor.
 
-- [ ] T021 [US1] Validar com itens reais antes de promover esta história (dev → main)
-  - [ ] Dimensão 1: descrições curtas/abreviadas de lojas diferentes (variação de formato
-        entre emitentes, como no corpus real)
-  - [ ] Dimensão 2: itens do backlog histórico (feature 004, importação em lote) vs. itens
-        de nota importada individualmente (feature 001) — confirmar que ambos aparecem
-        corretamente na fila
+- [X] T021 [US1] Validar com itens reais antes de promover esta história (dev → main) —
+      rodado no Pi (dev) em 2026-07-17: 5 notas/41 itens reais, cascata ativada sobre o
+      backlog (`classificar_itens_pendentes_da_nota` chamada para cada nota já existente,
+      research.md #9), classificação manual real de um grupo (`BANANA NANICA KG`, 4
+      ocorrências) confirmada resolvendo o grupo inteiro via API real
+  - [X] Dimensão 1: descrições curtas/abreviadas de lojas diferentes (variação de formato
+        entre emitentes, como no corpus real) — confirmado com descrições reais truncadas/
+        abreviadas (`BATATA PALHA YOKI L105 P`, `PAO PANCO CASEIRO 500G M`, `DIPIRONA 500
+        EMG 20ML`), todas agrupadas corretamente
+  - [X] Dimensão 2: itens do backlog histórico (feature 004, importação em lote) vs. itens
+        de nota importada individualmente (feature 001) — as 5 notas reais do Pi (dev) são
+        todas `url_chave` (feature 001); não há nota real via importação em lote (feature
+        004) nesse ambiente para comparar diretamente. Validado por revisão de código (T009:
+        `classificar_itens_pendentes_da_nota` é chamada de forma idêntica pelos dois pontos
+        de inserção) e por teste sintético local equivalente
 
 ### Visual Verification for User Story 1 (MANDATORY — Constitution Principle VIII)
 
