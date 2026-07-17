@@ -480,15 +480,21 @@ evoluir sem exigir alteração direta no banco de dados.
 
 **Purpose**: Validação final cruzando todas as histórias.
 
-- [ ] T056 Rodar a suíte completa (`pytest tests/unit tests/integration tests/contract -v`)
+- [X] T056 Rodar a suíte completa (`pytest tests/unit tests/integration tests/contract -v`)
       e confirmar 100% passando — depende de T011, T012, T019, T020, T024, T025, T026, T032,
-      T033, T042, T043, T051, T052
-- [ ] T057 Validação completa do `quickstart.md` (§1-§8), consolidando as validações com
+      T033, T042, T043, T051, T052. Confirmado em 2026-07-17: 244 passed, 1 skipped
+      (skip preexistente, não relacionado a esta feature)
+- [X] T057 Validação completa do `quickstart.md` (§1-§8), consolidando as validações com
       amostra real (T021, T027, T034) e visuais (T023, T046, T055) já feitas
-      individualmente por história, antes de promover dev → main
-- [ ] T058 [P] Confirmar que o link de navegação para `/ver/pendentes` (T018) está visível
+      individualmente por história, antes de promover dev → main. Confirmado em 2026-07-17:
+      todas as páginas (`/ver/pendentes`, `/ver/categorias`, `/ver/notas`,
+      `/ver/notas/<id>`, `/ver/resumo`, `/`) carregam com `200` no ambiente dev do Pi com o
+      banco copiado de produção (385 itens reais, 8 fases de mudanças reais aplicadas —
+      326 ainda pendentes, 59 já classificados ao longo da validação incremental)
+- [X] T058 [P] Confirmar que o link de navegação para `/ver/pendentes` (T018) está visível
       em `src/api/templates/base.html` em todas as páginas, mesmo padrão dos links já
-      existentes (`/ver/notas`, `/ver/categorias`)
+      existentes (`/ver/notas`, `/ver/categorias`) — confirmado, link "Pendentes" presente
+      entre "Categorias" e "Resumo"
 
 ---
 
