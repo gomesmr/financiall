@@ -38,10 +38,10 @@
         {% if grupos_por_mes %}
           {% for mes_grupo, notas_do_grupo in grupos_por_mes %}
           <div class="mb-4">
-            <h6 class="px-4 text-uppercase text-xs font-weight-bolder opacity-7">
-              {{ mes_grupo | mes_ano_br if mes_grupo != "Sem data" else "Sem data" }}
+            <h3 class="px-4 text-uppercase text-xl font-weight-bolder opacity-7">
+              {{ mes_grupo | mes_extenso_br if mes_grupo != "Sem data" else "Sem data" }}
               <span class="text-secondary fw-normal">— {{ notas_do_grupo | length }} nota(s)</span>
-            </h6>
+            </h3>
             {{ tabela_notas(notas_do_grupo) }}
           </div>
           {% endfor %}
