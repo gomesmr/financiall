@@ -44,7 +44,11 @@ def resolver_estabelecimento(transacao_id: int, db_path: str = storage_db.DEFAUL
     if transacao.nota_fiscal_id is not None:
         nota = storage_db.buscar_nota_por_id(transacao.nota_fiscal_id, db_path=db_path)
         if nota is not None and nota.cnpj_emitente:
-            documento = nota.cnpj_emitente
+            # nota_fiscal.cnpj_emitente vem formatado (##.###.###/####-##);
+            # normaliza pra so digitos, senao o mesmo CNPJ vindo por essa
+            # via e pela via de PIX (extrair_documento, ja so digitos)
+            # nunca bateriam e criariam duas identidades pro mesmo lugar.
+            documento = re.sub(r"\D", "", nota.cnpj_emitente)
     if documento is None:
         documento = extrair_documento(transacao.descricao)
 
@@ -54,7 +58,25 @@ def resolver_estabelecimento(transacao_id: int, db_path: str = storage_db.DEFAUL
                 transacao.estabelecimento_id, documento, db_path=db_path
             )
         else:
-            novo_id = storage_db.obter_ou_criar_estabelecimento_por_documento(documento, db_path=db_path)
+            # Antes de criar uma identidade nova por documento, ver se OUTRA
+            # transacao com a mesma descricao exata ja resolveu por
+            # descricao -- promove ela em vez de deixar duas identidades pro
+            # mesmo lugar (bug real: compra reconciliada com nota criava um
+            # estabelecimento CNPJ separado do "Varejao" ja nomeado por
+            # descricao). So pega match exato -- grafias truncadas
+            # diferentes continuam exigindo o merge manual por nome
+            # (atribuir_estabelecimento) ou uma faxina pontual.
+            candidato_id = None
+            if transacao.descricao_normalizada:
+                candidato_id = storage_db.buscar_estabelecimento_id_por_descricao(
+                    transacao.descricao_normalizada, db_path=db_path
+                )
+            if candidato_id is not None:
+                novo_id = storage_db.promover_estabelecimento_para_documento(
+                    candidato_id, documento, db_path=db_path
+                )
+            else:
+                novo_id = storage_db.obter_ou_criar_estabelecimento_por_documento(documento, db_path=db_path)
         storage_db.vincular_transacao_a_estabelecimento(transacao_id, novo_id, db_path=db_path)
         return novo_id
 

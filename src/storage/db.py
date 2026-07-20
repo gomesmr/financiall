@@ -1736,6 +1736,25 @@ def obter_ou_criar_estabelecimento_por_descricao(descricao_normalizada: str, db_
         conn.close()
 
 
+def buscar_estabelecimento_id_por_descricao(descricao_normalizada: str, db_path: str = DEFAULT_DB_PATH) -> int | None:
+    """So busca, nunca cria -- usado antes de criar um estabelecimento por
+    documento (research.md #9) pra checar se a MESMA descricao exata ja
+    tem um estabelecimento por descricao, e nesse caso promove ele em vez
+    de deixar duas identidades pro mesmo lugar (bug real: uma transacao
+    reconciliada com nota que traz CNPJ criava um estabelecimento novo
+    mesmo quando outra transacao igualzinha, sem nota, ja tinha resolvido
+    por descricao)."""
+    conn = get_connection(db_path)
+    try:
+        row = conn.execute(
+            "SELECT id FROM estabelecimento WHERE descricao_normalizada = ? AND documento IS NULL",
+            (descricao_normalizada,),
+        ).fetchone()
+        return row["id"] if row else None
+    finally:
+        conn.close()
+
+
 def promover_estabelecimento_para_documento(
     estabelecimento_id: int, documento: str, db_path: str = DEFAULT_DB_PATH
 ) -> int:
@@ -1777,12 +1796,18 @@ def vincular_transacao_a_estabelecimento(transacao_id: int, estabelecimento_id: 
 
 def listar_estabelecimentos_pendentes(db_path: str = DEFAULT_DB_PATH) -> list[dict]:
     """Fila de gerenciamento (US5, FR-018) -- estabelecimentos ainda sem
-    nome_fantasia, com a contagem de transacoes vinculadas."""
+    nome_fantasia, com a contagem de transacoes vinculadas e um exemplo de
+    descricao real de uma delas. O exemplo existe pra tornar reconhecivel
+    um estabelecimento identificado por CNPJ/CPF (research.md #9) -- sem
+    ele, a fila so mostrava o documento cru, sem nenhuma pista de qual
+    loja e (bug relatado pelo usuario: nao reconhecia uma compra no
+    Varejao porque ela tinha sido resolvida por CNPJ, nao por descricao)."""
     conn = get_connection(db_path)
     try:
         rows = conn.execute(
             """
-            SELECT e.id, e.documento, e.descricao_normalizada, COUNT(t.id) AS quantidade_transacoes
+            SELECT e.id, e.documento, e.descricao_normalizada, COUNT(t.id) AS quantidade_transacoes,
+                   MAX(t.descricao) AS exemplo_descricao
             FROM estabelecimento e
             LEFT JOIN transacao t ON t.estabelecimento_id = e.id
             WHERE e.nome_fantasia IS NULL
@@ -1796,6 +1821,7 @@ def listar_estabelecimentos_pendentes(db_path: str = DEFAULT_DB_PATH) -> list[di
                 "chave": row["documento"] or row["descricao_normalizada"],
                 "tipo_chave": "documento" if row["documento"] else "descricao",
                 "quantidade_transacoes": row["quantidade_transacoes"],
+                "exemplo_descricao": row["exemplo_descricao"],
             }
             for row in rows
         ]

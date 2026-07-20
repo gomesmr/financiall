@@ -14,6 +14,7 @@
             <tr>
               <th class="text-uppercase text-xs font-weight-bolder opacity-7">Identificado por</th>
               <th class="text-uppercase text-xs font-weight-bolder opacity-7">Chave</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Exemplo de transação</th>
               <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Qtd. transações</th>
               <th class="text-uppercase text-xs font-weight-bolder opacity-7">Nome fantasia</th>
               <th class="text-uppercase text-xs font-weight-bolder opacity-7">Tipo</th>
@@ -25,6 +26,7 @@
             <tr data-estabelecimento-id="{{ grupo.id }}">
               <td class="text-sm">{{ "CNPJ/CPF" if grupo.tipo_chave == "documento" else "Descrição" }}</td>
               <td class="text-sm">{{ grupo.chave }}</td>
+              <td class="text-sm">{{ grupo.exemplo_descricao or "—" }}</td>
               <td class="text-sm">{{ grupo.quantidade_transacoes }}</td>
               <td><input type="text" class="form-control form-control-sm input-nome-fantasia" placeholder="Nome fantasia" list="lista-nomes-fantasia" autocomplete="off"></td>
               <td>
