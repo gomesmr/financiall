@@ -155,3 +155,55 @@ def test_resolver_estabelecimento_funde_com_estabelecimento_ja_existente_por_doc
     assert id_fundido == id_existente_por_documento
     transacao_atualizada = storage_db.buscar_transacao_por_id(transacao_por_descricao, db_path=db_path)
     assert transacao_atualizada.estabelecimento_id == id_existente_por_documento
+
+
+# --- bug real: grafias truncadas diferentes duplicavam a sugestao de nome --
+
+
+def test_atribuir_estabelecimento_mesmo_nome_funde_em_vez_de_duplicar(db_path):
+    """Bug relatado pelo usuario: classificar duas descricoes truncadas
+    diferentes ('LETICIA ARTE-CT ENTO', 'LETICIA ARTE TALENTO') com o
+    mesmo nome fantasia criava duas linhas de Estabelecimento, e a
+    sugestao de nomes ja usados aparecia duplicada. atribuir_estabelecimento
+    agora funde na existente em vez de manter duas identidades."""
+    tipo_id = storage_db.criar_categoria("Padaria", db_path=db_path)
+    t1 = _inserir_transacao(db_path, "Leticia Arte Talento", descricao_normalizada="LETICIA ARTE TALENTO", fingerprint="fp-lt1")
+    est1_id = estabelecimento_service.resolver_estabelecimento(t1, db_path=db_path)
+    storage_db.atribuir_estabelecimento(est1_id, "Letícia Arte e Talento", tipo_id, db_path=db_path)
+
+    t2 = _inserir_transacao(db_path, "Leticia Arte-ct Ento", descricao_normalizada="LETICIA ARTE-CT ENTO", fingerprint="fp-lt2")
+    est2_id = estabelecimento_service.resolver_estabelecimento(t2, db_path=db_path)
+    resultado = storage_db.atribuir_estabelecimento(est2_id, "Letícia Arte e Talento", None, db_path=db_path)
+
+    assert resultado is True
+    # a segunda linha foi fundida na primeira, nao criou uma terceira identidade
+    assert storage_db.buscar_estabelecimento_por_id(est2_id, db_path=db_path) is None
+    transacao_2_atualizada = storage_db.buscar_transacao_por_id(t2, db_path=db_path)
+    assert transacao_2_atualizada.estabelecimento_id == est1_id
+
+    nomeados = storage_db.listar_estabelecimentos_nomeados(db_path=db_path)
+    assert len(nomeados) == 1
+    assert nomeados[0]["tipo_categoria_id"] == tipo_id
+
+
+def test_listar_estabelecimentos_nomeados_deduplica_por_nome_registros_antigos(db_path):
+    """Cobre o caso de dado ja duplicado ANTES desta correcao existir
+    (registros legados) -- a listagem de sugestao nunca deve repetir o
+    mesmo nome, mesmo que existam duas linhas reais no banco."""
+    tipo_id = storage_db.criar_categoria("Padaria", db_path=db_path)
+    t1 = _inserir_transacao(db_path, "Loja A", descricao_normalizada="LOJA A", fingerprint="fp-dup1")
+    est1_id = estabelecimento_service.resolver_estabelecimento(t1, db_path=db_path)
+    t2 = _inserir_transacao(db_path, "Loja A Variante", descricao_normalizada="LOJA A VARIANTE", fingerprint="fp-dup2")
+    est2_id = estabelecimento_service.resolver_estabelecimento(t2, db_path=db_path)
+
+    # simula o estado legado: duas linhas com o MESMO nome (antes do merge existir)
+    conn = storage_db.get_connection(db_path)
+    conn.execute("UPDATE estabelecimento SET nome_fantasia = ?, tipo_categoria_id = ? WHERE id = ?", ("Loja A", tipo_id, est1_id))
+    conn.execute("UPDATE estabelecimento SET nome_fantasia = ?, tipo_categoria_id = ? WHERE id = ?", ("Loja A", tipo_id, est2_id))
+    conn.commit()
+    conn.close()
+
+    nomeados = storage_db.listar_estabelecimentos_nomeados(db_path=db_path)
+
+    assert len(nomeados) == 1
+    assert nomeados[0]["nome_fantasia"] == "Loja A"

@@ -60,6 +60,8 @@
                 <input type="text" class="form-control form-control-sm d-none" id="nome-edicao-{{ categoria.id }}" value="{{ categoria.nome }}">
               </td>
               <td style="white-space:nowrap;">
+                <a class="btn btn-sm btn-outline-dark mb-0" href="/ver/transacoes?categoria_id={{ categoria.id }}" title="Ver transações desta categoria">Transações</a>
+                <a class="btn btn-sm btn-outline-dark mb-0" href="/ver/itens?categoria_id={{ categoria.id }}" title="Ver itens desta categoria">Itens</a>
                 <button class="btn btn-sm btn-outline-secondary mb-0" id="btn-editar-{{ categoria.id }}" onclick="iniciarEdicao({{ categoria.id }})">Editar</button>
                 <button class="btn btn-sm btn-outline-primary mb-0 d-none" id="btn-salvar-{{ categoria.id }}" onclick="salvarEdicao({{ categoria.id }})">Salvar</button>
                 <button class="btn btn-sm btn-outline-danger mb-0" onclick="excluirCategoria({{ categoria.id }})">Excluir</button>
@@ -72,6 +74,8 @@
                 <input type="text" class="form-control form-control-sm d-none" id="nome-edicao-{{ subcategoria.id }}" value="{{ subcategoria.nome }}">
               </td>
               <td style="white-space:nowrap;">
+                <a class="btn btn-sm btn-outline-dark mb-0" href="/ver/transacoes?categoria_id={{ subcategoria.id }}" title="Ver transações desta categoria">Transações</a>
+                <a class="btn btn-sm btn-outline-dark mb-0" href="/ver/itens?categoria_id={{ subcategoria.id }}" title="Ver itens desta categoria">Itens</a>
                 <button class="btn btn-sm btn-outline-secondary mb-0" id="btn-editar-{{ subcategoria.id }}" onclick="iniciarEdicao({{ subcategoria.id }})">Editar</button>
                 <button class="btn btn-sm btn-outline-primary mb-0 d-none" id="btn-salvar-{{ subcategoria.id }}" onclick="salvarEdicao({{ subcategoria.id }})">Salvar</button>
                 <button class="btn btn-sm btn-outline-danger mb-0" onclick="excluirCategoria({{ subcategoria.id }})">Excluir</button>
