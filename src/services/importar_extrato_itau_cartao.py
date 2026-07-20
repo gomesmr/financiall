@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 
 import xlrd
 
@@ -26,11 +27,14 @@ _DESCRICOES_IGNORADAS = {
 
 
 def _conta_pelo_nome_arquivo(caminho_arquivo: str) -> str:
-    nome = os.path.basename(caminho_arquivo).upper()
-    if "9073" in nome:
-        return "Itaú_9073"
-    if "2486" in nome:
-        return "Itaú_2486"
+    """Identifica o cartao pelos 4 digitos finais que o Itau usa no nome do
+    arquivo exportado (ex.: 9073, 2486, 1035) -- generico o bastante para
+    cartoes novos, sem precisar hardcodar cada numero (validado com dado
+    real: assets/finalcial/Financeiro/extrato/1035-.../*.xls)."""
+    nome = os.path.basename(caminho_arquivo)
+    match = re.search(r"(\d{4})", nome)
+    if match:
+        return f"Itaú_{match.group(1)}"
     return "Itaú_CC_Cartão"
 
 

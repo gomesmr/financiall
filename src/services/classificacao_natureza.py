@@ -38,7 +38,12 @@ def classificar_natureza(
 
     for regra in regras:
         padrao = re.escape(regra["padrao"])
-        if re.search(rf"\b{padrao}\b", descricao_normalizada):
+        # So exige fronteira de palavra a esquerda -- descricao de extrato
+        # costuma colar codigo de loja/parcela direto no nome (ex.:
+        # "DROGASIL1327-CT", "99*"), diferente da descricao de item de
+        # nota fiscal; exigir tambem fronteira a direita perderia esses
+        # casos reais sem necessidade (validacao com dado real, registro.json).
+        if re.search(rf"\b{padrao}", descricao_normalizada):
             return regra["natureza"], regra["categoria_id"], "regra"
 
     return None, None, None
