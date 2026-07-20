@@ -4,9 +4,42 @@ from flask import Blueprint, current_app, jsonify, render_template, request
 
 from src.models.transacao import NATUREZAS_VALIDAS
 from src.services import estabelecimento as estabelecimento_service
+from src.services import resumo as resumo_service
 from src.storage import db as storage_db
 
 bp = Blueprint("transacoes", __name__)
+
+
+# --- Listagem geral (polimento pos-deploy, pedido do usuario apos ver o ----
+# --- resumo de importacao sem ter onde navegar pelas transacoes) ----------
+
+
+@bp.get("/ver/transacoes")
+def pagina_transacoes():
+    db_path = current_app.config["DB_PATH"]
+    mes = request.args.get("mes")
+    conta = request.args.get("conta")
+    natureza = request.args.get("natureza")
+
+    transacoes = storage_db.listar_transacoes(mes=mes, conta=conta, natureza=natureza, db_path=db_path)
+    contas = storage_db.listar_contas_distintas(db_path=db_path)
+    categorias_por_id = {c.id: c.nome for c in storage_db.listar_categorias(db_path=db_path)}
+    estabelecimentos_por_id = {e["id"]: e["nome_fantasia"] for e in storage_db.listar_estabelecimentos_nomeados(db_path=db_path)}
+    grupos_por_mes = resumo_service.agrupar_transacoes_por_mes(transacoes) if not mes else None
+
+    return render_template(
+        "transacoes.html",
+        transacoes=transacoes,
+        grupos_por_mes=grupos_por_mes,
+        contas=contas,
+        categorias_por_id=categorias_por_id,
+        estabelecimentos_por_id=estabelecimentos_por_id,
+        naturezas=sorted(NATUREZAS_VALIDAS),
+        mes_filtro=mes,
+        conta_filtro=conta,
+        natureza_filtro=natureza,
+        pagina_ativa="transacoes",
+    )
 
 
 # --- US4: fila de pendentes de natureza -----------------------------------

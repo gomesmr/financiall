@@ -39,9 +39,31 @@ def pagina_estabelecimentos_pendentes():
     grupos = storage_db.listar_estabelecimentos_pendentes(db_path=db_path)
     categorias = storage_db.listar_categorias(db_path=db_path)
     categorias_json = [{"id": c.id, "nome": c.nome, "parent_id": c.parent_id} for c in categorias]
+    categorias_por_id = {c.id: c for c in categorias}
+
+    def _rotulo_categoria(categoria_id):
+        categoria = categorias_por_id.get(categoria_id)
+        if categoria is None:
+            return None
+        if categoria.parent_id is not None:
+            pai = categorias_por_id.get(categoria.parent_id)
+            return f"{pai.nome} › {categoria.nome}" if pai else categoria.nome
+        return categoria.nome
+
+    nomeados = storage_db.listar_estabelecimentos_nomeados(db_path=db_path)
+    nomeados_json = [
+        {
+            "nome_fantasia": n["nome_fantasia"],
+            "tipo_categoria_id": n["tipo_categoria_id"],
+            "tipo_rotulo": _rotulo_categoria(n["tipo_categoria_id"]),
+        }
+        for n in nomeados
+    ]
+
     return render_template(
         "estabelecimentos_pendentes.html",
         grupos=grupos,
         categorias_json=categorias_json,
+        nomeados_json=nomeados_json,
         pagina_ativa="estabelecimentos_pendentes",
     )

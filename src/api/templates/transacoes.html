@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}financiALL - Transações{% endblock %}
+{% block titulo_pagina %}Transações{% endblock %}
+{% block content %}
+  <div class="card mb-4">
+    <div class="card-header pb-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <h6 class="mb-0">Transações importadas</h6>
+      <div class="d-flex gap-2 align-items-center flex-wrap">
+        <select id="select-conta" class="form-select form-select-sm w-auto">
+          <option value="">Todas as contas</option>
+          {% for conta in contas %}
+          <option value="{{ conta }}" {{ "selected" if conta_filtro == conta else "" }}>{{ conta }}</option>
+          {% endfor %}
+        </select>
+        <select id="select-natureza" class="form-select form-select-sm w-auto">
+          <option value="">Toda natureza</option>
+          {% for natureza in naturezas %}
+          <option value="{{ natureza }}" {{ "selected" if natureza_filtro == natureza else "" }}>{{ natureza }}</option>
+          {% endfor %}
+          <option value="pendente" {{ "selected" if natureza_filtro == "pendente" else "" }}>pendente</option>
+        </select>
+        <a href="/ver/transacoes/pendentes" class="btn btn-sm btn-outline-warning mb-0">Ver pendentes →</a>
+      </div>
+    </div>
+    {% if mes_filtro %}
+    <div class="card-body pb-0 pt-3 d-flex flex-wrap gap-2">
+      <span class="badge bg-gradient-info">
+        Mês: {{ mes_filtro | mes_ano_br }}
+        <a href="/ver/transacoes{{ '?conta=' ~ conta_filtro if conta_filtro else '' }}{{ ('&' if conta_filtro else '?') ~ 'natureza=' ~ natureza_filtro if natureza_filtro else '' }}" class="text-white ms-1" title="Remover filtro de mês">✕</a>
+      </span>
+    </div>
+    {% endif %}
+    <div class="card-body px-0 pb-0">
+      {% if transacoes %}
+        {% if grupos_por_mes %}
+          {% for mes_grupo, transacoes_do_grupo in grupos_por_mes %}
+          <div class="mb-4">
+            <h6 class="px-4 text-uppercase text-xs font-weight-bolder opacity-7">
+              {{ mes_grupo | mes_ano_br if mes_grupo != "Sem data" else "Sem data" }}
+              <span class="text-secondary fw-normal">— {{ transacoes_do_grupo | length }} transação(ões)</span>
+            </h6>
+            {{ tabela_transacoes(transacoes_do_grupo) }}
+          </div>
+          {% endfor %}
+        {% else %}
+          {{ tabela_transacoes(transacoes) }}
+        {% endif %}
+      {% else %}
+      <p class="vazio px-4 pb-3">Nenhuma transação encontrada com esse filtro.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
+
+{% macro tabela_transacoes(lista) %}
+<div class="table-responsive-argon">
+  <table class="table align-items-center mb-0">
+    <thead>
+      <tr>
+        <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Data</th>
+        <th class="text-uppercase text-xs font-weight-bolder opacity-7">Descrição</th>
+        <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Valor</th>
+        <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Natureza</th>
+        <th class="text-uppercase text-xs font-weight-bolder opacity-7">Categoria</th>
+        <th class="text-uppercase text-xs font-weight-bolder opacity-7">Estabelecimento</th>
+        <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Conta</th>
+        <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Nota</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in lista %}
+      <tr>
+        <td class="text-sm" style="white-space:nowrap;">{{ t.data | data_br }}</td>
+        <td class="text-sm">{{ t.descricao }}</td>
+        <td class="text-sm" style="white-space:nowrap; {{ 'color:#1a5c1a;' if t.tipo.value == 'entrada' else '' }}">
+          {{ "+" if t.tipo.value == "entrada" else "-" }}R$ {{ "%.2f"|format(t.valor / 100) }}
+        </td>
+        <td class="text-sm" style="white-space:nowrap;">
+          {% if t.natureza %}{{ t.natureza }}{% else %}<span class="vazio">pendente</span>{% endif %}
+        </td>
+        <td class="text-sm">{{ categorias_por_id.get(t.categoria_id, "—") if t.categoria_id else "—" }}</td>
+        <td class="text-sm">{{ estabelecimentos_por_id.get(t.estabelecimento_id) or "—" }}</td>
+        <td class="text-sm" style="white-space:nowrap;">{{ t.conta }}</td>
+        <td class="text-sm" style="white-space:nowrap;">
+          {% if t.nota_fiscal_id %}<a href="/ver/notas/{{ t.nota_fiscal_id }}">Nota #{{ t.nota_fiscal_id }}</a>{% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}
+
+{% block extra_scripts %}
+  <script>
+    function aplicarFiltros() {
+      const conta = document.getElementById("select-conta").value;
+      const natureza = document.getElementById("select-natureza").value;
+      const params = new URLSearchParams();
+      if (conta) params.set("conta", conta);
+      if (natureza) params.set("natureza", natureza);
+      const mes = new URLSearchParams(window.location.search).get("mes");
+      if (mes) params.set("mes", mes);
+      window.location.href = "/ver/transacoes" + (params.toString() ? "?" + params.toString() : "");
+    }
+    document.getElementById("select-conta").addEventListener("change", aplicarFiltros);
+    document.getElementById("select-natureza").addEventListener("change", aplicarFiltros);
+  </script>
+{% endblock %}

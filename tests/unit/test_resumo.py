@@ -443,3 +443,58 @@ def test_gasto_por_estabelecimento_transacao_com_nota_nao_soma_duas_vezes(db_pat
     assert len(resultado) == 1
     assert resultado[0].categoria_id == tipo_nota_id
     assert resultado[0].total_gasto == 1200
+
+
+# --- polimento pos-deploy: saldo do mes e agrupamento de transacoes --------
+
+
+def test_saldo_do_mes_soma_entradas_e_saidas(db_path):
+    _gravar_transacao(db_path, _mes_corrente_como_data("05"), 500000, natureza="renda")
+    _gravar_transacao(db_path, _mes_corrente_como_data("06"), 150000)  # gasto
+
+    saldo = resumo.saldo_do_mes(resumo.mes_atual(), db_path=db_path)
+
+    assert saldo.total_entradas == 500000
+    assert saldo.total_saidas == 150000
+    assert saldo.saldo == 350000
+
+
+def test_saldo_do_mes_ignora_pagamento_fatura_transferencia_e_estorno(db_path):
+    _gravar_transacao(db_path, _mes_corrente_como_data("05"), 500000, natureza="renda")
+    _gravar_transacao(db_path, _mes_corrente_como_data("06"), 200000, natureza="pagamento_fatura")
+    _gravar_transacao(db_path, _mes_corrente_como_data("07"), 30000, natureza="transferencia_interna")
+    _gravar_transacao(db_path, _mes_corrente_como_data("08"), 1000, natureza="estorno_credito")
+
+    saldo = resumo.saldo_do_mes(resumo.mes_atual(), db_path=db_path)
+
+    assert saldo.total_entradas == 500000
+    assert saldo.total_saidas == 0
+    assert saldo.saldo == 500000
+
+
+def test_saldo_do_mes_sem_nenhuma_transacao_e_zero(db_path):
+    saldo = resumo.saldo_do_mes("2020-01", db_path=db_path)
+    assert saldo == resumo.SaldoMes(mes="2020-01", total_entradas=0, total_saidas=0, saldo=0)
+
+
+def test_agrupar_transacoes_por_mes_mes_mais_recente_primeiro(db_path):
+    t1 = _gravar_transacao(db_path, "2026-01-10", 1000, fingerprint="fp-jan")
+    t2 = _gravar_transacao(db_path, "2026-03-05", 2000, fingerprint="fp-mar-1")
+    t3 = _gravar_transacao(db_path, "2026-03-20", 3000, fingerprint="fp-mar-2")
+
+    transacoes = storage_db.listar_transacoes(db_path=db_path)
+    grupos = resumo.agrupar_transacoes_por_mes(transacoes)
+
+    assert [mes for mes, _ in grupos] == ["2026-03", "2026-01"]
+    assert len(grupos[0][1]) == 2
+    assert len(grupos[1][1]) == 1
+
+
+def test_listar_transacoes_filtra_por_natureza_pendente(db_path):
+    _gravar_transacao(db_path, "2026-04-01", 1000, natureza=None, fingerprint="fp-pendente")
+    _gravar_transacao(db_path, "2026-04-02", 2000, natureza="gasto", fingerprint="fp-gasto")
+
+    resultado = storage_db.listar_transacoes(natureza="pendente", db_path=db_path)
+
+    assert len(resultado) == 1
+    assert resultado[0].natureza is None
