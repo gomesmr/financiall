@@ -1097,9 +1097,14 @@ def corrigir_fonte_e_reclassificar(
 def calcular_impacto_exclusao(categoria_id: int, db_path: str = DEFAULT_DB_PATH) -> dict | None:
     """Previa de exclusao (FR-004, FR-017, data-model.md). Retorna None se
     a categoria nao existe; senao {"tem_subcategorias", "quantidade_itens",
-    "quantidade_cache", "quantidade_regras"}. tem_subcategorias=True MUST
-    bloquear a exclusao antes de qualquer outro calculo (FR-017) --
-    calculado aqui mesmo assim, para o cliente montar a previa completa."""
+    "quantidade_cache", "quantidade_regras", "quantidade_transacoes",
+    "quantidade_estabelecimentos", "quantidade_cache_natureza",
+    "quantidade_regras_natureza"}. tem_subcategorias=True MUST bloquear a
+    exclusao antes de qualquer outro calculo (FR-017) -- calculado aqui
+    mesmo assim, para o cliente montar a previa completa. Os quatro
+    ultimos campos existem porque a feature 010 passou a referenciar
+    categoria a partir de transacao/estabelecimento tambem, alem de
+    item/nota (research.md #4/#9)."""
     conn = get_connection(db_path)
     try:
         existe = conn.execute("SELECT 1 FROM categoria WHERE id = ?", (categoria_id,)).fetchone()
@@ -1119,12 +1124,28 @@ def calcular_impacto_exclusao(categoria_id: int, db_path: str = DEFAULT_DB_PATH)
         quantidade_regras = conn.execute(
             "SELECT COUNT(*) FROM regra_categoria WHERE categoria_id = ?", (categoria_id,)
         ).fetchone()[0]
+        quantidade_transacoes = conn.execute(
+            "SELECT COUNT(*) FROM transacao WHERE categoria_id = ?", (categoria_id,)
+        ).fetchone()[0]
+        quantidade_estabelecimentos = conn.execute(
+            "SELECT COUNT(*) FROM estabelecimento WHERE tipo_categoria_id = ?", (categoria_id,)
+        ).fetchone()[0]
+        quantidade_cache_natureza = conn.execute(
+            "SELECT COUNT(*) FROM cache_descricao_natureza WHERE categoria_id = ?", (categoria_id,)
+        ).fetchone()[0]
+        quantidade_regras_natureza = conn.execute(
+            "SELECT COUNT(*) FROM regra_natureza WHERE categoria_id = ?", (categoria_id,)
+        ).fetchone()[0]
 
         return {
             "tem_subcategorias": tem_subcategorias,
             "quantidade_itens": quantidade_itens,
             "quantidade_cache": quantidade_cache,
             "quantidade_regras": quantidade_regras,
+            "quantidade_transacoes": quantidade_transacoes,
+            "quantidade_estabelecimentos": quantidade_estabelecimentos,
+            "quantidade_cache_natureza": quantidade_cache_natureza,
+            "quantidade_regras_natureza": quantidade_regras_natureza,
         }
     finally:
         conn.close()
@@ -1142,7 +1163,13 @@ def excluir_categoria_com_destino(
     `destino` for invalido, ou se `categoria_substituta_id` for
     invalido/de nivel diferente da categoria excluida; True em sucesso.
     Nota fiscal que usava a categoria (feature 003) sempre volta a 'sem
-    categoria', independente do destino escolhido para item/cache/regra."""
+    categoria', independente do destino escolhido para item/cache/regra.
+    Transacao e estabelecimento (feature 010) seguem a mesma regra de
+    nota_fiscal -- sao dado real, nunca sao apagados, so perdem a
+    referencia ou ganham a substituta; cache/regra de natureza seguem a
+    mesma regra de cache/regra de categoria de item (apagados no destino
+    'pendente', ja que uma regra sem categoria de gasto associada perde o
+    sentido quando natureza=gasto)."""
     conn = get_connection(db_path)
     try:
         categoria = conn.execute("SELECT parent_id FROM categoria WHERE id = ?", (categoria_id,)).fetchone()
@@ -1179,6 +1206,22 @@ def excluir_categoria_com_destino(
                 "UPDATE regra_categoria SET categoria_id = ? WHERE categoria_id = ?",
                 (categoria_substituta_id, categoria_id),
             )
+            conn.execute(
+                "UPDATE transacao SET categoria_id = ? WHERE categoria_id = ?",
+                (categoria_substituta_id, categoria_id),
+            )
+            conn.execute(
+                "UPDATE estabelecimento SET tipo_categoria_id = ? WHERE tipo_categoria_id = ?",
+                (categoria_substituta_id, categoria_id),
+            )
+            conn.execute(
+                "UPDATE cache_descricao_natureza SET categoria_id = ? WHERE categoria_id = ?",
+                (categoria_substituta_id, categoria_id),
+            )
+            conn.execute(
+                "UPDATE regra_natureza SET categoria_id = ? WHERE categoria_id = ?",
+                (categoria_substituta_id, categoria_id),
+            )
         elif destino == "pendente":
             conn.execute(
                 "UPDATE item_nota SET categoria_id = NULL, metodo_classificacao = NULL WHERE categoria_id = ?",
@@ -1186,6 +1229,18 @@ def excluir_categoria_com_destino(
             )
             conn.execute("DELETE FROM cache_descricao_categoria WHERE categoria_id = ?", (categoria_id,))
             conn.execute("DELETE FROM regra_categoria WHERE categoria_id = ?", (categoria_id,))
+            conn.execute(
+                # so a categoria some -- metodo_classificacao_natureza descreve
+                # como a *natureza* foi decidida (cache/regra/manual), nao a
+                # categoria; a transacao continua com natureza=gasto sabida,
+                # so sem categoria (estado diferente de "pendente" de
+                # natureza, que e natureza IS NULL -- research.md #12).
+                "UPDATE transacao SET categoria_id = NULL WHERE categoria_id = ?",
+                (categoria_id,),
+            )
+            conn.execute("UPDATE estabelecimento SET tipo_categoria_id = NULL WHERE tipo_categoria_id = ?", (categoria_id,))
+            conn.execute("DELETE FROM cache_descricao_natureza WHERE categoria_id = ?", (categoria_id,))
+            conn.execute("DELETE FROM regra_natureza WHERE categoria_id = ?", (categoria_id,))
         else:
             return False
 

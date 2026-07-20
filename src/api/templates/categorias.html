@@ -196,13 +196,22 @@
         return;
       }
 
-      const emUso = impacto.quantidade_itens > 0 || impacto.quantidade_cache > 0 || impacto.quantidade_regras > 0;
+      const emUso =
+        impacto.quantidade_itens > 0 ||
+        impacto.quantidade_cache > 0 ||
+        impacto.quantidade_regras > 0 ||
+        impacto.quantidade_transacoes > 0 ||
+        impacto.quantidade_estabelecimentos > 0 ||
+        impacto.quantidade_cache_natureza > 0 ||
+        impacto.quantidade_regras_natureza > 0;
       let corpoRequisicao = {};
 
       if (emUso) {
         const resumoImpacto =
-          `${impacto.quantidade_itens} item(ns), ${impacto.quantidade_cache} entrada(s) de cache ` +
-          `e ${impacto.quantidade_regras} regra(s) serão afetados.`;
+          `${impacto.quantidade_itens} item(ns), ${impacto.quantidade_cache} entrada(s) de cache, ` +
+          `${impacto.quantidade_regras} regra(s), ${impacto.quantidade_transacoes} transação(ões), ` +
+          `${impacto.quantidade_estabelecimentos} estabelecimento(s), ${impacto.quantidade_cache_natureza} ` +
+          `entrada(s) de cache de natureza e ${impacto.quantidade_regras_natureza} regra(s) de natureza serão afetados.`;
         const usarSubstituta = confirm(
           `${resumoImpacto}\n\nClique OK para escolher uma categoria substituta, ou Cancelar para enviar ` +
           `os itens/cache/regras afetados de volta para pendente.`

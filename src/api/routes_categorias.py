@@ -99,7 +99,15 @@ def excluir_categoria(categoria_id: int):
     if impacto["tem_subcategorias"]:
         return jsonify({"erro": "Exclua ou mova as subcategorias antes de excluir esta categoria."}), 422
 
-    em_uso = impacto["quantidade_itens"] > 0 or impacto["quantidade_cache"] > 0 or impacto["quantidade_regras"] > 0
+    em_uso = (
+        impacto["quantidade_itens"] > 0
+        or impacto["quantidade_cache"] > 0
+        or impacto["quantidade_regras"] > 0
+        or impacto["quantidade_transacoes"] > 0
+        or impacto["quantidade_estabelecimentos"] > 0
+        or impacto["quantidade_cache_natureza"] > 0
+        or impacto["quantidade_regras_natureza"] > 0
+    )
 
     corpo = request.get_json(silent=True) or {}
     destino = corpo.get("destino")
