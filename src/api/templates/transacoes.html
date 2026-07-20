@@ -22,12 +22,20 @@
         <a href="/ver/transacoes/pendentes" class="btn btn-sm btn-outline-warning mb-0">Ver pendentes →</a>
       </div>
     </div>
-    {% if mes_filtro %}
+    {% if mes_filtro or categoria_filtro %}
     <div class="card-body pb-0 pt-3 d-flex flex-wrap gap-2">
+      {% if mes_filtro %}
       <span class="badge bg-gradient-info">
         Mês: {{ mes_filtro | mes_ano_br }}
         <a href="/ver/transacoes{{ '?conta=' ~ conta_filtro if conta_filtro else '' }}{{ ('&' if conta_filtro else '?') ~ 'natureza=' ~ natureza_filtro if natureza_filtro else '' }}" class="text-white ms-1" title="Remover filtro de mês">✕</a>
       </span>
+      {% endif %}
+      {% if categoria_filtro %}
+      <span class="badge bg-gradient-secondary">
+        Categoria: {{ categoria_filtro_nome or "sem categoria" }}
+        <a href="/ver/transacoes{{ '?mes=' ~ mes_filtro if mes_filtro else '' }}" class="text-white ms-1" title="Remover filtro de categoria">✕</a>
+      </span>
+      {% endif %}
     </div>
     {% endif %}
     <div class="card-body px-0 pb-0">
@@ -99,8 +107,11 @@
       const params = new URLSearchParams();
       if (conta) params.set("conta", conta);
       if (natureza) params.set("natureza", natureza);
-      const mes = new URLSearchParams(window.location.search).get("mes");
+      const paramsAtuais = new URLSearchParams(window.location.search);
+      const mes = paramsAtuais.get("mes");
+      const categoriaId = paramsAtuais.get("categoria_id");
       if (mes) params.set("mes", mes);
+      if (categoriaId) params.set("categoria_id", categoriaId);
       window.location.href = "/ver/transacoes" + (params.toString() ? "?" + params.toString() : "");
     }
     document.getElementById("select-conta").addEventListener("change", aplicarFiltros);

@@ -20,12 +20,17 @@ def pagina_transacoes():
     mes = request.args.get("mes")
     conta = request.args.get("conta")
     natureza = request.args.get("natureza")
+    categoria_id = request.args.get("categoria_id", type=int)
 
-    transacoes = storage_db.listar_transacoes(mes=mes, conta=conta, natureza=natureza, db_path=db_path)
+    transacoes = storage_db.listar_transacoes(
+        mes=mes, conta=conta, natureza=natureza, categoria_id=categoria_id, db_path=db_path
+    )
     contas = storage_db.listar_contas_distintas(db_path=db_path)
-    categorias_por_id = {c.id: c.nome for c in storage_db.listar_categorias(db_path=db_path)}
-    estabelecimentos_por_id = {e["id"]: e["nome_fantasia"] for e in storage_db.listar_estabelecimentos_nomeados(db_path=db_path)}
+    categorias = storage_db.listar_categorias(db_path=db_path)
+    categorias_por_id = {c.id: c.nome for c in categorias}
+    estabelecimentos_por_id = storage_db.mapa_nomes_estabelecimentos(db_path=db_path)
     grupos_por_mes = resumo_service.agrupar_transacoes_por_mes(transacoes) if not mes else None
+    categoria_filtro_nome = categorias_por_id.get(categoria_id) if categoria_id else None
 
     return render_template(
         "transacoes.html",
@@ -38,6 +43,8 @@ def pagina_transacoes():
         mes_filtro=mes,
         conta_filtro=conta,
         natureza_filtro=natureza,
+        categoria_filtro=categoria_id,
+        categoria_filtro_nome=categoria_filtro_nome,
         pagina_ativa="transacoes",
     )
 

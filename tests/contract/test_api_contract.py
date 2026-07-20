@@ -1002,3 +1002,48 @@ def test_pagina_ver_resumo_mostra_saldo_do_mes(client):
     resposta = client.get("/ver/resumo")
     assert resposta.status_code == 200
     assert "Saldo do mês" in resposta.get_data(as_text=True)
+
+
+def test_pagina_ver_transacoes_filtra_por_categoria(client, app_e_db):
+    _, db_path = app_e_db
+    categoria_id = client.post("/categorias", json={"nome": "Contas de consumo"}).get_json()["categoria"]["id"]
+    from src.models.transacao import Transacao, TipoTransacao
+    from src.storage import db as storage_db
+
+    transacao = Transacao(
+        fingerprint="fp-cat-filtro",
+        data="2026-06-01",
+        descricao="Transacao Com Categoria",
+        valor=1000,
+        tipo=TipoTransacao.SAIDA,
+        conta="itau_cc",
+        natureza="gasto",
+        categoria_id=categoria_id,
+    )
+    storage_db.inserir_transacao(transacao, db_path=db_path)
+
+    resposta = client.get(f"/ver/transacoes?categoria_id={categoria_id}")
+
+    assert resposta.status_code == 200
+    corpo = resposta.get_data(as_text=True)
+    assert "Transacao Com Categoria" in corpo
+    assert "Contas de consumo" in corpo
+
+
+def test_pagina_ver_itens_sem_categoria_id_lista_vazia(client):
+    resposta = client.get("/ver/itens")
+    assert resposta.status_code == 200
+    assert "Nenhum item classificado" in resposta.get_data(as_text=True)
+
+
+def test_pagina_ver_itens_filtra_por_categoria(client, app_e_db, tmp_path):
+    _, db_path = app_e_db
+    categoria_id = client.post("/categorias", json={"nome": "Alimentação"}).get_json()["categoria"]["id"]
+    _importar_historico_com_um_item(db_path, tmp_path, "Item Da Categoria", "000000094")
+    item_id = client.get("/itens/pendentes").get_json()["grupos"][0]["exemplo_item_id"]
+    client.put(f"/itens/{item_id}/categoria", json={"categoria_id": categoria_id})
+
+    resposta = client.get(f"/ver/itens?categoria_id={categoria_id}")
+
+    assert resposta.status_code == 200
+    assert "Item Da Categoria" in resposta.get_data(as_text=True)

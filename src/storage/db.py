@@ -482,6 +482,29 @@ def listar_itens_por_nota(nota_fiscal_id: int, db_path: str = DEFAULT_DB_PATH) -
         conn.close()
 
 
+def listar_itens_por_categoria(categoria_id: int, db_path: str = DEFAULT_DB_PATH) -> list[dict]:
+    """Itens classificados numa categoria, com o contexto da nota (data,
+    emitente) para exibicao -- usado para inspecionar o uso de uma
+    categoria antes de exclui-la (pedido do usuario apos o bug de
+    exclusao da feature 010)."""
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            """
+            SELECT it.id, it.descricao, it.quantidade, it.valor_total_item, it.nota_fiscal_id,
+                   nf.data_emissao, nf.emitente_nome
+            FROM item_nota it
+            JOIN nota_fiscal nf ON nf.id = it.nota_fiscal_id
+            WHERE it.categoria_id = ?
+            ORDER BY nf.data_emissao DESC, it.id DESC
+            """,
+            (categoria_id,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
 def listar_notas(
     mes: str | None = None,
     titular: str | None = None,
@@ -1333,12 +1356,14 @@ def listar_transacoes(
     mes: str | None = None,
     conta: str | None = None,
     natureza: str | None = None,
+    categoria_id: int | None = None,
     db_path: str = DEFAULT_DB_PATH,
 ) -> list[Transacao]:
     """Lista transacoes ordenadas por data desc, id desc -- filtros
-    opcionais por mes (AAAA-MM), conta (ja canonicalizada) e natureza
-    (evolucao do polimento pos-deploy: visao geral, alem da fila de
-    pendentes)."""
+    opcionais por mes (AAAA-MM), conta (ja canonicalizada), natureza e
+    categoria (evolucao do polimento pos-deploy: visao geral, alem da
+    fila de pendentes; `categoria_id` usado para inspecionar o uso de uma
+    categoria antes de exclui-la)."""
     conn = get_connection(db_path)
     try:
         query = "SELECT * FROM transacao"
@@ -1355,6 +1380,9 @@ def listar_transacoes(
         elif natureza:
             condicoes.append("natureza = ?")
             params.append(natureza)
+        if categoria_id is not None:
+            condicoes.append("categoria_id = ?")
+            params.append(categoria_id)
         if condicoes:
             query += " WHERE " + " AND ".join(condicoes)
         query += " ORDER BY data DESC, id DESC"
@@ -1377,13 +1405,42 @@ def listar_estabelecimentos_nomeados(db_path: str = DEFAULT_DB_PATH) -> list[dic
     """Estabelecimentos ja identificados (nome_fantasia preenchido) --
     usado para sugerir nomes ja usados na fila de gerenciamento (evita
     recriar 'Letícia Arte e Talento' do zero pra cada grafia truncada
-    diferente que o banco gera)."""
+    diferente que o banco gera). Deduplicado por nome_fantasia
+    (case-insensitive): se restaram registros antigos com o mesmo nome em
+    linhas separadas (de antes do merge automatico existir), a sugestao
+    aparece uma unica vez em vez de repetida -- bug real reportado pelo
+    usuario."""
     conn = get_connection(db_path)
     try:
         rows = conn.execute(
-            "SELECT id, nome_fantasia, tipo_categoria_id FROM estabelecimento WHERE nome_fantasia IS NOT NULL ORDER BY nome_fantasia"
+            "SELECT id, nome_fantasia, tipo_categoria_id FROM estabelecimento WHERE nome_fantasia IS NOT NULL ORDER BY nome_fantasia, id"
         ).fetchall()
-        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+    vistos: set[str] = set()
+    resultado: list[dict] = []
+    for row in rows:
+        chave = row["nome_fantasia"].strip().lower()
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        resultado.append(dict(row))
+    return resultado
+
+
+def mapa_nomes_estabelecimentos(db_path: str = DEFAULT_DB_PATH) -> dict[int, str]:
+    """id -> nome_fantasia para TODOS os estabelecimentos com nome, sem
+    deduplicar por nome (ao contrario de listar_estabelecimentos_nomeados,
+    que dedup para a sugestao de autocomplete) -- usado para resolver o
+    nome de exibicao de qualquer transacao.estabelecimento_id, que precisa
+    encontrar todo id existente, nao so um representante por nome."""
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT id, nome_fantasia FROM estabelecimento WHERE nome_fantasia IS NOT NULL"
+        ).fetchall()
+        return {row["id"]: row["nome_fantasia"] for row in rows}
     finally:
         conn.close()
 
@@ -1749,11 +1806,38 @@ def listar_estabelecimentos_pendentes(db_path: str = DEFAULT_DB_PATH) -> list[di
 def atribuir_estabelecimento(
     estabelecimento_id: int, nome_fantasia: str, tipo_categoria_id: int | None, db_path: str = DEFAULT_DB_PATH
 ) -> bool | None:
+    """Atribui nome fantasia e tipo. Quando o nome informado (case-
+    insensitive) ja pertence a OUTRO estabelecimento, funde os dois em
+    vez de criar uma segunda identidade com o mesmo nome (bug real
+    reportado pelo usuario: grafias truncadas diferentes do banco para o
+    mesmo lugar geravam duplicata visivel na sugestao de nomes). Mesmo
+    padrao de promover_estabelecimento_para_documento, so que chaveado
+    por nome em vez de CNPJ/CPF."""
     conn = get_connection(db_path)
     try:
         existe = conn.execute("SELECT 1 FROM estabelecimento WHERE id = ?", (estabelecimento_id,)).fetchone()
         if existe is None:
             return None
+
+        duplicata = conn.execute(
+            "SELECT id, tipo_categoria_id FROM estabelecimento WHERE lower(nome_fantasia) = lower(?) AND id != ?",
+            (nome_fantasia, estabelecimento_id),
+        ).fetchone()
+
+        if duplicata is not None:
+            id_definitivo = duplicata["id"]
+            tipo_final = tipo_categoria_id if tipo_categoria_id is not None else duplicata["tipo_categoria_id"]
+            conn.execute(
+                "UPDATE estabelecimento SET tipo_categoria_id = ? WHERE id = ?", (tipo_final, id_definitivo)
+            )
+            conn.execute(
+                "UPDATE transacao SET estabelecimento_id = ? WHERE estabelecimento_id = ?",
+                (id_definitivo, estabelecimento_id),
+            )
+            conn.execute("DELETE FROM estabelecimento WHERE id = ?", (estabelecimento_id,))
+            conn.commit()
+            return True
+
         conn.execute(
             "UPDATE estabelecimento SET nome_fantasia = ?, tipo_categoria_id = ? WHERE id = ?",
             (nome_fantasia, tipo_categoria_id, estabelecimento_id),
