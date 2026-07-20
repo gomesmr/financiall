@@ -3,6 +3,7 @@ from __future__ import annotations
 from flask import Blueprint, current_app, jsonify, render_template, request
 
 from src.models.transacao import NATUREZAS_VALIDAS
+from src.services import estabelecimento as estabelecimento_service
 from src.storage import db as storage_db
 
 bp = Blueprint("transacoes", __name__)
@@ -83,6 +84,7 @@ def vincular_transacao_a_nota(transacao_id: int):
     if resultado is False:
         return jsonify({"erro": "Nota fiscal já está vinculada a outra transação."}), 422
 
+    estabelecimento_service.resolver_estabelecimento(transacao_id, db_path=db_path)
     return jsonify({"mensagem": "Transação vinculada à nota fiscal com sucesso."}), 200
 
 

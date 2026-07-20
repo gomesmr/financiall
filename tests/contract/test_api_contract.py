@@ -900,3 +900,68 @@ def test_pagina_ver_transacoes_pendentes_carrega(client):
     resposta = client.get("/ver/transacoes/pendentes")
     assert resposta.status_code == 200
     assert "pendente" in resposta.get_data(as_text=True).lower()
+
+
+# --- feature 010: estabelecimentos (US5) ------------------------------------
+
+
+def _inserir_transacao_com_estabelecimento_pendente(db_path, descricao):
+    from src.models.transacao import Transacao, TipoTransacao
+    from src.services import estabelecimento as estabelecimento_service
+    from src.storage import db as storage_db
+
+    transacao = Transacao(
+        fingerprint=f"fp-estab-{descricao}",
+        data="2026-06-10",
+        descricao=descricao,
+        descricao_normalizada=descricao.upper(),
+        valor=1000,
+        tipo=TipoTransacao.SAIDA,
+        conta="itau_2486",
+        natureza="gasto",
+    )
+    transacao_id = storage_db.inserir_transacao(transacao, db_path=db_path)
+    return estabelecimento_service.resolver_estabelecimento(transacao_id, db_path=db_path)
+
+
+def test_get_estabelecimentos_pendentes_lista_grupo(client, app_e_db):
+    _, db_path = app_e_db
+    _inserir_transacao_com_estabelecimento_pendente(db_path, "Loja Pendente")
+
+    resposta = client.get("/estabelecimentos/pendentes")
+    corpo = resposta.get_json()
+
+    assert resposta.status_code == 200
+    assert corpo["grupos"][0]["chave"] == "LOJA PENDENTE"
+
+
+def test_put_estabelecimento_sem_nome_retorna_422(client, app_e_db):
+    _, db_path = app_e_db
+    estabelecimento_id = _inserir_transacao_com_estabelecimento_pendente(db_path, "Loja Sem Nome")
+
+    resposta = client.put(f"/estabelecimentos/{estabelecimento_id}", json={"nome_fantasia": "  "})
+
+    assert resposta.status_code == 422
+
+
+def test_put_estabelecimento_inexistente_retorna_404(client):
+    resposta = client.put("/estabelecimentos/999999", json={"nome_fantasia": "Qualquer"})
+    assert resposta.status_code == 404
+
+
+def test_put_estabelecimento_sucesso(client, app_e_db):
+    _, db_path = app_e_db
+    estabelecimento_id = _inserir_transacao_com_estabelecimento_pendente(db_path, "Loja Com Nome")
+
+    resposta = client.put(
+        f"/estabelecimentos/{estabelecimento_id}",
+        json={"nome_fantasia": "Loja Bacana", "tipo_categoria_id": None},
+    )
+
+    assert resposta.status_code == 200
+
+
+def test_pagina_ver_estabelecimentos_pendentes_carrega(client):
+    resposta = client.get("/ver/estabelecimentos/pendentes")
+    assert resposta.status_code == 200
+    assert "estabelecimento" in resposta.get_data(as_text=True).lower()

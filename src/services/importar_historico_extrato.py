@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 
 from src.models.transacao import Transacao, TipoTransacao
-from src.services import classificacao_natureza, reconciliacao
+from src.services import classificacao_natureza, estabelecimento as estabelecimento_service, reconciliacao
 from src.services.conta_canonica import canonicalizar_conta
 from src.services.fingerprint_transacao import calcular_fingerprint
 from src.services.normalizacao import normalizar_descricao
@@ -136,6 +136,11 @@ def processar_transacoes(
                 resumo.reconciliadas += 1
             elif resultado == "ambigua":
                 resumo.ambiguas += 1
+
+        # Resolve estabelecimento depois da reconciliacao (US5, research.md
+        # #9) -- assim, quando a transacao reconciliou, ja usa o CNPJ da
+        # nota como identidade primaria em vez do fallback por descricao.
+        estabelecimento_service.resolver_estabelecimento(transacao_id, db_path=db_path)
 
     return resumo
 

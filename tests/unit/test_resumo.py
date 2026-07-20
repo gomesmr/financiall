@@ -310,11 +310,14 @@ def test_agrupar_notas_por_mes_lista_vazia(db_path):
 from src.models.transacao import Transacao, TipoTransacao  # noqa: E402
 
 
-def _gravar_transacao(db_path, data, valor, natureza="gasto", categoria_id=None, nota_fiscal_id=None, fingerprint=None):
+def _gravar_transacao(
+    db_path, data, valor, natureza="gasto", categoria_id=None, nota_fiscal_id=None, fingerprint=None, descricao_normalizada=None
+):
     transacao = Transacao(
         fingerprint=fingerprint or f"fp-{data}-{valor}-{natureza}-{nota_fiscal_id}",
         data=data,
         descricao="transacao de teste",
+        descricao_normalizada=descricao_normalizada,
         valor=valor,
         tipo=TipoTransacao.SAIDA,
         conta="itau_2486",
@@ -407,3 +410,36 @@ def test_gasto_por_categoria_item_transacao_reconciliada_sem_item_usa_categoria_
     assert len(resultado) == 1
     assert resultado[0].categoria_id == categoria_transacao
     assert resultado[0].total_gasto == 800
+
+
+# --- feature 010 (US5): gasto por estabelecimento inclui transacao sem nota -
+
+
+def test_gasto_por_estabelecimento_inclui_transacao_sem_nota(db_path):
+    tipo_id = storage_db.criar_categoria("Supermercado", db_path=db_path)
+    from src.services import estabelecimento as estabelecimento_service
+
+    transacao_id = _gravar_transacao(db_path, _mes_corrente_como_data("06"), 2000, descricao_normalizada="MERCADO DA ESQUINA")
+    estabelecimento_id = estabelecimento_service.resolver_estabelecimento(transacao_id, db_path=db_path)
+    storage_db.atribuir_estabelecimento(estabelecimento_id, "Mercado da Esquina", tipo_id, db_path=db_path)
+
+    resultado = resumo.gasto_por_estabelecimento(resumo.mes_atual(), db_path=db_path)
+
+    assert len(resultado) == 1
+    assert resultado[0].categoria_id == tipo_id
+    assert resultado[0].total_gasto == 2000
+
+
+def test_gasto_por_estabelecimento_transacao_com_nota_nao_soma_duas_vezes(db_path):
+    """A nota ja conta pelo eixo nota_fiscal.categoria_id -- a transacao
+    reconciliada com ela nao deve somar de novo (FR-020)."""
+    tipo_nota_id = storage_db.criar_categoria("Farmácia", db_path=db_path)
+    nota = _gravar_nota(db_path, _mes_corrente_como_data("05"), 1200, numero="400000006")
+    storage_db.atribuir_categoria_a_nota(nota.id, tipo_nota_id, db_path=db_path)
+    _gravar_transacao(db_path, _mes_corrente_como_data("06"), 1200, nota_fiscal_id=nota.id)
+
+    resultado = resumo.gasto_por_estabelecimento(resumo.mes_atual(), db_path=db_path)
+
+    assert len(resultado) == 1
+    assert resultado[0].categoria_id == tipo_nota_id
+    assert resultado[0].total_gasto == 1200

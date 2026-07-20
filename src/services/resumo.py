@@ -262,22 +262,35 @@ def gasto_por_categoria_item(
 def gasto_por_estabelecimento(
     mes: str, nivel: int = 1, db_path: str = storage_db.DEFAULT_DB_PATH
 ) -> list[GastoCategoria]:
-    """Soma o valor_total das notas do mes informado (AAAA-MM), agrupado
-    pelo tipo de estabelecimento da nota (nota_fiscal.categoria_id,
-    feature 003/009) -- eixo independente da categoria do item (US5).
-    Notas sem tipo de estabelecimento agrupam sob "Sem categoria" (FR-002);
-    notas com valor_total nulo sao excluidas da soma (mesma regra de
-    _query_resumo_por_mes). nivel 1 resolve subcategoria -> categoria-pai
-    (ex.: Saude > Dentista some sob Saude); nivel 2 usa a categoria tal
-    como esta atribuida. Ordenado do maior para o menor gasto."""
+    """Soma o gasto do mes informado (AAAA-MM) agrupado pelo tipo de
+    estabelecimento -- eixo independente da categoria de gasto (US5).
+    Duas fontes, sem sobreposicao (feature 010, FR-020): notas fiscais
+    (nota_fiscal.categoria_id, feature 003/009 -- todas as notas do mes,
+    reconciliadas ou nao, continuam contando aqui) + transacoes de gasto
+    SEM nota associada (estabelecimento.tipo_categoria_id, resolvido pela
+    cascata de identidade da feature 010). Transacoes COM nota nao entram
+    de novo aqui -- a nota ja contou. Sem tipo de estabelecimento agrupa
+    sob "Sem categoria" (FR-002). nivel 1 resolve subcategoria ->
+    categoria-pai; nivel 2 usa a categoria tal como esta atribuida.
+    Ordenado do maior para o menor gasto."""
     conn = storage_db.get_connection(db_path)
     try:
-        rows = conn.execute(
+        linhas_notas = conn.execute(
             """
             SELECT nota_fiscal.categoria_id AS categoria_id, nota_fiscal.valor_total AS total_gasto
             FROM nota_fiscal
             WHERE COALESCE(substr(nota_fiscal.data_emissao, 1, 7), '20' || substr(nota_fiscal.ano_mes_emissao, 1, 2) || '-' || substr(nota_fiscal.ano_mes_emissao, 3, 2)) = ?
               AND nota_fiscal.valor_total IS NOT NULL
+            """,
+            (mes,),
+        ).fetchall()
+
+        linhas_transacoes_sem_nota = conn.execute(
+            """
+            SELECT e.tipo_categoria_id AS categoria_id, t.valor AS total_gasto
+            FROM transacao t
+            LEFT JOIN estabelecimento e ON e.id = t.estabelecimento_id
+            WHERE substr(t.data, 1, 7) = ? AND t.natureza = 'gasto' AND t.nota_fiscal_id IS NULL
             """,
             (mes,),
         ).fetchall()
@@ -287,7 +300,7 @@ def gasto_por_estabelecimento(
     categorias_por_id = {c.id: c for c in storage_db.listar_categorias(db_path=db_path)}
 
     acumulado: dict[int | None, list] = {}
-    for row in rows:
+    for row in list(linhas_notas) + list(linhas_transacoes_sem_nota):
         bucket_id, nome = _bucket_por_nivel(row["categoria_id"], nivel, categorias_por_id)
         atual = acumulado.get(bucket_id)
         if atual is None:

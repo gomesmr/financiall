@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}financiALL - Estabelecimentos{% endblock %}
+{% block titulo_pagina %}Gerenciar estabelecimentos{% endblock %}
+{% block content %}
+  <div class="card">
+    <div class="card-header pb-0">
+      <h6 class="mb-0">Estabelecimentos pendentes de identificação</h6>
+    </div>
+    <div class="card-body px-0 pb-0">
+      {% if grupos %}
+      <div class="table-responsive-argon">
+        <table class="table align-items-center mb-0">
+          <thead>
+            <tr>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Identificado por</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Chave</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Qtd. transações</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Nome fantasia</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Tipo</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for grupo in grupos %}
+            <tr data-estabelecimento-id="{{ grupo.id }}">
+              <td class="text-sm">{{ "CNPJ/CPF" if grupo.tipo_chave == "documento" else "Descrição" }}</td>
+              <td class="text-sm">{{ grupo.chave }}</td>
+              <td class="text-sm">{{ grupo.quantidade_transacoes }}</td>
+              <td><input type="text" class="form-control form-control-sm input-nome-fantasia" placeholder="Nome fantasia"></td>
+              <td>
+                <div class="categoria-autocomplete position-relative" style="min-width: 200px;">
+                  <input type="text" class="form-control form-control-sm categoria-input" placeholder="Tipo de estabelecimento" autocomplete="off">
+                  <div class="categoria-sugestoes list-group position-absolute" style="display:none; z-index:10; max-height:200px; overflow-y:auto; width:100%;"></div>
+                  <input type="hidden" class="categoria-id-selecionada">
+                </div>
+              </td>
+              <td>
+                <button type="button" class="btn btn-sm btn-outline-primary mb-0 btn-salvar-estabelecimento" disabled>Salvar</button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="vazio px-4 pb-3">Nenhum estabelecimento pendente — tudo identificado.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
+{% block extra_scripts %}
+  <script src="{{ url_for('static', filename='classificacao.js') }}"></script>
+  <script>
+    const CATEGORIAS = {{ categorias_json | tojson }};
+
+    document.querySelectorAll("tr[data-estabelecimento-id]").forEach((linha) => {
+      const estabelecimentoId = linha.dataset.estabelecimentoId;
+      const inputNome = linha.querySelector(".input-nome-fantasia");
+      const containerCategoria = linha.querySelector(".categoria-autocomplete");
+      const botao = linha.querySelector(".btn-salvar-estabelecimento");
+      let tipoCategoriaId = null;
+
+      inicializarAutocompleteCategoria(containerCategoria, CATEGORIAS, "", (id) => {
+        tipoCategoriaId = id;
+        atualizarEstadoBotao();
+      });
+
+      function atualizarEstadoBotao() {
+        botao.disabled = !inputNome.value.trim();
+      }
+
+      inputNome.addEventListener("input", atualizarEstadoBotao);
+
+      botao.addEventListener("click", async () => {
+        const resposta = await fetch(`/estabelecimentos/${estabelecimentoId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nome_fantasia: inputNome.value.trim(), tipo_categoria_id: tipoCategoriaId }),
+        });
+        const corpo = await resposta.json();
+        if (!resposta.ok) {
+          alert(corpo.erro || "Não foi possível salvar o estabelecimento.");
+          return;
+        }
+        window.location.reload();
+      });
+    });
+  </script>
+{% endblock %}
