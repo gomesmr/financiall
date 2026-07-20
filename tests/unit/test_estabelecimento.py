@@ -207,3 +207,77 @@ def test_listar_estabelecimentos_nomeados_deduplica_por_nome_registros_antigos(d
 
     assert len(nomeados) == 1
     assert nomeados[0]["nome_fantasia"] == "Loja A"
+
+
+# --- bug real: transacao reconciliada com nota criava CNPJ separado do ----
+# --- estabelecimento ja resolvido por descricao para o mesmo lugar --------
+
+
+def test_resolver_estabelecimento_cnpj_da_nota_e_normalizado(db_path):
+    """nota_fiscal.cnpj_emitente vem formatado (##.###.###/####-##) --
+    resolver_estabelecimento precisa normalizar pra so digitos, senao o
+    mesmo CNPJ vindo por essa via e pela via de PIX (ja so digitos) nunca
+    bateriam."""
+    nota = NotaFiscal(
+        canal_origem=CanalOrigem.URL_CHAVE,
+        status=StatusNota.COMPLETA,
+        chave_acesso=gerar_chave_valida(numero="000000004"),
+        cnpj_emitente="17.608.063/0005-51",
+    )
+    nota_id = storage_db.inserir_nota(nota, db_path=db_path)
+    transacao_id = _inserir_transacao(db_path, "SJX Comercial", nota_fiscal_id=nota_id)
+
+    estabelecimento_id = estabelecimento_service.resolver_estabelecimento(transacao_id, db_path=db_path)
+
+    estabelecimento = storage_db.buscar_estabelecimento_por_id(estabelecimento_id, db_path=db_path)
+    assert estabelecimento.documento == "17608063000551"
+
+
+def test_resolver_estabelecimento_promove_match_exato_por_descricao_ao_inves_de_duplicar(db_path):
+    """Bug real: uma transacao SEM nota resolve 'SJX - COMERCIAL ATACAD'
+    por descricao; depois, OUTRA transacao com a mesma descricao exata
+    reconcilia com uma nota que traz CNPJ -- em vez de criar um segundo
+    estabelecimento (documento), deve promover o ja existente por
+    descricao pro documento."""
+    t1 = _inserir_transacao(
+        db_path, "SJX - Comercial Atacad", descricao_normalizada="SJX - COMERCIAL ATACAD", fingerprint="fp-desc-primeiro"
+    )
+    id_por_descricao = estabelecimento_service.resolver_estabelecimento(t1, db_path=db_path)
+    assert storage_db.buscar_estabelecimento_por_id(id_por_descricao, db_path=db_path).documento is None
+
+    nota = NotaFiscal(
+        canal_origem=CanalOrigem.URL_CHAVE,
+        status=StatusNota.COMPLETA,
+        chave_acesso=gerar_chave_valida(numero="000000005"),
+        cnpj_emitente="17.608.063/0005-51",
+    )
+    nota_id = storage_db.inserir_nota(nota, db_path=db_path)
+    t2 = _inserir_transacao(
+        db_path,
+        "SJX - Comercial Atacad",
+        descricao_normalizada="SJX - COMERCIAL ATACAD",
+        nota_fiscal_id=nota_id,
+        fingerprint="fp-desc-segundo",
+    )
+
+    id_promovido = estabelecimento_service.resolver_estabelecimento(t2, db_path=db_path)
+
+    assert id_promovido == id_por_descricao
+    estabelecimento = storage_db.buscar_estabelecimento_por_id(id_promovido, db_path=db_path)
+    assert estabelecimento.documento == "17608063000551"
+    # a primeira transacao tambem enxerga o mesmo estabelecimento promovido
+    transacao_1_atual = storage_db.buscar_transacao_por_id(t1, db_path=db_path)
+    assert transacao_1_atual.estabelecimento_id == id_promovido
+
+
+# --- exemplo de descricao na fila de pendentes (recognoscibilidade) -------
+
+
+def test_listar_estabelecimentos_pendentes_inclui_exemplo_descricao(db_path):
+    transacao_id = _inserir_transacao(db_path, "SJX - Comercial Atacad Sao Paulo Bra")
+    estabelecimento_service.resolver_estabelecimento(transacao_id, db_path=db_path)
+
+    pendentes = storage_db.listar_estabelecimentos_pendentes(db_path=db_path)
+
+    assert len(pendentes) == 1
+    assert pendentes[0]["exemplo_descricao"] == "SJX - Comercial Atacad Sao Paulo Bra"
