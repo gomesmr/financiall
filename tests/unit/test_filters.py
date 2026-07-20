@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.api.filters import formatar_aamm_br, formatar_data_br, formatar_mes_ano_br
+from src.api.filters import formatar_aamm_br, formatar_data_br, formatar_mes_ano_br, formatar_mes_extenso_br
 
 
 def test_formatar_data_br_converte_iso_para_br():
@@ -31,3 +31,18 @@ def test_formatar_aamm_br_valor_invalido_retorna_inalterado():
     assert formatar_aamm_br("abc") == "abc"
     assert formatar_aamm_br("123") == "123"
     assert formatar_aamm_br(None) is None
+
+
+def test_formatar_mes_extenso_br_converte_iso_para_nome_por_extenso():
+    assert formatar_mes_extenso_br("2026-06") == "Junho de 2026"
+    assert formatar_mes_extenso_br("2026-01") == "Janeiro de 2026"
+    assert formatar_mes_extenso_br("2026-12") == "Dezembro de 2026"
+
+
+def test_formatar_mes_extenso_br_none_permanece_none():
+    assert formatar_mes_extenso_br(None) is None
+
+
+def test_formatar_mes_extenso_br_valor_inesperado_retorna_inalterado():
+    assert formatar_mes_extenso_br("Sem data") == "Sem data"
+    assert formatar_mes_extenso_br("2026-99") == "2026-99"

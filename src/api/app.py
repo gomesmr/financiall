@@ -33,6 +33,7 @@ def create_app(db_path: str | None = None, upload_dir: str | None = None) -> Fla
 
     app.jinja_env.filters["data_br"] = filtros_jinja.formatar_data_br
     app.jinja_env.filters["mes_ano_br"] = filtros_jinja.formatar_mes_ano_br
+    app.jinja_env.filters["mes_extenso_br"] = filtros_jinja.formatar_mes_extenso_br
     app.jinja_env.filters["aamm_br"] = filtros_jinja.formatar_aamm_br
 
     app.register_blueprint(importar_bp)
