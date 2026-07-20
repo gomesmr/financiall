@@ -281,3 +281,22 @@ def test_listar_estabelecimentos_pendentes_inclui_exemplo_descricao(db_path):
 
     assert len(pendentes) == 1
     assert pendentes[0]["exemplo_descricao"] == "SJX - Comercial Atacad Sao Paulo Bra"
+
+
+# --- editar so o nome fantasia nao pode apagar o tipo ja atribuido --------
+
+
+def test_atribuir_estabelecimento_sem_tipo_preserva_tipo_ja_existente(db_path):
+    """Atalho de edicao rapida (a partir do detalhe da nota) manda so o
+    nome_fantasia, sem tipo_categoria_id -- nao pode apagar um tipo ja
+    atribuido antes por outro caminho (ex.: pela fila de pendentes)."""
+    tipo_id = storage_db.criar_categoria("Supermercado", db_path=db_path)
+    transacao_id = _inserir_transacao(db_path, "Loja Com Tipo", descricao_normalizada="LOJA COM TIPO")
+    estabelecimento_id = estabelecimento_service.resolver_estabelecimento(transacao_id, db_path=db_path)
+    storage_db.atribuir_estabelecimento(estabelecimento_id, "Loja Com Tipo", tipo_id, db_path=db_path)
+
+    storage_db.atribuir_estabelecimento(estabelecimento_id, "Loja Com Tipo Renomeada", None, db_path=db_path)
+
+    estabelecimento = storage_db.buscar_estabelecimento_por_id(estabelecimento_id, db_path=db_path)
+    assert estabelecimento.nome_fantasia == "Loja Com Tipo Renomeada"
+    assert estabelecimento.tipo_categoria_id == tipo_id

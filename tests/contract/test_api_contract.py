@@ -409,6 +409,53 @@ def test_pagina_nota_detalhe_inexistente_retorna_404(client):
     assert "não encontrada" in resposta.get_data(as_text=True)
 
 
+def test_pagina_nota_detalhe_permite_editar_nome_fantasia_do_estabelecimento(client, app_e_db):
+    """Pedido do usuario: a partir do detalhe da nota, dar pra editar o
+    nome fantasia do estabelecimento da transacao reconciliada; quando o
+    nome existir, a descricao crua do extrato tambem aparece."""
+    _, db_path = app_e_db
+    from src.models.nota_fiscal import CanalOrigem, NotaFiscal, StatusNota
+    from src.models.transacao import Transacao, TipoTransacao
+    from src.services import estabelecimento as estabelecimento_service
+    from src.storage import db as storage_db
+
+    nota = NotaFiscal(
+        canal_origem=CanalOrigem.URL_CHAVE,
+        status=StatusNota.COMPLETA,
+        chave_acesso=gerar_chave_valida(numero="000000095"),
+        cnpj_emitente="17.608.063/0005-51",
+        valor_total=1000,
+        data_emissao="2026-04-03",
+    )
+    nota_id = storage_db.inserir_nota(nota, db_path=db_path)
+    transacao = Transacao(
+        fingerprint="fp-nota-detalhe-estab",
+        data="2026-04-03",
+        descricao="SJX - COMERCIAL ATACAD SAO PAULO BRA",
+        valor=1000,
+        tipo=TipoTransacao.SAIDA,
+        conta="flash",
+        natureza="gasto",
+        nota_fiscal_id=nota_id,
+    )
+    transacao_id = storage_db.inserir_transacao(transacao, db_path=db_path)
+    estabelecimento_id = estabelecimento_service.resolver_estabelecimento(transacao_id, db_path=db_path)
+
+    resposta_antes = client.get(f"/ver/notas/{nota_id}")
+    assert resposta_antes.status_code == 200
+    assert "input-nome-fantasia-estabelecimento" in resposta_antes.get_data(as_text=True)
+    assert "Descrição no extrato" not in resposta_antes.get_data(as_text=True)
+
+    resposta_put = client.put(f"/estabelecimentos/{estabelecimento_id}", json={"nome_fantasia": "Varejão"})
+    assert resposta_put.status_code == 200
+
+    resposta_depois = client.get(f"/ver/notas/{nota_id}")
+    texto_depois = resposta_depois.get_data(as_text=True)
+    assert "Varejão" in texto_depois
+    assert "Descrição no extrato" in texto_depois
+    assert "SJX - COMERCIAL ATACAD SAO PAULO BRA" in texto_depois
+
+
 def test_delete_nota_inexistente_retorna_404(client):
     resposta = client.delete("/notas/999999")
     corpo = resposta.get_json()
