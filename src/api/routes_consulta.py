@@ -64,6 +64,7 @@ def pagina_nota_detalhe(nota_id: int):
     categorias = storage_db.listar_categorias(db_path=db_path)
     categorias_por_id = {c.id: c for c in categorias}
     categorias_json = [{"id": c.id, "nome": c.nome, "parent_id": c.parent_id} for c in categorias]
+    transacao_reconciliada = storage_db.buscar_transacao_por_nota_fiscal_id(nota_id, db_path=db_path)
     return render_template(
         "nota_detalhe.html",
         nota=nota,
@@ -71,6 +72,7 @@ def pagina_nota_detalhe(nota_id: int):
         categorias=categorias,
         categorias_por_id=categorias_por_id,
         categorias_json=categorias_json,
+        transacao_reconciliada=transacao_reconciliada,
         pagina_ativa="notas",
     )
 
