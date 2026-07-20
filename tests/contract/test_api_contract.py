@@ -1030,6 +1030,35 @@ def test_pagina_ver_transacoes_filtra_por_categoria(client, app_e_db):
     assert "Contas de consumo" in corpo
 
 
+def test_pagina_ver_transacoes_mostra_estabelecimento_no_lugar_da_descricao(client, app_e_db):
+    """Coluna unica: quando a transacao tem estabelecimento resolvido, a
+    tabela mostra o nome fantasia em vez da descricao crua do banco."""
+    _, db_path = app_e_db
+    from src.models.transacao import Transacao, TipoTransacao
+    from src.services import estabelecimento as estabelecimento_service
+    from src.storage import db as storage_db
+
+    transacao = Transacao(
+        fingerprint="fp-estab-coluna",
+        data="2026-06-01",
+        descricao="SJX COM DE ALIM LTDA",
+        descricao_normalizada="SJX COM DE ALIM LTDA",
+        valor=1000,
+        tipo=TipoTransacao.SAIDA,
+        conta="itau_2486",
+        natureza="gasto",
+    )
+    transacao_id = storage_db.inserir_transacao(transacao, db_path=db_path)
+    estabelecimento_id = estabelecimento_service.resolver_estabelecimento(transacao_id, db_path=db_path)
+    storage_db.atribuir_estabelecimento(estabelecimento_id, "SJX Comercial", None, db_path=db_path)
+
+    resposta = client.get("/ver/transacoes")
+
+    corpo = resposta.get_data(as_text=True)
+    assert "SJX Comercial" in corpo
+    assert "SJX COM DE ALIM LTDA" not in corpo
+
+
 def test_pagina_ver_itens_sem_categoria_id_lista_vazia(client):
     resposta = client.get("/ver/itens")
     assert resposta.status_code == 200

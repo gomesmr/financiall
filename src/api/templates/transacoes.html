@@ -70,7 +70,6 @@
         <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Valor</th>
         <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Natureza</th>
         <th class="text-uppercase text-xs font-weight-bolder opacity-7">Categoria</th>
-        <th class="text-uppercase text-xs font-weight-bolder opacity-7">Estabelecimento</th>
         <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Conta</th>
         <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Nota</th>
       </tr>
@@ -79,7 +78,7 @@
       {% for t in lista %}
       <tr>
         <td class="text-sm" style="white-space:nowrap;">{{ t.data | data_br }}</td>
-        <td class="text-sm">{{ t.descricao }}</td>
+        <td class="text-sm">{{ estabelecimentos_por_id.get(t.estabelecimento_id) or t.descricao }}</td>
         <td class="text-sm" style="white-space:nowrap; {{ 'color:#1a5c1a;' if t.tipo.value == 'entrada' else '' }}">
           {{ "+" if t.tipo.value == "entrada" else "-" }}R$ {{ "%.2f"|format(t.valor / 100) }}
         </td>
@@ -87,7 +86,6 @@
           {% if t.natureza %}{{ t.natureza }}{% else %}<span class="vazio">pendente</span>{% endif %}
         </td>
         <td class="text-sm">{{ categorias_por_id.get(t.categoria_id, "—") if t.categoria_id else "—" }}</td>
-        <td class="text-sm">{{ estabelecimentos_por_id.get(t.estabelecimento_id) or "—" }}</td>
         <td class="text-sm" style="white-space:nowrap;">{{ t.conta }}</td>
         <td class="text-sm" style="white-space:nowrap;">
           {% if t.nota_fiscal_id %}<a href="/ver/notas/{{ t.nota_fiscal_id }}">Nota #{{ t.nota_fiscal_id }}</a>{% else %}—{% endif %}
