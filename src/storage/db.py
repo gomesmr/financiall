@@ -1865,7 +1865,11 @@ def atribuir_estabelecimento(
             return True
 
         conn.execute(
-            "UPDATE estabelecimento SET nome_fantasia = ?, tipo_categoria_id = ? WHERE id = ?",
+            # COALESCE preserva o tipo ja existente quando tipo_categoria_id
+            # nao e informado (None) -- necessario pro atalho de editar so o
+            # nome fantasia a partir do detalhe da nota (nota_detalhe.html)
+            # nao apagar um tipo ja atribuido antes por outro caminho.
+            "UPDATE estabelecimento SET nome_fantasia = ?, tipo_categoria_id = COALESCE(?, tipo_categoria_id) WHERE id = ?",
             (nome_fantasia, tipo_categoria_id, estabelecimento_id),
         )
         conn.commit()

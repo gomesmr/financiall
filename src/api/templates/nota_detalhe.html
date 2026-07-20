@@ -39,6 +39,26 @@
           <button type="button" class="btn btn-sm btn-outline-secondary mb-0" onclick="desvincularTransacao({{ transacao_reconciliada.id }})">
             Desvincular
           </button>
+
+          {% if estabelecimento_reconciliado %}
+          <div class="mt-2">
+            <label class="mb-1 text-sm fw-bold d-block">Nome fantasia do estabelecimento:</label>
+            {% if estabelecimento_reconciliado.nome_fantasia %}
+            <p class="text-sm mb-1 vazio">Descrição no extrato: {{ transacao_reconciliada.descricao }}</p>
+            {% endif %}
+            <div class="d-flex align-items-center gap-2">
+              <input type="text" class="form-control form-control-sm w-auto" id="input-nome-fantasia-estabelecimento"
+                     style="min-width: 240px;" list="lista-nomes-fantasia-nota"
+                     value="{{ estabelecimento_reconciliado.nome_fantasia or '' }}" placeholder="Nome fantasia" autocomplete="off">
+              <button type="button" class="btn btn-sm btn-outline-primary mb-0" id="btn-salvar-nome-fantasia">Salvar</button>
+            </div>
+            <datalist id="lista-nomes-fantasia-nota">
+              {% for n in nomeados_json %}
+              <option value="{{ n.nome_fantasia }}">
+              {% endfor %}
+            </datalist>
+          </div>
+          {% endif %}
           {% else %}
           <span class="vazio">nenhuma transação de extrato vinculada</span>
           {% endif %}
@@ -180,6 +200,27 @@
     function removerEstabelecimentoDaNota(notaId) {
       salvarEstabelecimentoDaNota(notaId, null);
     }
+
+    {% if estabelecimento_reconciliado %}
+    document.getElementById("btn-salvar-nome-fantasia").addEventListener("click", async () => {
+      const nomeFantasia = document.getElementById("input-nome-fantasia-estabelecimento").value.trim();
+      if (!nomeFantasia) {
+        alert("Informe um nome fantasia.");
+        return;
+      }
+      const resposta = await fetch(`/estabelecimentos/{{ estabelecimento_reconciliado.id }}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome_fantasia: nomeFantasia }),
+      });
+      const corpo = await resposta.json();
+      if (!resposta.ok) {
+        alert(corpo.erro || "Não foi possível salvar o nome fantasia.");
+        return;
+      }
+      window.location.reload();
+    });
+    {% endif %}
 
     async function desvincularTransacao(transacaoId) {
       if (!confirm("Desfazer o vínculo com esta transação de extrato?")) {
