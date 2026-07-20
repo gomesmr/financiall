@@ -1274,6 +1274,65 @@ def buscar_transacao_por_nota_fiscal_id(nota_fiscal_id: int, db_path: str = DEFA
         conn.close()
 
 
+def listar_transacoes(
+    mes: str | None = None,
+    conta: str | None = None,
+    natureza: str | None = None,
+    db_path: str = DEFAULT_DB_PATH,
+) -> list[Transacao]:
+    """Lista transacoes ordenadas por data desc, id desc -- filtros
+    opcionais por mes (AAAA-MM), conta (ja canonicalizada) e natureza
+    (evolucao do polimento pos-deploy: visao geral, alem da fila de
+    pendentes)."""
+    conn = get_connection(db_path)
+    try:
+        query = "SELECT * FROM transacao"
+        condicoes: list[str] = []
+        params: list = []
+        if mes:
+            condicoes.append("substr(data, 1, 7) = ?")
+            params.append(mes)
+        if conta:
+            condicoes.append("conta = ?")
+            params.append(conta)
+        if natureza == "pendente":
+            condicoes.append("natureza IS NULL")
+        elif natureza:
+            condicoes.append("natureza = ?")
+            params.append(natureza)
+        if condicoes:
+            query += " WHERE " + " AND ".join(condicoes)
+        query += " ORDER BY data DESC, id DESC"
+        rows = conn.execute(query, params).fetchall()
+        return [_row_to_transacao(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def listar_contas_distintas(db_path: str = DEFAULT_DB_PATH) -> list[str]:
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute("SELECT DISTINCT conta FROM transacao ORDER BY conta").fetchall()
+        return [row["conta"] for row in rows]
+    finally:
+        conn.close()
+
+
+def listar_estabelecimentos_nomeados(db_path: str = DEFAULT_DB_PATH) -> list[dict]:
+    """Estabelecimentos ja identificados (nome_fantasia preenchido) --
+    usado para sugerir nomes ja usados na fila de gerenciamento (evita
+    recriar 'Letícia Arte e Talento' do zero pra cada grafia truncada
+    diferente que o banco gera)."""
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT id, nome_fantasia, tipo_categoria_id FROM estabelecimento WHERE nome_fantasia IS NOT NULL ORDER BY nome_fantasia"
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
 def classificar_natureza_transacao(
     transacao_id: int,
     natureza: str,

@@ -100,6 +100,7 @@ def pagina_resumo():
     nivel = 2 if request.args.get("nivel") == "2" else 1
 
     resumo_mes_selecionado = resumo_service.resumo_de_mes(mes_selecionado, db_path=db_path)
+    saldo_mes_selecionado = resumo_service.saldo_do_mes(mes_selecionado, db_path=db_path)
 
     # Evolucao mensal (feature 005) -- mantida como visao complementar de
     # longo prazo abaixo da navegacao principal, sem sobrepor a ela.
@@ -118,6 +119,7 @@ def pagina_resumo():
         dimensao=dimensao,
         nivel=nivel,
         resumo_mes=resumo_mes_selecionado,
+        saldo_mes=saldo_mes_selecionado,
         historico=historico,
         historico_json=historico_json,
         pagina_ativa="resumo",

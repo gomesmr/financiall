@@ -20,6 +20,14 @@ class GastoCategoria:
     total_gasto: int
 
 
+@dataclass(frozen=True)
+class SaldoMes:
+    mes: str
+    total_entradas: int
+    total_saidas: int
+    saldo: int
+
+
 def mes_atual() -> str:
     hoje = date.today()
     return f"{hoje.year:04d}-{hoje.month:02d}"
@@ -90,6 +98,26 @@ def agrupar_notas_por_mes(notas: list) -> list[tuple[str, list]]:
     return grupos
 
 
+def agrupar_transacoes_por_mes(transacoes: list) -> list[tuple[str, list]]:
+    """Mesmo padrao de agrupar_notas_por_mes, para a listagem geral de
+    transacoes (`/ver/transacoes`) -- transacao.data e sempre ISO, sem
+    fallback de ano_mes_emissao necessario."""
+    grupos: list[tuple[str, list]] = []
+    mes_atual_do_grupo: str | None = None
+    transacoes_do_grupo: list = []
+    for transacao in transacoes:
+        mes = transacao.data[:7] if transacao.data else "Sem data"
+        if mes != mes_atual_do_grupo:
+            if transacoes_do_grupo:
+                grupos.append((mes_atual_do_grupo, transacoes_do_grupo))
+            mes_atual_do_grupo = mes
+            transacoes_do_grupo = []
+        transacoes_do_grupo.append(transacao)
+    if transacoes_do_grupo:
+        grupos.append((mes_atual_do_grupo, transacoes_do_grupo))
+    return grupos
+
+
 def _query_resumo_por_mes(db_path: str) -> list[ResumoMes]:
     """Agrupa por mês e soma o gasto (feature 010, research.md #8): notas
     fiscais que NAO estao reconciliadas com nenhuma transacao (fonte de
@@ -145,6 +173,29 @@ def historico_meses_anteriores(db_path: str = storage_db.DEFAULT_DB_PATH) -> lis
     ordenado do mais recente para o mais antigo."""
     mes = mes_atual()
     return [resumo for resumo in _query_resumo_por_mes(db_path) if resumo.mes < mes]
+
+
+def saldo_do_mes(mes: str, db_path: str = storage_db.DEFAULT_DB_PATH) -> SaldoMes:
+    """Visão de saúde financeira do mês (polimento pós-deploy da feature
+    010): entradas = soma de transação com natureza='renda'; saídas =
+    o mesmo gasto combinado (transação + nota não reconciliada) que
+    `resumo_de_mes` já calcula, reaproveitado aqui sem duplicar a lógica.
+    `pagamento_fatura`, `transferencia_interna` e `estorno_credito` ficam
+    de fora do saldo de propósito -- são movimentação interna ou correção
+    de um gasto já contado, não entrada/saída real de dinheiro da casa."""
+    conn = storage_db.get_connection(db_path)
+    try:
+        entradas = conn.execute(
+            "SELECT COALESCE(SUM(valor), 0) FROM transacao WHERE natureza = 'renda' AND substr(data, 1, 7) = ?",
+            (mes,),
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
+    resumo_gasto = resumo_de_mes(mes, db_path=db_path)
+    saidas = (resumo_gasto.total_gasto or 0) if resumo_gasto else 0
+
+    return SaldoMes(mes=mes, total_entradas=entradas, total_saidas=saidas, saldo=entradas - saidas)
 
 
 def gasto_por_categoria_item(

@@ -965,3 +965,40 @@ def test_pagina_ver_estabelecimentos_pendentes_carrega(client):
     resposta = client.get("/ver/estabelecimentos/pendentes")
     assert resposta.status_code == 200
     assert "estabelecimento" in resposta.get_data(as_text=True).lower()
+
+
+def test_pagina_ver_estabelecimentos_pendentes_sugere_nome_ja_usado(client, app_e_db):
+    _, db_path = app_e_db
+    categoria_id = client.post("/categorias", json={"nome": "Padaria"}).get_json()["categoria"]["id"]
+    estabelecimento_id = _inserir_transacao_com_estabelecimento_pendente(db_path, "Padaria Ja Nomeada")
+    client.put(f"/estabelecimentos/{estabelecimento_id}", json={"nome_fantasia": "Padoca do Bairro", "tipo_categoria_id": categoria_id})
+
+    resposta = client.get("/ver/estabelecimentos/pendentes")
+
+    assert resposta.status_code == 200
+    assert "Padoca do Bairro" in resposta.get_data(as_text=True)
+
+
+# --- feature 010: polimento pos-deploy (listagem geral + saldo do mes) -----
+
+
+def test_pagina_ver_transacoes_carrega(client):
+    resposta = client.get("/ver/transacoes")
+    assert resposta.status_code == 200
+    assert "transa" in resposta.get_data(as_text=True).lower()
+
+
+def test_pagina_ver_transacoes_filtra_por_conta_e_natureza(client, app_e_db):
+    _, db_path = app_e_db
+    _inserir_transacao_pendente(db_path, "Transacao Filtro Conta", fingerprint="fp-filtro-conta")
+
+    resposta = client.get("/ver/transacoes?conta=itau_2486&natureza=pendente")
+
+    assert resposta.status_code == 200
+    assert "Transacao Filtro Conta" in resposta.get_data(as_text=True)
+
+
+def test_pagina_ver_resumo_mostra_saldo_do_mes(client):
+    resposta = client.get("/ver/resumo")
+    assert resposta.status_code == 200
+    assert "Saldo do mês" in resposta.get_data(as_text=True)
