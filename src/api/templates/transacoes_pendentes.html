@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}financiALL - Transações pendentes{% endblock %}
+{% block titulo_pagina %}Transações pendentes{% endblock %}
+{% block content %}
+  <div class="card mb-4">
+    <div class="card-body">
+      <h6 class="text-uppercase text-xs font-weight-bolder opacity-7">Resumo</h6>
+      <h4 class="mb-0">
+        {{ resumo.total_pendente }} pendente(s) de {{ resumo.total_transacoes }} transação(ões) no total
+      </h4>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header pb-0">
+      <h6 class="mb-0">Natureza pendente</h6>
+    </div>
+    <div class="card-body px-0 pb-0">
+      {% if grupos %}
+      <div class="table-responsive-argon">
+        <table class="table align-items-center mb-0">
+          <thead>
+            <tr>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Descrição</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Qtd.</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Natureza</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Categoria</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for grupo in grupos %}
+            <tr data-descricao="{{ grupo.descricao_normalizada }}">
+              <td class="text-sm">{{ grupo.descricao_normalizada }}</td>
+              <td class="text-sm">{{ grupo.quantidade_transacoes }}</td>
+              <td>
+                <select class="form-select form-select-sm select-natureza">
+                  <option value="" selected disabled>Escolher...</option>
+                  {% for natureza in naturezas %}
+                  <option value="{{ natureza }}">{{ natureza }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <div class="categoria-autocomplete position-relative d-none" style="min-width: 220px;">
+                  <input type="text" class="form-control form-control-sm categoria-input" placeholder="Categoria › Subcategoria" autocomplete="off">
+                  <div class="categoria-sugestoes list-group position-absolute" style="display:none; z-index:10; max-height:200px; overflow-y:auto; width:100%;"></div>
+                  <input type="hidden" class="categoria-id-selecionada">
+                </div>
+              </td>
+              <td>
+                <button type="button" class="btn btn-sm btn-outline-primary mb-0 btn-classificar-grupo" disabled>Classificar</button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="vazio px-4 pb-3">Nenhuma transação pendente de natureza — tudo classificado.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header pb-0">
+      <h6 class="mb-0">Reconciliação ambígua (mais de uma nota candidata)</h6>
+    </div>
+    <div class="card-body px-0 pb-0">
+      {% if casos_ambiguos %}
+      <div class="table-responsive-argon">
+        <table class="table align-items-center mb-0">
+          <thead>
+            <tr>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Nota fiscal</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Transação candidata</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for caso in casos_ambiguos %}
+            {% for candidato in caso.candidatos %}
+            <tr>
+              <td class="text-sm"><a href="/ver/notas/{{ caso.nota_fiscal_id }}">Nota #{{ caso.nota_fiscal_id }}</a></td>
+              <td class="text-sm">Transação #{{ candidato.transacao_id }}</td>
+              <td>
+                <button type="button" class="btn btn-sm btn-outline-primary mb-0 btn-resolver-ambiguo"
+                        data-transacao-id="{{ candidato.transacao_id }}" data-nota-id="{{ caso.nota_fiscal_id }}">
+                  Vincular esta
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="vazio px-4 pb-3">Nenhum caso ambíguo de reconciliação no momento.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
+{% block extra_scripts %}
+  <script src="{{ url_for('static', filename='classificacao.js') }}"></script>
+  <script>
+    const CATEGORIAS = {{ categorias_json | tojson }};
+
+    document.querySelectorAll("tr[data-descricao]").forEach((linha) => {
+      const descricaoNormalizada = linha.dataset.descricao;
+      const selectNatureza = linha.querySelector(".select-natureza");
+      const containerCategoria = linha.querySelector(".categoria-autocomplete");
+      const botao = linha.querySelector(".btn-classificar-grupo");
+      let categoriaId = null;
+
+      inicializarAutocompleteCategoria(containerCategoria, CATEGORIAS, "", (id) => {
+        categoriaId = id;
+        atualizarEstadoBotao();
+      });
+
+      function atualizarEstadoBotao() {
+        const natureza = selectNatureza.value;
+        if (natureza === "gasto") {
+          containerCategoria.classList.remove("d-none");
+          botao.disabled = !categoriaId;
+        } else {
+          containerCategoria.classList.add("d-none");
+          botao.disabled = !natureza;
+        }
+      }
+
+      selectNatureza.addEventListener("change", atualizarEstadoBotao);
+
+      botao.addEventListener("click", async () => {
+        const natureza = selectNatureza.value;
+        const resposta = await fetch("/transacoes/pendentes/classificar-grupo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            descricao_normalizada: descricaoNormalizada,
+            natureza,
+            categoria_id: natureza === "gasto" ? categoriaId : null,
+          }),
+        });
+        const corpo = await resposta.json();
+        if (!resposta.ok) {
+          alert(corpo.erro || "Não foi possível classificar o grupo.");
+          return;
+        }
+        window.location.reload();
+      });
+    });
+
+    document.querySelectorAll(".btn-resolver-ambiguo").forEach((botao) => {
+      botao.addEventListener("click", async () => {
+        const transacaoId = botao.dataset.transacaoId;
+        const notaId = botao.dataset.notaId;
+        const resposta = await fetch(`/transacoes/${transacaoId}/nota`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nota_fiscal_id: parseInt(notaId, 10) }),
+        });
+        const corpo = await resposta.json();
+        if (!resposta.ok) {
+          alert(corpo.erro || "Não foi possível vincular.");
+          return;
+        }
+        window.location.reload();
+      });
+    });
+  </script>
+{% endblock %}

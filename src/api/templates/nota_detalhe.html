@@ -29,6 +29,21 @@
         <p class="text-sm mb-1">UF: {{ nota.uf or "não disponível" }}</p>
         <p class="text-sm mb-3">Total: {% if nota.valor_total is not none %}R$ {{ "%.2f"|format(nota.valor_total / 100) }}{% else %}não disponível{% endif %}</p>
 
+        <div class="mt-2 mb-3">
+          <label class="mb-1 text-sm fw-bold d-block">Transação de extrato reconciliada:</label>
+          {% if transacao_reconciliada %}
+          <p class="text-sm mb-1">
+            {{ transacao_reconciliada.data | data_br }} — {{ transacao_reconciliada.conta }} —
+            R$ {{ "%.2f"|format(transacao_reconciliada.valor / 100) }}
+          </p>
+          <button type="button" class="btn btn-sm btn-outline-secondary mb-0" onclick="desvincularTransacao({{ transacao_reconciliada.id }})">
+            Desvincular
+          </button>
+          {% else %}
+          <span class="vazio">nenhuma transação de extrato vinculada</span>
+          {% endif %}
+        </div>
+
         <div class="mt-2">
           <label class="mb-1 text-sm fw-bold d-block">Tipo de estabelecimento:</label>
           <div class="mb-1 text-sm" id="estabelecimento-atual">
@@ -164,6 +179,19 @@
 
     function removerEstabelecimentoDaNota(notaId) {
       salvarEstabelecimentoDaNota(notaId, null);
+    }
+
+    async function desvincularTransacao(transacaoId) {
+      if (!confirm("Desfazer o vínculo com esta transação de extrato?")) {
+        return;
+      }
+      const resposta = await fetch(`/transacoes/${transacaoId}/nota`, { method: "DELETE" });
+      const corpo = await resposta.json();
+      if (!resposta.ok) {
+        alert(corpo.erro || "Não foi possível desvincular a transação.");
+        return;
+      }
+      window.location.reload();
     }
 
     async function salvarTitular(notaId) {

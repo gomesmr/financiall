@@ -42,8 +42,9 @@ python -m src.scripts.seed_regras_natureza
    reconcilia (a transação já contava; a nota só deixa de contar
    separadamente).
 4. Testar o desfazer: `DELETE /transacoes/<id>/nota`, confirmar que o total
-   do mês continua correto (agora pela nota, não mais pela transação
-   reconciliada).
+   do mês passa a contar a nota **e** a transação separadamente (o valor
+   sobe de volta à soma das duas) — reflete que o sistema não presume mais
+   que elas são a mesma compra.
 
 ## Cenário 4 — Fila de pendentes de natureza (US4)
 

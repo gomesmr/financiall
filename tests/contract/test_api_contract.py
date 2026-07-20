@@ -753,3 +753,150 @@ def test_post_qrcode_frame_com_corpo_invalido_retorna_415(client):
     )
     assert resposta.status_code == 415
     assert "erro" in resposta.get_json()
+
+
+# --- feature 010: transacoes (US3/US4) --------------------------------------
+
+
+def _inserir_transacao_pendente(db_path, descricao, valor=1000, fingerprint=None):
+    from src.models.transacao import Transacao, TipoTransacao
+    from src.storage import db as storage_db
+
+    transacao = Transacao(
+        fingerprint=fingerprint or f"fp-{descricao}-{valor}",
+        data="2026-06-10",
+        descricao=descricao,
+        descricao_normalizada=descricao.upper(),
+        valor=valor,
+        tipo=TipoTransacao.SAIDA,
+        conta="itau_2486",
+    )
+    return storage_db.inserir_transacao(transacao, db_path=db_path)
+
+
+def test_get_transacoes_pendentes_agrupa_e_inclui_resumo(client, app_e_db):
+    _, db_path = app_e_db
+    _inserir_transacao_pendente(db_path, "Descricao Pendente")
+
+    resposta = client.get("/transacoes/pendentes")
+    corpo = resposta.get_json()
+
+    assert resposta.status_code == 200
+    assert corpo["resumo"]["total_pendente"] == 1
+    assert corpo["grupos"][0]["descricao_normalizada"] == "DESCRICAO PENDENTE"
+
+
+def test_post_transacoes_classificar_grupo_natureza_invalida_retorna_422(client):
+    resposta = client.post(
+        "/transacoes/pendentes/classificar-grupo",
+        json={"descricao_normalizada": "QUALQUER", "natureza": "invalida"},
+    )
+    assert resposta.status_code == 422
+
+
+def test_post_transacoes_classificar_grupo_gasto_sem_categoria_retorna_422(client):
+    resposta = client.post(
+        "/transacoes/pendentes/classificar-grupo",
+        json={"descricao_normalizada": "QUALQUER", "natureza": "gasto"},
+    )
+    assert resposta.status_code == 422
+
+
+def test_post_transacoes_classificar_grupo_sucesso(client, app_e_db):
+    _, db_path = app_e_db
+    _inserir_transacao_pendente(db_path, "Transferencia Teste")
+
+    resposta = client.post(
+        "/transacoes/pendentes/classificar-grupo",
+        json={"descricao_normalizada": "TRANSFERENCIA TESTE", "natureza": "transferencia_interna"},
+    )
+    corpo = resposta.get_json()
+
+    assert resposta.status_code == 200
+    assert corpo["quantidade_afetada"] == 1
+
+
+def test_put_transacao_natureza_transacao_inexistente_retorna_404(client):
+    resposta = client.put("/transacoes/999999/natureza", json={"natureza": "renda"})
+    assert resposta.status_code == 404
+
+
+def test_put_transacao_natureza_sucesso(client, app_e_db):
+    _, db_path = app_e_db
+    transacao_id = _inserir_transacao_pendente(db_path, "Salario Teste")
+
+    resposta = client.put(f"/transacoes/{transacao_id}/natureza", json={"natureza": "renda"})
+
+    assert resposta.status_code == 200
+
+
+def test_get_reconciliacoes_pendentes_lista_caso_ambiguo(client, app_e_db):
+    from src.models.nota_fiscal import CanalOrigem, NotaFiscal, StatusNota
+    from src.storage import db as storage_db
+
+    _, db_path = app_e_db
+    for numero in ("000000091", "000000092"):
+        nota = NotaFiscal(
+            canal_origem=CanalOrigem.URL_CHAVE,
+            status=StatusNota.COMPLETA,
+            chave_acesso=gerar_chave_valida(numero=numero),
+            valor_total=5000,
+            data_emissao="2026-06-20",
+        )
+        storage_db.inserir_nota(nota, db_path=db_path)
+
+    from src.models.transacao import Transacao, TipoTransacao
+    from src.services import reconciliacao
+
+    transacao = Transacao(
+        fingerprint="fp-ambiguo",
+        data="2026-06-25",
+        descricao="Compra Ambigua",
+        valor=5000,
+        tipo=TipoTransacao.SAIDA,
+        conta="itau_2486",
+        natureza="gasto",
+    )
+    transacao_id = storage_db.inserir_transacao(transacao, db_path=db_path)
+    reconciliacao.tentar_reconciliar(transacao_id, "itau_2486", db_path=db_path)
+
+    resposta = client.get("/transacoes/reconciliacao/pendentes")
+    corpo = resposta.get_json()
+
+    assert resposta.status_code == 200
+    assert len(corpo["casos"]) == 2
+
+
+def test_put_transacao_nota_vincula_manualmente(client, app_e_db):
+    from src.models.nota_fiscal import CanalOrigem, NotaFiscal, StatusNota
+    from src.storage import db as storage_db
+
+    _, db_path = app_e_db
+    nota = NotaFiscal(
+        canal_origem=CanalOrigem.URL_CHAVE,
+        status=StatusNota.COMPLETA,
+        chave_acesso=gerar_chave_valida(numero="000000093"),
+        valor_total=1000,
+        data_emissao="2026-06-01",
+    )
+    nota_id = storage_db.inserir_nota(nota, db_path=db_path)
+    transacao_id = _inserir_transacao_pendente(db_path, "Compra Manual", valor=1000)
+
+    resposta = client.put(f"/transacoes/{transacao_id}/nota", json={"nota_fiscal_id": nota_id})
+
+    assert resposta.status_code == 200
+
+
+def test_delete_transacao_nota_sem_vinculo_retorna_404(client, app_e_db):
+    _, db_path = app_e_db
+    transacao_id = _inserir_transacao_pendente(db_path, "Sem Vinculo")
+
+    resposta = client.delete(f"/transacoes/{transacao_id}/nota")
+
+    assert resposta.status_code == 404
+
+
+def test_pagina_ver_transacoes_pendentes_carrega(client):
+    resposta = client.get("/ver/transacoes/pendentes")
+    assert resposta.status_code == 200
+    assert "pendente" in resposta.get_data(as_text=True).lower()

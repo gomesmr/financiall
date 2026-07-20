@@ -91,20 +91,33 @@ def agrupar_notas_por_mes(notas: list) -> list[tuple[str, list]]:
 
 
 def _query_resumo_por_mes(db_path: str) -> list[ResumoMes]:
-    """Agrupa as notas por mês (data_emissao, com fallback para
-    ano_mes_emissao decodificado da chave), somando valor_total em
-    centavos — SQLite ignora nulos em SUM automaticamente — e contando
-    todas as notas do mês, inclusive as pendentes de revisão (FR-015/016)."""
+    """Agrupa por mês e soma o gasto (feature 010, research.md #8): notas
+    fiscais que NAO estao reconciliadas com nenhuma transacao (fonte de
+    verdade do valor ainda e a propria nota) + transacoes com
+    natureza='gasto' (fonte de verdade do valor quando existe extrato).
+    Uma nota reconciliada nunca soma aqui -- so a transacao correspondente
+    soma, evitando contar a mesma compra duas vezes (FR-015/016). Calculado
+    ao vivo a cada chamada, sem tabela de cache. `quantidade_notas` passa a
+    contar a quantidade combinada de lancamentos (nota nao reconciliada +
+    transacao de gasto) que compoem o total do mes."""
     conn = storage_db.get_connection(db_path)
     try:
         rows = conn.execute(
             """
-            SELECT
-                COALESCE(substr(data_emissao, 1, 7), '20' || substr(ano_mes_emissao, 1, 2) || '-' || substr(ano_mes_emissao, 3, 2)) AS mes,
-                SUM(valor_total) AS total_gasto,
-                COUNT(*) AS quantidade_notas
-            FROM nota_fiscal
-            WHERE COALESCE(substr(data_emissao, 1, 7), '20' || substr(ano_mes_emissao, 1, 2) || '-' || substr(ano_mes_emissao, 3, 2)) IS NOT NULL
+            WITH combinado AS (
+                SELECT
+                    COALESCE(substr(data_emissao, 1, 7), '20' || substr(ano_mes_emissao, 1, 2) || '-' || substr(ano_mes_emissao, 3, 2)) AS mes,
+                    valor_total AS valor
+                FROM nota_fiscal
+                WHERE id NOT IN (SELECT nota_fiscal_id FROM transacao WHERE nota_fiscal_id IS NOT NULL)
+                UNION ALL
+                SELECT substr(data, 1, 7) AS mes, valor
+                FROM transacao
+                WHERE natureza = 'gasto'
+            )
+            SELECT mes, SUM(valor) AS total_gasto, COUNT(*) AS quantidade_notas
+            FROM combinado
+            WHERE mes IS NOT NULL
             GROUP BY mes
             ORDER BY mes DESC
             """
@@ -137,19 +150,22 @@ def historico_meses_anteriores(db_path: str = storage_db.DEFAULT_DB_PATH) -> lis
 def gasto_por_categoria_item(
     mes: str, nivel: int = 1, db_path: str = storage_db.DEFAULT_DB_PATH
 ) -> list[GastoCategoria]:
-    """Soma o gasto do mes informado (AAAA-MM) agrupado pela categoria dos
-    itens de cada nota (feature 008/009, FR-001/002/003, data-model.md).
-    Quando a nota tem pelo menos um item classificado, cada item soma na sua
-    propria categoria (nivel 1 resolve a categoria de topo; nivel 2 usa a
-    categoria tal como esta atribuida) e os itens ainda pendentes da mesma
-    nota somam em "Sem categoria" -- nunca caem na categoria da nota. Quando
-    a nota nao tem nenhum item classificado (incluindo nota sem nenhum item
-    extraido), o valor total da nota inteira cai de volta na categoria da
-    propria nota, ou em "Sem categoria" se a nota tambem nao tiver
-    categoria. Item com valor nulo nunca contribui para nenhuma soma."""
+    """Soma o gasto do mes informado (AAAA-MM) agrupado por categoria de
+    consumo, combinando tres fontes sem nunca contar a mesma compra duas
+    vezes (feature 010, research.md #8, data-model.md):
+    1. Notas NAO reconciliadas com nenhuma transacao -- mesma logica da
+       feature 008/009: item classificado soma por item; sem item
+       classificado, o valor total da nota cai na categoria da propria
+       nota (ou "Sem categoria").
+    2. Transacoes de gasto reconciliadas com uma nota -- usam os itens
+       dessa nota quando classificados (mesmo racional acima); sem item
+       classificado, usam a categoria da propria transacao.
+    3. Transacoes de gasto sem nenhuma nota associada -- somam pela
+       categoria da transacao (ou "Sem categoria").
+    Item/transacao com valor nulo nunca contribui para nenhuma soma."""
     conn = storage_db.get_connection(db_path)
     try:
-        rows = conn.execute(
+        linhas_notas = conn.execute(
             """
             SELECT
                 nf.id AS nota_id,
@@ -161,6 +177,31 @@ def gasto_por_categoria_item(
             LEFT JOIN item_nota it ON it.nota_fiscal_id = nf.id
             WHERE COALESCE(substr(nf.data_emissao, 1, 7), '20' || substr(nf.ano_mes_emissao, 1, 2) || '-' || substr(nf.ano_mes_emissao, 3, 2)) = ?
               AND nf.valor_total IS NOT NULL
+              AND nf.id NOT IN (SELECT nota_fiscal_id FROM transacao WHERE nota_fiscal_id IS NOT NULL)
+            """,
+            (mes,),
+        ).fetchall()
+
+        linhas_transacoes_reconciliadas = conn.execute(
+            """
+            SELECT
+                t.id AS transacao_id,
+                t.categoria_id AS transacao_categoria_id,
+                t.valor AS transacao_valor,
+                it.categoria_id AS item_categoria_id,
+                it.valor_total_item AS item_valor_total
+            FROM transacao t
+            LEFT JOIN item_nota it ON it.nota_fiscal_id = t.nota_fiscal_id
+            WHERE substr(t.data, 1, 7) = ? AND t.natureza = 'gasto' AND t.nota_fiscal_id IS NOT NULL
+            """,
+            (mes,),
+        ).fetchall()
+
+        linhas_transacoes_sem_nota = conn.execute(
+            """
+            SELECT categoria_id AS transacao_categoria_id, valor AS transacao_valor
+            FROM transacao
+            WHERE substr(data, 1, 7) = ? AND natureza = 'gasto' AND nota_fiscal_id IS NULL
             """,
             (mes,),
         ).fetchall()
@@ -168,10 +209,6 @@ def gasto_por_categoria_item(
         conn.close()
 
     categorias_por_id = {c.id: c for c in storage_db.listar_categorias(db_path=db_path)}
-
-    por_nota: dict[int, list] = {}
-    for row in rows:
-        por_nota.setdefault(row["nota_id"], []).append(row)
 
     acumulado: dict[int | None, list] = {}
 
@@ -183,6 +220,9 @@ def gasto_por_categoria_item(
         else:
             atual[1] += valor
 
+    por_nota: dict[int, list] = {}
+    for row in linhas_notas:
+        por_nota.setdefault(row["nota_id"], []).append(row)
     for linhas in por_nota.values():
         tem_item_classificado = any(linha["item_categoria_id"] is not None for linha in linhas)
         if tem_item_classificado:
@@ -193,6 +233,23 @@ def gasto_por_categoria_item(
         else:
             primeira = linhas[0]
             _somar(primeira["nota_categoria_id"], primeira["nota_valor_total"])
+
+    por_transacao: dict[int, list] = {}
+    for row in linhas_transacoes_reconciliadas:
+        por_transacao.setdefault(row["transacao_id"], []).append(row)
+    for linhas in por_transacao.values():
+        tem_item_classificado = any(linha["item_categoria_id"] is not None for linha in linhas)
+        if tem_item_classificado:
+            for linha in linhas:
+                if linha["item_valor_total"] is None:
+                    continue
+                _somar(linha["item_categoria_id"], linha["item_valor_total"])
+        else:
+            primeira = linhas[0]
+            _somar(primeira["transacao_categoria_id"], primeira["transacao_valor"])
+
+    for row in linhas_transacoes_sem_nota:
+        _somar(row["transacao_categoria_id"], row["transacao_valor"])
 
     resultado = [
         GastoCategoria(categoria_id=cat_id, nome=nome, total_gasto=total)
