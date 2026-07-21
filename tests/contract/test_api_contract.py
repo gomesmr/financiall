@@ -456,6 +456,51 @@ def test_pagina_nota_detalhe_permite_editar_nome_fantasia_do_estabelecimento(cli
     assert "SJX - COMERCIAL ATACAD SAO PAULO BRA" in texto_depois
 
 
+def test_pagina_nota_detalhe_destaca_nome_fantasia_no_titulo(client, app_e_db):
+    """Pedido do usuario: no topo da pagina, quando o estabelecimento
+    reconciliado tiver nome fantasia, destacar esse nome (nao a descricao/
+    emitente da nota) como titulo principal."""
+    _, db_path = app_e_db
+    from src.models.nota_fiscal import CanalOrigem, NotaFiscal, StatusNota
+    from src.models.transacao import Transacao, TipoTransacao
+    from src.services import estabelecimento as estabelecimento_service
+    from src.storage import db as storage_db
+
+    nota = NotaFiscal(
+        canal_origem=CanalOrigem.URL_CHAVE,
+        status=StatusNota.COMPLETA,
+        chave_acesso=gerar_chave_valida(numero="000000096"),
+        cnpj_emitente="17.608.063/0005-51",
+        emitente_nome="SJX - Coml Atac.Mercadorias Ltda",
+        valor_total=1000,
+        data_emissao="2026-04-03",
+    )
+    nota_id = storage_db.inserir_nota(nota, db_path=db_path)
+    transacao = Transacao(
+        fingerprint="fp-nota-detalhe-titulo",
+        data="2026-04-03",
+        descricao="SJX - COMERCIAL ATACAD SAO PAULO BRA",
+        valor=1000,
+        tipo=TipoTransacao.SAIDA,
+        conta="flash",
+        natureza="gasto",
+        nota_fiscal_id=nota_id,
+    )
+    transacao_id = storage_db.inserir_transacao(transacao, db_path=db_path)
+    estabelecimento_id = estabelecimento_service.resolver_estabelecimento(transacao_id, db_path=db_path)
+
+    resposta_antes = client.get(f"/ver/notas/{nota_id}")
+    texto_antes = resposta_antes.get_data(as_text=True)
+    assert f'<h5 class="mb-0 fw-bold">{nota.emitente_nome}</h5>' in texto_antes
+
+    client.put(f"/estabelecimentos/{estabelecimento_id}", json={"nome_fantasia": "Varejão"})
+
+    resposta_depois = client.get(f"/ver/notas/{nota_id}")
+    texto_depois = resposta_depois.get_data(as_text=True)
+    assert '<h5 class="mb-0 fw-bold">Varejão</h5>' in texto_depois
+    assert f"Emitente: {nota.emitente_nome}" in texto_depois
+
+
 def test_delete_nota_inexistente_retorna_404(client):
     resposta = client.delete("/notas/999999")
     corpo = resposta.get_json()
