@@ -12,7 +12,14 @@
   {% else %}
     <div class="card mb-4">
       <div class="card-header pb-0 d-flex justify-content-between align-items-start flex-wrap gap-2">
-        <h5 class="mb-0 fw-bold">{{ nota.emitente_nome or "Emitente não disponível" }}</h5>
+        <div>
+          {% if estabelecimento_reconciliado and estabelecimento_reconciliado.nome_fantasia %}
+          <h5 class="mb-0 fw-bold">{{ estabelecimento_reconciliado.nome_fantasia }}</h5>
+          <p class="text-sm vazio mb-0">Emitente: {{ nota.emitente_nome or "não disponível" }}</p>
+          {% else %}
+          <h5 class="mb-0 fw-bold">{{ nota.emitente_nome or "Emitente não disponível" }}</h5>
+          {% endif %}
+        </div>
         <button class="btn btn-sm btn-outline-danger mb-0" onclick="excluirNota({{ nota.id }})">Excluir</button>
       </div>
       <div class="card-body">
