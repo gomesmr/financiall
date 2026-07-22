@@ -149,9 +149,12 @@ da conta:
 
 # Banco do Brasil (Cristine) -- extrato de conta corrente em .xlsx, um arquivo ou uma pasta inteira
 .venv/Scripts/python -m src.scripts.importar_extrato_bb "<arquivo-ou-pasta>.xlsx"
+
+# Mercado Pago (Marcelo) -- fatura de cartão em .pdf, um arquivo ou uma pasta inteira
+.venv/Scripts/python -m src.scripts.importar_fatura_mercado_pago "<arquivo-ou-pasta>.pdf"
 ```
 
-Os dois comandos:
+Os três comandos:
 
 - podem ser rodados contra um arquivo único ou uma pasta (processam todo
   arquivo do formato certo dentro dela);
@@ -169,7 +172,8 @@ Depois de importar, `/ver/resumo` e `/ver/transacoes` já refletem o novo
 extrato, com o filtro por titular (Casal/Marcelo/Cristine) mostrando o
 gasto de cada um separadamente. Ver
 [`specs/011-importar-extrato-bb-cristine/contracts/cli.md`](specs/011-importar-extrato-bb-cristine/contracts/cli.md)
-para o contrato completo dos dois comandos.
+e [`specs/012-importar-fatura-mercado-pago/contracts/cli.md`](specs/012-importar-fatura-mercado-pago/contracts/cli.md)
+para o contrato completo dos três comandos.
 
 ## Estrutura do projeto
 

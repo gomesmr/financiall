@@ -28,10 +28,13 @@ class ImportarExtratoResumo:
 
 
 def _eh_conta_cartao(conta_canonica: str) -> bool:
-    """Cartao de credito Itau (o unico emissor no dado real hoje) -- usado
-    tanto pra interpretar o sinal legado quanto pela heuristica de
-    estorno/credito."""
-    return conta_canonica.startswith("itau_") and not conta_canonica.endswith("_cc")
+    """Cartao de credito -- Itau (exclui a conta corrente "itau_cc") ou
+    Mercado Pago (feature 012: todas as contas "mercado_pago*" sao cartao,
+    nao ha variante de conta corrente dessa fonte). Usado tanto pra
+    interpretar o sinal legado quanto pela heuristica de estorno/credito."""
+    if conta_canonica.startswith("itau_") and not conta_canonica.endswith("_cc"):
+        return True
+    return conta_canonica.startswith("mercado_pago")
 
 
 def _interpretar_valor_e_tipo(conta_canonica: str, valor_raw: float, descricao: str) -> tuple[int, str]:
