@@ -7,6 +7,9 @@
   {"padrao": "DEPOSITO", "natureza": "renda", "prioridade": 100, "_evidencia": "REGRAS legado - grupo Renda; cobre tambem 'Deposito' do Flash VR"},
   {"padrao": "SECRETARIA MUNICIPA", "natureza": "renda", "prioridade": 100, "_evidencia": "feature 011 - salario da Cristine (extrato BB); pattern encurtado pois jan-mar traz 'SECRETARIA MUNICIPAL DA FAZENDA' completo mas abr-mai vem truncado em 'SECRETARIA MUNICIPA' (limite de caracteres do campo Detalhes do BB)"},
   {"padrao": "13º SALARIO", "natureza": "renda", "prioridade": 100, "_evidencia": "feature 011 - 13o salario da Cristine (extrato BB), gabarito Cristine.xlsx"},
+  {"padrao": "PAGTO 13", "natureza": "renda", "prioridade": 100, "_evidencia": "glossario 2026-07-22 - 13o salario do Marcelo (extrato Itau), achado real 'PAGTO 13. SALARIO' -- mesmo conceito de '13º SALARIO' (BB), grafia diferente"},
+  {"padrao": "CREDITO PASEP", "natureza": "renda", "prioridade": 100, "_evidencia": "glossario 2026-07-22 - PASEP e fundo publico, credito e sempre renda"},
+  {"padrao": "CONTR BB CREDITO", "natureza": "renda", "prioridade": 100, "_evidencia": "glossario 2026-07-22 - 'Contr BB Credito Salario'/'Contr BB Credito 13 Salar' e o credito do salario em si (entrada), distinto de 'PGTO BB CREDITO SALARIO' ja existente (pagamento de divida, saida) -- prefixo 'CONTR' (contribuicao/credito) nao colide com 'PGTO' (pagamento)"},
 
   {"padrao": "CREDIARIO AUTOM", "natureza": "gasto", "categoria": "Finanças", "subcategoria": "Tarifas e juros", "prioridade": 95, "_evidencia": "REGRAS legado - Gastos Fixos - Crediario/Consig."},
   {"padrao": "ECONSIGNADO", "natureza": "gasto", "categoria": "Finanças", "subcategoria": "Tarifas e juros", "prioridade": 95, "_evidencia": "REGRAS legado - Gastos Fixos - Crediario/Consig."},
@@ -21,6 +24,7 @@
   {"padrao": "TARIFA PACOTE DE SERVICOS", "natureza": "gasto", "categoria": "Finanças", "subcategoria": "Tarifas e juros", "prioridade": 95, "_evidencia": "feature 011 - tarifa bancaria BB da Cristine, gabarito Cristine.xlsx 'Tarifa Bancaria BB'"},
   {"padrao": "CONSELHO REGIONAL DE BIBLIOTEC", "natureza": "gasto", "categoria": "Finanças", "prioridade": 95, "_evidencia": "feature 011 - anuidade CRB da Cristine, gabarito Cristine.xlsx 'CRB - Anuidade'"},
   {"padrao": "SENI VARGAS", "natureza": "gasto", "categoria": "Finanças", "prioridade": 95, "_evidencia": "feature 011 - emprestimo familiar da Cristine, gabarito Cristine.xlsx 'Emprestimo Familiar'"},
+  {"padrao": "REC FED", "natureza": "gasto", "categoria": "Finanças", "prioridade": 95, "_evidencia": "glossario 2026-07-22 - pagamento a Receita Federal (DARF/imposto), achado real 'DA  REC FED'"},
   {"padrao": "PGTO BB CREDITO SALARIO", "natureza": "gasto", "categoria": "Finanças", "subcategoria": "Tarifas e juros", "prioridade": 95, "_evidencia": "feature 011 - terceiro produto de divida da Cristine achado no dado real (extrato BB mar-mai/2026), nao capturado no gabarito Cristine.xlsx (so cobre jan-abr); pagamento sempre saida, valor fixo -302,29"},
   {"padrao": "TBI", "natureza": "gasto", "categoria": "Moradia", "subcategoria": "Aluguel", "prioridade": 95, "_evidencia": "REGRAS legado - Gastos Fixos - Aluguel"},
   {"padrao": "ALUGUEL PJB", "natureza": "gasto", "categoria": "Moradia", "subcategoria": "Aluguel", "prioridade": 95, "_evidencia": "REGRAS legado - Gastos Fixos - Aluguel"},
@@ -35,7 +39,15 @@
   {"padrao": "NET CLARO", "natureza": "gasto", "categoria": "Moradia", "subcategoria": "Contas de consumo", "prioridade": 95, "_evidencia": "REGRAS legado - Gastos Fixos - Telefone/Internet"},
   {"padrao": "TELEFONICA", "natureza": "gasto", "categoria": "Moradia", "subcategoria": "Contas de consumo", "prioridade": 95, "_evidencia": "REGRAS legado - Gastos Fixos - Telefone/Internet"},
   {"padrao": "ELETROPAULO", "natureza": "gasto", "categoria": "Moradia", "subcategoria": "Contas de consumo", "prioridade": 95, "_evidencia": "feature 011 - energia eletrica da Cristine (extrato BB), gabarito Cristine.xlsx 'Energia Eletrica'"},
+  {"padrao": "SABESP", "natureza": "gasto", "categoria": "Moradia", "subcategoria": "Contas de consumo", "prioridade": 95, "_evidencia": "glossario 2026-07-22 - Sabesp e a concessionaria de agua/esgoto de SP, mesmo grupo de contas de consumo ja existente (Eletropaulo/Vivo/Claro)"},
   {"padrao": "ANUIDADE DIFER", "natureza": "gasto", "categoria": "Finanças", "subcategoria": "Tarifas e juros", "prioridade": 95, "_evidencia": "REGRAS legado - Gastos Fixos - Anuidade Cartao"},
+  {"padrao": "IOF DE FINANCIAMENTO", "natureza": "gasto", "categoria": "Finanças", "subcategoria": "Tarifas e juros", "prioridade": 95, "_evidencia": "glossario 2026-07-22 - encargo de financiamento (Itau), mesmo grupo de IOF/juros ja existente"},
+  {"padrao": "JUROS DE FINANCIAMENTO", "natureza": "gasto", "categoria": "Finanças", "subcategoria": "Tarifas e juros", "prioridade": 95, "_evidencia": "glossario 2026-07-22 - encargo de financiamento (Itau), mesmo grupo de IOF/juros ja existente"},
+  {"padrao": "IOF PIX", "natureza": "gasto", "categoria": "Finanças", "subcategoria": "Tarifas e juros", "prioridade": 95, "_evidencia": "glossario 2026-07-22 - encargo de IOF sobre Pix (Itau)"},
+  {"padrao": "ENCARGOS PIX", "natureza": "gasto", "categoria": "Finanças", "subcategoria": "Tarifas e juros", "prioridade": 95, "_evidencia": "glossario 2026-07-22 - encargo generico de Pix (Itau)"},
+  {"padrao": "IOF PAGAMENTO CONTAS", "natureza": "gasto", "categoria": "Finanças", "subcategoria": "Tarifas e juros", "prioridade": 95, "_evidencia": "glossario 2026-07-22 - encargo de IOF em pagamento de contas via fatura (Itau)"},
+  {"padrao": "JUROS PAGAMENTO CONTAS", "natureza": "gasto", "categoria": "Finanças", "subcategoria": "Tarifas e juros", "prioridade": 95, "_evidencia": "glossario 2026-07-22 - juros em pagamento de contas via fatura (Itau)"},
+  {"padrao": "IOF COMPRA INTERNACIONAL", "natureza": "gasto", "categoria": "Finanças", "subcategoria": "Tarifas e juros", "prioridade": 95, "_evidencia": "glossario 2026-07-22 - IOF de compra internacional no cartao (Itau)"},
 
   {"padrao": "FATURA PAGA", "natureza": "pagamento_fatura", "prioridade": 90, "_evidencia": "REGRAS legado - Pagamento de Fatura"},
   {"padrao": "PAGAMENTO EFETUADO", "natureza": "pagamento_fatura", "prioridade": 90, "_evidencia": "REGRAS legado - Pagamento de Fatura"},
@@ -53,6 +65,7 @@
 
   {"padrao": "SJX", "natureza": "gasto", "categoria": "Alimentação", "prioridade": 70, "_evidencia": "REGRAS legado - Alimentacao"},
   {"padrao": "HORTIFRUTI", "natureza": "gasto", "categoria": "Alimentação", "subcategoria": "Hortifruti", "prioridade": 70, "_evidencia": "REGRAS legado - Alimentacao"},
+  {"padrao": "HORTIFRUT", "natureza": "gasto", "categoria": "Alimentação", "subcategoria": "Hortifruti", "prioridade": 69, "_evidencia": "glossario 2026-07-22 - cobre 'Hortifrut' sem o 'i' final (achado real 'HpsHortifrut-CT'), prioridade 1 ponto abaixo de HORTIFRUTI para nao mudar o casamento de descricoes que ja tinham o 'i'"},
   {"padrao": "CARREFOUR", "natureza": "gasto", "categoria": "Alimentação", "prioridade": 70, "_evidencia": "REGRAS legado - Alimentacao"},
   {"padrao": "MERCADOLIVRE", "natureza": "gasto", "categoria": "Alimentação", "prioridade": 70, "_evidencia": "REGRAS legado - Alimentacao"},
   {"padrao": "PADARIA", "natureza": "gasto", "categoria": "Alimentação", "subcategoria": "Padaria", "prioridade": 70, "_evidencia": "REGRAS legado - Alimentacao"},
@@ -62,6 +75,7 @@
   {"padrao": "VILLA GRANO", "natureza": "gasto", "categoria": "Alimentação", "prioridade": 70, "_evidencia": "REGRAS legado - Alimentacao"},
   {"padrao": "IFOOD", "natureza": "gasto", "categoria": "Alimentação", "subcategoria": "Delivery e restaurante", "prioridade": 70, "_evidencia": "REGRAS legado - Alimentacao; recategorizado (glossario 2026-07-22) para a subcategoria 'Delivery e restaurante' -- delivery e comer fora e conceito distinto de comprar item pra cozinhar em casa"},
   {"padrao": "IFD*BR", "natureza": "gasto", "categoria": "Alimentação", "subcategoria": "Delivery e restaurante", "prioridade": 70, "_evidencia": "feature 011 - iFood via compra no cartao da Cristine (extrato BB) usa o codigo da adquirente 'IFD*BR' em vez do nome 'iFood' -- achado no dado real; recategorizado (glossario 2026-07-22), mesma razao do IFOOD acima"},
+  {"padrao": "KEETA", "natureza": "gasto", "categoria": "Alimentação", "subcategoria": "Delivery e restaurante", "prioridade": 70, "_evidencia": "glossario 2026-07-22 - Keeta e app de delivery de comida (concorrente do iFood no Brasil), mesmo conceito de comer fora/delivery"},
   {"padrao": "PAULISTANIA", "natureza": "gasto", "categoria": "Alimentação", "prioridade": 70, "_evidencia": "REGRAS legado - Alimentacao"},
   {"padrao": "BIKUS", "natureza": "gasto", "categoria": "Alimentação", "prioridade": 70, "_evidencia": "REGRAS legado - Alimentacao"},
   {"padrao": "NIRE ORANGE", "natureza": "gasto", "categoria": "Alimentação", "prioridade": 70, "_evidencia": "REGRAS legado - Alimentacao"},
@@ -105,6 +119,7 @@
 
   {"padrao": "SYMPLA", "natureza": "gasto", "categoria": "Lazer", "prioridade": 70, "_evidencia": "REGRAS legado - Lazer Evento"},
   {"padrao": "INGRESSO", "natureza": "gasto", "categoria": "Lazer", "prioridade": 70, "_evidencia": "REGRAS legado - Lazer Evento"},
+  {"padrao": "CINEMARK", "natureza": "gasto", "categoria": "Lazer", "prioridade": 70, "_evidencia": "glossario 2026-07-22 - rede de cinema, achado real"},
 
   {"padrao": "99 RIDE", "natureza": "gasto", "categoria": "Transporte", "subcategoria": "Apps de mobilidade", "prioridade": 70, "_evidencia": "REGRAS legado - Transporte 99/Uber"},
   {"padrao": "DL*99", "natureza": "gasto", "categoria": "Transporte", "subcategoria": "Apps de mobilidade", "prioridade": 70, "_evidencia": "REGRAS legado - Transporte 99/Uber"},
@@ -124,6 +139,8 @@
   {"padrao": "MOVIDA", "natureza": "gasto", "categoria": "Transporte", "prioridade": 70, "_evidencia": "REGRAS legado - Transporte Aluguel de Carro"},
   {"padrao": "UNIDAS", "natureza": "gasto", "categoria": "Transporte", "prioridade": 70, "_evidencia": "REGRAS legado - Transporte Aluguel de Carro"},
 
+  {"padrao": "POSTOS AURUM", "natureza": "gasto", "categoria": "Transporte", "subcategoria": "Combustível", "prioridade": 70, "_evidencia": "glossario 2026-07-22 - posto de combustivel, achado real"},
+
   {"padrao": "DROGASIL", "natureza": "gasto", "categoria": "Saúde / medicamentos", "subcategoria": "Medicamento", "prioridade": 70, "_evidencia": "REGRAS legado - Saude Farmacia"},
   {"padrao": "RAIA DROGASIL", "natureza": "gasto", "categoria": "Saúde / medicamentos", "subcategoria": "Medicamento", "prioridade": 70, "_evidencia": "REGRAS legado - Saude Farmacia"},
   {"padrao": "DROGARIA", "natureza": "gasto", "categoria": "Saúde / medicamentos", "subcategoria": "Medicamento", "prioridade": 70, "_evidencia": "REGRAS legado - Saude Farmacia"},
@@ -131,9 +148,12 @@
   {"padrao": "FARMA", "natureza": "gasto", "categoria": "Saúde / medicamentos", "subcategoria": "Medicamento", "prioridade": 70, "_evidencia": "REGRAS legado - Saude Farmacia"},
   {"padrao": "FARMACIA", "natureza": "gasto", "categoria": "Saúde / medicamentos", "subcategoria": "Medicamento", "prioridade": 70, "_evidencia": "REGRAS legado - Saude Farmacia"},
   {"padrao": "REMEDIOS", "natureza": "gasto", "categoria": "Saúde / medicamentos", "subcategoria": "Medicamento", "prioridade": 70, "_evidencia": "REGRAS legado - Saude Farmacia"},
+  {"padrao": "RD SAUDE", "natureza": "gasto", "categoria": "Saúde / medicamentos", "subcategoria": "Medicamento", "prioridade": 70, "_evidencia": "glossario 2026-07-22 - RD Saude e o holding da Raia Drogasil, mesmo grupo farmacia ja existente"},
 
   {"padrao": "PETZ", "natureza": "gasto", "categoria": "Pet", "prioridade": 70, "_evidencia": "REGRAS legado - Pets"},
   {"padrao": "PETLOVE", "natureza": "gasto", "categoria": "Pet", "prioridade": 70, "_evidencia": "REGRAS legado - Pets"},
+
+  {"padrao": "VESTUARIOS", "natureza": "gasto", "categoria": "Vestuário", "prioridade": 70, "_evidencia": "glossario 2026-07-22 - achado real 'RWA*VESTUARIOS*LTDA', nome literal da categoria no proprio texto do estabelecimento"},
 
   {"padrao": "AS MARIAS", "natureza": "gasto", "categoria": "Beleza / dermocosméticos", "prioridade": 70, "_evidencia": "REGRAS legado - Beleza Salao/Manicure"},
   {"padrao": "ELIZA KAZUMI", "natureza": "gasto", "categoria": "Beleza / dermocosméticos", "prioridade": 70, "_evidencia": "REGRAS legado - Beleza Salao/Manicure"},
