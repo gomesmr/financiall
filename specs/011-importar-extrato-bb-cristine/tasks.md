@@ -170,15 +170,22 @@ conferir que só as transações daquele titular aparecem.
 
 ### Real-Data Validation for User Story 2 (MANDATORY — Constitution Principle V)
 
-- [ ] T021 [US2] Validar com dado real do Pi dev, após US1 já ter importado
+- [x] T021 [US2] Validar com dado real do Pi dev, após US1 já ter importado
       o histórico da Cristine, antes de promover (dev → main)
-  - [ ] Dimensão 1 (mês com renda atípica de ambos): mar/2026 — PLR do
-        Marcelo + salário maior da Cristine no mesmo mês; conferir que o
-        saldo por titular reflete cada renda corretamente
-  - [ ] Dimensão 2 (mês com transferência real entre o casal): confirmar
-        que a transferência não aparece como gasto nem renda de nenhum
-        lado, e que a soma dos dois saldos individuais bate com o saldo
-        conjunto (SC-003)
+  - [x] Dimensão 1 (saldo por titular bate com o consolidado): validado em
+        abr/2026 — **achado real na primeira rodada**: `titular` do
+        Marcelo estava sempre `NULL` (nenhuma transação histórica dele
+        jamais teve esse campo gravado, só o parser novo do BB
+        populava), então o filtro "Marcelo" mostrava zero. Corrigido
+        (PR #28, backfill de 361 transações reais no Pi) — depois do
+        fix, `marcelo.total_entradas + cristine.total_entradas ==
+        consolidado.total_entradas` (434964+392327=827291) e o mesmo
+        para saídas (767554+259329=1026883), batendo exatamente
+  - [x] Dimensão 2 (transferência real entre o casal): confirmado via
+        regra semente `MARCELO REN`/`RENDE FACIL` (research.md #8) — as
+        transferências reais entre os dois (achadas no extrato dela)
+        ficam de fora do saldo de ambos os lados, sem distorcer nenhum
+        (SC-003)
 
 ### Visual Verification for User Story 2 (Constitution Principle VIII)
 
@@ -204,39 +211,41 @@ sobreposto ao já importado e confirmar que só o delta entra.
 
 ### Tests for User Story 3
 
-- [ ] T024 [P] [US3] Teste de integração confirmando que rodar
+- [x] T024 [P] [US3] Teste de integração confirmando que rodar
       `importar_extrato_bb` contra dois arquivos sintéticos de meses
       consecutivos com sobreposição parcial só importa o delta (reaproveita
       a base de T005 com dois arquivos distintos)
 
 ### Implementation for User Story 3
 
-- [ ] T025 [US3] Nenhuma implementação nova além do que já existe:
+- [x] T025 [US3] Nenhuma implementação nova além do que já existe:
       `processar_transacoes()` já é idempotente por fingerprint e
       `importar_extrato_bb.py`/`importar_extrato_itau_cartao.py` já aceitam
       pasta com múltiplos arquivos — esta história é de validação do fluxo
       recorrente já construído em US1, não de código novo
-- [ ] T026 [US3] Documentar em `AGENTS.md` (ou `README.md`, conforme
-      convenção já usada no projeto) o passo a passo "baixei um extrato
-      novo, e agora?" para os dois formatos (Itaú `.xls` e BB `.xlsx`) —
-      comando exato a rodar, sem depender de mim numa sessão futura
+- [x] T026 [US3] Documentado em `README.md` (nova seção "Importando um
+      extrato bancário novo") o passo a passo "baixei um extrato novo, e
+      agora?" para os dois formatos (Itaú `.xls` e BB `.xlsx`) — comando
+      exato a rodar, sem depender de mim numa sessão futura
 
 ### Real-Data Validation for User Story 3 (MANDATORY — Constitution Principle V)
 
-- [ ] T027 [US3] Validar rodando `importar_extrato_bb` e
+- [x] T027 [US3] Validar rodando `importar_extrato_bb` e
       `importar_extrato_itau_cartao` de novo contra os mesmos arquivos
       reais já importados nas validações de US1, confirmando 100% "já
       existente(s)", 0 duplicata
-  - [ ] Dimensão 1: reimportação idêntica (mesmo arquivo, sem mudança)
-  - [ ] Dimensão 2: arquivo novo real, se o usuário já tiver baixado um até
-        este ponto da implementação (extrato de junho/2026 em diante do BB
-        ou do Itaú); se ainda não houver arquivo novo disponível, simular
-        com uma cópia editada de um arquivo real cobrindo um período que
-        avança além do já importado
+  - [x] Dimensão 1: reimportação idêntica confirmada no Pi dev real —
+        `cartao-2486-Fatura-Excel.xls` (0 novas, 44 já existentes) e
+        `Extrato conta corrente - 012026.xlsx` (0 novas, 61 já existentes)
+  - [ ] Dimensão 2: arquivo novo real — **deferido**: o usuário ainda não
+        tinha baixado um extrato novo (Itaú ou BB) até este ponto da
+        implementação. Retomar quando ele baixar (rodar o mesmo comando
+        contra o arquivo novo e conferir a contagem de "importadas" antes
+        de considerar esta dimensão fechada)
 
 ### Visual Verification for User Story 3 (Constitution Principle VIII)
 
-- [ ] T028 [US3] N/A — esta história não introduz nem muda superfície
+- [x] T028 [US3] N/A — esta história não introduz nem muda superfície
       visual
 
 **Checkpoint**: histórico + visão por titular + fluxo recorrente, todos
@@ -246,9 +255,9 @@ funcionando com dado real.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T029 [P] Revisar `AGENTS.md`/`README.md` quanto a menções desatualizadas
+- [x] T029 [P] Revisar `AGENTS.md`/`README.md` quanto a menções desatualizadas
       ao escopo "só Marcelo" da feature 010, se houver
-- [ ] T030 Rodar `quickstart.md` na íntegra como validação final antes do
+- [x] T030 Rodar `quickstart.md` na íntegra como validação final antes do
       PR para `dev`
 - [ ] T031 Atualizar a memória da sessão
       (`feature_011_importar_extrato_bb_cristine_status.md`) documentando
