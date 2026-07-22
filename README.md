@@ -140,8 +140,19 @@ essencial em qualquer máquina de desenvolvimento.
 
 Desde a feature 010/011, o financiALL também importa extrato bancário (não
 só nota fiscal), com o mesmo cuidado de nunca duplicar uma transação já
-importada. Ao baixar um extrato novo do banco, o comando a rodar depende
-da conta:
+importada.
+
+**Forma recomendada (feature 013)**: pela própria interface web, na
+página inicial (`/`), no card "Extrato ou fatura bancária" — basta
+escolher o arquivo baixado do banco (Itaú, BB ou Mercado Pago) e enviar; o
+formato é detectado automaticamente, sem precisar informar qual banco é
+nem ter acesso ao servidor. Ver
+[`specs/013-upload-extrato-web/contracts/api.md`](specs/013-upload-extrato-web/contracts/api.md)
+para o contrato completo (`POST /extratos/upload`).
+
+**Alternativa via linha de comando** (útil para reprocessar em lote uma
+pasta inteira, ou para quem tem acesso ao servidor): o comando a rodar
+depende da conta:
 
 ```bash
 # Itaú (Marcelo) -- fatura de cartão em .xls, um arquivo ou uma pasta inteira

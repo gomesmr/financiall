@@ -65,6 +65,27 @@
   </div>
 
   <div id="resultado" class="card card-body"></div>
+
+  <div class="row">
+    <div class="col-12 col-lg-6 mb-4">
+      <div class="card h-100">
+        <div class="card-header pb-0">
+          <h6>Extrato ou fatura bancária</h6>
+        </div>
+        <div class="card-body">
+          <p class="text-sm text-secondary mb-2">Itaú (fatura ou conta corrente), Banco do Brasil ou Mercado Pago — o formato é detectado automaticamente, sem precisar indicar o banco.</p>
+          <form id="form-upload-extrato">
+            <div class="mb-3">
+              <input type="file" class="form-control form-control-lg" id="arquivo-extrato" name="arquivo" accept=".xls,.xlsx,.pdf" required>
+            </div>
+            <button type="submit" class="btn bg-gradient-primary w-100 mb-0">Enviar</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="resultado-extrato" class="card card-body" style="display:none;"></div>
 {% endblock %}
 {% block extra_scripts %}
   <script>
@@ -145,6 +166,39 @@
       }
       adicionarParagrafo(`Arquivo recebido (envio #${corpo.envio_id}).`);
       adicionarLink(`/ver/envios/${corpo.envio_id}`, "Ver status do envio →");
+    });
+
+    // Upload de extrato/fatura bancária (feature 013) -- sincrono, area
+    // de resultado propria (nao reaproveita `resultado`, que e da nota
+    // fiscal) pra nao misturar as duas importacoes na mesma tela.
+    const resultadoExtrato = document.getElementById("resultado-extrato");
+
+    function exibirResultadoExtrato(corpo) {
+      resultadoExtrato.style.display = "block";
+      resultadoExtrato.innerHTML = "";
+      const linha1 = document.createElement("p");
+      linha1.className = "mb-1";
+      if (corpo.erro) {
+        linha1.textContent = corpo.erro;
+        resultadoExtrato.appendChild(linha1);
+        return;
+      }
+      linha1.textContent = `Formato detectado: ${corpo.formato_detectado}. ${corpo.importadas} transação(ões) importada(s), ${corpo.ja_existentes} já existente(s), ${corpo.puladas} pulada(s).`;
+      resultadoExtrato.appendChild(linha1);
+      const linha2 = document.createElement("p");
+      linha2.className = "mb-0";
+      linha2.textContent = `Classificação automática: ${corpo.classificadas_automaticamente} por cache/regra, ${corpo.pendentes_natureza} pendente(s) de revisão.`;
+      resultadoExtrato.appendChild(linha2);
+    }
+
+    document.getElementById("form-upload-extrato").addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      const arquivo = document.getElementById("arquivo-extrato").files[0];
+      const dados = new FormData();
+      dados.append("arquivo", arquivo);
+      const resposta = await fetch("/extratos/upload", { method: "POST", body: dados });
+      const corpo = await resposta.json();
+      exibirResultadoExtrato(corpo);
     });
 
     // Leitura de QR Code pela câmera (feature 007).
