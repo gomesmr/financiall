@@ -107,6 +107,152 @@ def test_post_notas_upload_sem_arquivo_retorna_400(client):
     assert corpo["erro"] == "Nenhum arquivo foi enviado."
 
 
+def _bytes_xls(linhas: list[list]) -> bytes:
+    import io as _io
+
+    import xlwt
+
+    workbook = xlwt.Workbook()
+    planilha = workbook.add_sheet("Planilha")
+    for indice_linha, linha in enumerate(linhas):
+        for indice_coluna, valor in enumerate(linha):
+            planilha.write(indice_linha, indice_coluna, valor)
+    buffer = _io.BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+def _bytes_xlsx(linhas: list[list]) -> bytes:
+    import io as _io
+
+    import openpyxl
+
+    workbook = openpyxl.Workbook()
+    planilha = workbook.active
+    for linha in linhas:
+        planilha.append(linha)
+    buffer = _io.BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+_LINHAS_ITAU_FATURA_XLS = [
+    ["Data", "Lançamento", "Tipo", "Valor"],
+    ["10/06/2026", "SJX COMERCIAL", "", 150.50],
+]
+
+_LINHAS_ITAU_EXTRATO_CC_XLS = [
+    ["data", "lançamento", "ag./origem", "valor (R$)", "saldos (R$)"],
+    ["31/05/2026", "SALDO ANTERIOR", "", "", 3529.88],
+    ["01/06/2026", "INT ITAU MULT", "", -583.17, ""],
+]
+
+_LINHAS_BB_EXTRATO_XLSX = [
+    ["Data", "Lançamento", "Detalhes", "N° documento", "Valor", "Tipo Lançamento"],
+    ["02/01/2026", "Contr BB Credito Salario", "", "100021000188775", "2.500,00", "Entrada"],
+]
+
+
+def test_post_extratos_upload_detecta_e_importa_fatura_itau_xls(client):
+    resposta = client.post(
+        "/extratos/upload",
+        data={"arquivo": (io.BytesIO(_bytes_xls(_LINHAS_ITAU_FATURA_XLS)), "fatura.xls")},
+        content_type="multipart/form-data",
+    )
+    corpo = resposta.get_json()
+    assert resposta.status_code == 200
+    assert corpo["formato_detectado"] == "itau_fatura_cartao"
+    assert corpo["importadas"] == 1
+
+
+def test_post_extratos_upload_detecta_e_importa_extrato_cc_itau_xls(client):
+    resposta = client.post(
+        "/extratos/upload",
+        data={"arquivo": (io.BytesIO(_bytes_xls(_LINHAS_ITAU_EXTRATO_CC_XLS)), "extrato.xls")},
+        content_type="multipart/form-data",
+    )
+    corpo = resposta.get_json()
+    assert resposta.status_code == 200
+    assert corpo["formato_detectado"] == "itau_extrato_cc"
+    assert corpo["importadas"] == 1
+
+
+def test_post_extratos_upload_detecta_e_importa_extrato_bb_xlsx(client):
+    resposta = client.post(
+        "/extratos/upload",
+        data={"arquivo": (io.BytesIO(_bytes_xlsx(_LINHAS_BB_EXTRATO_XLSX)), "extrato.xlsx")},
+        content_type="multipart/form-data",
+    )
+    corpo = resposta.get_json()
+    assert resposta.status_code == 200
+    assert corpo["formato_detectado"] == "bb_extrato_cc"
+    assert corpo["importadas"] == 1
+
+
+def test_post_extratos_upload_e_idempotente(client):
+    dados = {"arquivo": (io.BytesIO(_bytes_xls(_LINHAS_ITAU_FATURA_XLS)), "fatura.xls")}
+    primeira = client.post("/extratos/upload", data=dados, content_type="multipart/form-data")
+    assert primeira.get_json()["importadas"] == 1
+
+    dados = {"arquivo": (io.BytesIO(_bytes_xls(_LINHAS_ITAU_FATURA_XLS)), "fatura.xls")}
+    segunda = client.post("/extratos/upload", data=dados, content_type="multipart/form-data")
+    corpo = segunda.get_json()
+    assert corpo["importadas"] == 0
+    assert corpo["ja_existentes"] == 1
+
+
+def test_post_extratos_upload_extensao_nao_suportada_retorna_415(client):
+    resposta = client.post(
+        "/extratos/upload",
+        data={"arquivo": (io.BytesIO(b"conteudo qualquer"), "documento.docx")},
+        content_type="multipart/form-data",
+    )
+    corpo = resposta.get_json()
+    assert resposta.status_code == 415
+    assert "erro" in corpo
+
+
+def test_post_extratos_upload_xlsx_sem_assinatura_retorna_415(client):
+    resposta = client.post(
+        "/extratos/upload",
+        data={"arquivo": (io.BytesIO(_bytes_xlsx([["coluna a", "coluna b"], ["x", "y"]])), "generico.xlsx")},
+        content_type="multipart/form-data",
+    )
+    corpo = resposta.get_json()
+    assert resposta.status_code == 415
+    assert "erro" in corpo
+
+
+def test_post_extratos_upload_arquivo_corrompido_retorna_422(client):
+    resposta = client.post(
+        "/extratos/upload",
+        data={"arquivo": (io.BytesIO(b"nao e um pdf de verdade"), "fatura.pdf")},
+        content_type="multipart/form-data",
+    )
+    corpo = resposta.get_json()
+    assert resposta.status_code == 422
+    assert "erro" in corpo
+
+
+def test_post_extratos_upload_sem_arquivo_retorna_400(client):
+    resposta = client.post("/extratos/upload", data={}, content_type="multipart/form-data")
+    corpo = resposta.get_json()
+    assert resposta.status_code == 400
+    assert corpo["erro"] == "Nenhum arquivo foi enviado."
+
+
+def test_post_extratos_upload_erro_nao_grava_transacao(client, app_e_db):
+    from src.storage import db as storage_db
+
+    _, db_path = app_e_db
+    client.post(
+        "/extratos/upload",
+        data={"arquivo": (io.BytesIO(b"conteudo qualquer"), "documento.docx")},
+        content_type="multipart/form-data",
+    )
+    assert storage_db.listar_transacoes(db_path=db_path) == []
+
+
 def test_get_envio_inexistente_retorna_404(client):
     resposta = client.get("/envios/999999")
     assert resposta.status_code == 404
