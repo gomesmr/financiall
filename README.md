@@ -136,6 +136,41 @@ automaticamente quando o binário não está no `PATH` do ambiente — a suíte
 roda completa no Raspberry Pi (onde ambos estão instalados) e roda o
 essencial em qualquer máquina de desenvolvimento.
 
+## Importando um extrato bancário novo
+
+Desde a feature 010/011, o financiALL também importa extrato bancário (não
+só nota fiscal), com o mesmo cuidado de nunca duplicar uma transação já
+importada. Ao baixar um extrato novo do banco, o comando a rodar depende
+da conta:
+
+```bash
+# Itaú (Marcelo) -- fatura de cartão em .xls, um arquivo ou uma pasta inteira
+.venv/Scripts/python -m src.scripts.importar_extrato_itau_cartao "<arquivo-ou-pasta>.xls"
+
+# Banco do Brasil (Cristine) -- extrato de conta corrente em .xlsx, um arquivo ou uma pasta inteira
+.venv/Scripts/python -m src.scripts.importar_extrato_bb "<arquivo-ou-pasta>.xlsx"
+```
+
+Os dois comandos:
+
+- podem ser rodados contra um arquivo único ou uma pasta (processam todo
+  arquivo do formato certo dentro dela);
+- são **idempotentes** — rodar de novo com um arquivo já importado (ou um
+  novo arquivo cujo período se sobrepõe parcialmente ao já importado) não
+  duplica nada, só reporta quantas transações já existiam;
+- classificam automaticamente a natureza (gasto/renda/transferência) e
+  tentam reconciliar com nota fiscal já importada, sem passo manual
+  adicional;
+- imprimem um resumo em português (quantas foram importadas, quantas já
+  existiam, quantas ficaram pendentes de revisão) — o que ficar pendente
+  aparece em `/ver/transacoes/pendentes` para classificar manualmente.
+
+Depois de importar, `/ver/resumo` e `/ver/transacoes` já refletem o novo
+extrato, com o filtro por titular (Casal/Marcelo/Cristine) mostrando o
+gasto de cada um separadamente. Ver
+[`specs/011-importar-extrato-bb-cristine/contracts/cli.md`](specs/011-importar-extrato-bb-cristine/contracts/cli.md)
+para o contrato completo dos dois comandos.
+
 ## Estrutura do projeto
 
 ```text
@@ -152,13 +187,12 @@ infra/              # Script de provisionamento + unit systemd
 specs/001-importar-nfce/  # Spec, plano técnico, pesquisa, tarefas (spec-kit)
 ```
 
-## Roadmap (fora de escopo desta feature)
+## Roadmap
 
-- Categorização de notas/itens
-- Reconciliação com extrato bancário (fonte de verdade definitiva de
-  gasto mensal)
+- ~~Categorização de notas/itens~~ — entregue (feature 008)
+- ~~Reconciliação com extrato bancário~~ — entregue (feature 010)
+- ~~Múltiplas contas/pessoas (titular)~~ — entregue (feature 011)
 - Suporte a CF-e SAT (cupom de modelo 59)
-- Múltiplas contas/pessoas
 
 ## Princípios do projeto
 

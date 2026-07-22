@@ -74,3 +74,29 @@ def test_reimportar_o_mesmo_arquivo_nao_duplica(tmp_path, db_path):
     total = conn.execute("SELECT COUNT(*) FROM transacao").fetchone()[0]
     conn.close()
     assert total == 3
+
+
+def test_arquivo_novo_com_sobreposicao_parcial_so_importa_o_delta(tmp_path, db_path):
+    """US3 (feature 011): simula o cenario real observado nos 5 arquivos
+    reais (042026.xlsx e 042026_01.xlsx, uma reexportacao corrigida que
+    cobre o mesmo periodo parcialmente) -- um segundo arquivo com 2
+    transacoes repetidas e 1 nova so deve importar a nova."""
+    caminho_mes1 = _criar_extrato_bb(tmp_path, "Extrato conta corrente - 012026.xlsx", _LINHAS_JANEIRO)
+    resumo_mes1 = processar_transacoes(parsear(caminho_mes1), db_path=db_path)
+    assert resumo_mes1.importadas == 3
+
+    linhas_reexportacao = _LINHAS_JANEIRO + [
+        ["07/01/2026", "Pix - Enviado", "07/01 10:00 NOVO ESTABELECIMENTO", "10701", "-45,00", "Saída"],
+    ]
+    caminho_mes1_reexportado = _criar_extrato_bb(
+        tmp_path, "Extrato conta corrente - 012026_01.xlsx", linhas_reexportacao
+    )
+    resumo_reexportado = processar_transacoes(parsear(caminho_mes1_reexportado), db_path=db_path)
+
+    assert resumo_reexportado.importadas == 1
+    assert resumo_reexportado.ja_existentes == 3
+
+    conn = storage_db.get_connection(db_path)
+    total = conn.execute("SELECT COUNT(*) FROM transacao").fetchone()[0]
+    conn.close()
+    assert total == 4
