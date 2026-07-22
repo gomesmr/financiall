@@ -108,13 +108,14 @@ def pagina_resumo():
     if dimensao not in ("item", "estabelecimento", "ambos"):
         dimensao = "item"
     nivel = 2 if request.args.get("nivel") == "2" else 1
+    titular = request.args.get("titular")
 
-    resumo_mes_selecionado = resumo_service.resumo_de_mes(mes_selecionado, db_path=db_path)
-    saldo_mes_selecionado = resumo_service.saldo_do_mes(mes_selecionado, db_path=db_path)
+    resumo_mes_selecionado = resumo_service.resumo_de_mes(mes_selecionado, titular=titular, db_path=db_path)
+    saldo_mes_selecionado = resumo_service.saldo_do_mes(mes_selecionado, titular=titular, db_path=db_path)
 
     # Evolucao mensal (feature 005) -- mantida como visao complementar de
     # longo prazo abaixo da navegacao principal, sem sobrepor a ela.
-    historico = resumo_service.historico_meses_anteriores(db_path=db_path)
+    historico = resumo_service.historico_meses_anteriores(titular=titular, db_path=db_path)
     historico_json = [{"mes": r.mes, "total_gasto": r.total_gasto} for r in historico]
 
     return render_template(
@@ -132,6 +133,7 @@ def pagina_resumo():
         saldo_mes=saldo_mes_selecionado,
         historico=historico,
         historico_json=historico_json,
+        titular_filtro=titular,
         pagina_ativa="resumo",
     )
 
@@ -239,11 +241,12 @@ def resumo_categorias():
     if dimensao not in ("item", "estabelecimento"):
         dimensao = "item"
     nivel = 2 if request.args.get("nivel") == "2" else 1
+    titular = request.args.get("titular")
 
     if dimensao == "estabelecimento":
-        gastos = resumo_service.gasto_por_estabelecimento(mes, nivel=nivel, db_path=db_path)
+        gastos = resumo_service.gasto_por_estabelecimento(mes, nivel=nivel, titular=titular, db_path=db_path)
     else:
-        gastos = resumo_service.gasto_por_categoria_item(mes, nivel=nivel, db_path=db_path)
+        gastos = resumo_service.gasto_por_categoria_item(mes, nivel=nivel, titular=titular, db_path=db_path)
 
     return (
         jsonify(

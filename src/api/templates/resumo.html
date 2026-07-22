@@ -4,6 +4,15 @@
 {% block content %}
   <p class="vazio">Combina notas fiscais e transações de extrato reconciliadas — sem contar a mesma compra duas vezes.</p>
 
+  {% set _titularqs = "&titular=" ~ titular_filtro if titular_filtro else "" %}
+  <div class="d-flex justify-content-end mb-3">
+    <div class="btn-group" role="group" aria-label="Filtro por titular">
+      <a href="/ver/resumo?mes={{ mes_selecionado }}&dimensao={{ dimensao }}&nivel={{ nivel }}" class="btn btn-sm {{ 'btn-primary' if not titular_filtro else 'btn-outline-primary' }} mb-0">Casal</a>
+      <a href="/ver/resumo?mes={{ mes_selecionado }}&dimensao={{ dimensao }}&nivel={{ nivel }}&titular=marcelo" class="btn btn-sm {{ 'btn-primary' if titular_filtro == 'marcelo' else 'btn-outline-primary' }} mb-0">Marcelo</a>
+      <a href="/ver/resumo?mes={{ mes_selecionado }}&dimensao={{ dimensao }}&nivel={{ nivel }}&titular=cristine" class="btn btn-sm {{ 'btn-primary' if titular_filtro == 'cristine' else 'btn-outline-primary' }} mb-0">Cristine</a>
+    </div>
+  </div>
+
   <div class="card mb-4">
     <div class="card-body">
       <h6 class="text-uppercase text-xs font-weight-bolder opacity-7 mb-2">Saldo do mês</h6>
@@ -30,7 +39,7 @@
       <div class="d-flex align-items-center gap-2">
         {% if mes_anterior %}
         <a class="btn btn-sm btn-outline-secondary mb-0" id="link-mes-anterior"
-           href="/ver/resumo?mes={{ mes_anterior }}&dimensao={{ dimensao }}&nivel={{ nivel }}"
+           href="/ver/resumo?mes={{ mes_anterior }}&dimensao={{ dimensao }}&nivel={{ nivel }}{{ _titularqs }}"
            aria-label="Mês anterior">←</a>
         {% else %}
         <button class="btn btn-sm btn-outline-secondary mb-0" disabled>←</button>
@@ -43,14 +52,14 @@
         </div>
         {% if mes_seguinte %}
         <a class="btn btn-sm btn-outline-secondary mb-0" id="link-mes-seguinte"
-           href="/ver/resumo?mes={{ mes_seguinte }}&dimensao={{ dimensao }}&nivel={{ nivel }}"
+           href="/ver/resumo?mes={{ mes_seguinte }}&dimensao={{ dimensao }}&nivel={{ nivel }}{{ _titularqs }}"
            aria-label="Mês seguinte">→</a>
         {% else %}
         <button class="btn btn-sm btn-outline-secondary mb-0" disabled>→</button>
         {% endif %}
         {% if mes_selecionado != mes_mais_recente %}
         <a class="btn btn-sm btn-outline-primary mb-0"
-           href="/ver/resumo?mes={{ mes_mais_recente }}&dimensao={{ dimensao }}&nivel={{ nivel }}">
+           href="/ver/resumo?mes={{ mes_mais_recente }}&dimensao={{ dimensao }}&nivel={{ nivel }}{{ _titularqs }}">
           Mês mais recente
         </a>
         {% endif %}
@@ -70,20 +79,20 @@
     <div class="card-header pb-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
       <div class="btn-group" role="group" aria-label="Dimensão do gasto">
         <a class="btn btn-sm {{ 'btn-primary' if dimensao == 'item' else 'btn-outline-primary' }} mb-0"
-           href="/ver/resumo?mes={{ mes_selecionado }}&dimensao=item&nivel={{ nivel }}">Por item</a>
+           href="/ver/resumo?mes={{ mes_selecionado }}&dimensao=item&nivel={{ nivel }}{{ _titularqs }}">Por item</a>
         <a class="btn btn-sm {{ 'btn-primary' if dimensao == 'estabelecimento' else 'btn-outline-primary' }} mb-0"
-           href="/ver/resumo?mes={{ mes_selecionado }}&dimensao=estabelecimento&nivel={{ nivel }}">Por estabelecimento</a>
+           href="/ver/resumo?mes={{ mes_selecionado }}&dimensao=estabelecimento&nivel={{ nivel }}{{ _titularqs }}">Por estabelecimento</a>
         <a class="btn btn-sm {{ 'btn-primary' if dimensao == 'ambos' else 'btn-outline-primary' }} mb-0"
-           href="/ver/resumo?mes={{ mes_selecionado }}&dimensao=ambos&nivel={{ nivel }}">Os dois</a>
+           href="/ver/resumo?mes={{ mes_selecionado }}&dimensao=ambos&nivel={{ nivel }}{{ _titularqs }}">Os dois</a>
       </div>
       <div class="d-flex align-items-center gap-2">
         <div class="btn-group" role="group" aria-label="Nível de detalhe">
           <a class="btn btn-sm {{ 'btn-secondary' if nivel == 1 else 'btn-outline-secondary' }} mb-0"
-             href="/ver/resumo?mes={{ mes_selecionado }}&dimensao={{ dimensao }}&nivel=1">Nível 1</a>
+             href="/ver/resumo?mes={{ mes_selecionado }}&dimensao={{ dimensao }}&nivel=1{{ _titularqs }}">Nível 1</a>
           <a class="btn btn-sm {{ 'btn-secondary' if nivel == 2 else 'btn-outline-secondary' }} mb-0"
-             href="/ver/resumo?mes={{ mes_selecionado }}&dimensao={{ dimensao }}&nivel=2">Nível 2</a>
+             href="/ver/resumo?mes={{ mes_selecionado }}&dimensao={{ dimensao }}&nivel=2{{ _titularqs }}">Nível 2</a>
         </div>
-        <a class="btn btn-sm btn-outline-dark mb-0" href="/ver/notas?mes={{ mes_selecionado }}">Ver notas deste mês →</a>
+        <a class="btn btn-sm btn-outline-dark mb-0" href="/ver/notas?mes={{ mes_selecionado }}{{ _titularqs }}">Ver notas deste mês →</a>
       </div>
     </div>
     <div class="card-body">
@@ -212,17 +221,21 @@
     }
 
     const MES_SELECIONADO = {{ mes_selecionado | tojson }};
+    const TITULAR_SELECIONADO = {{ titular_filtro | tojson }};
     const ultimasFatias = {};
 
     // US3/FR-006: clicar numa fatia leva as notas do mes (e do tipo de
     // estabelecimento, quando a dimensao clicada for "estabelecimento").
+    // feature 011: preserva o titular selecionado no drill-down.
     function navegarParaNotas(dimensaoClicada, fatia) {
-      const base = `/ver/notas?mes=${encodeURIComponent(MES_SELECIONADO)}`;
+      let base = `/ver/notas?mes=${encodeURIComponent(MES_SELECIONADO)}`;
       if (dimensaoClicada === "estabelecimento" && fatia.categoria_id !== null) {
-        window.location.href = `${base}&estabelecimento=${fatia.categoria_id}`;
-      } else {
-        window.location.href = base;
+        base += `&estabelecimento=${fatia.categoria_id}`;
       }
+      if (TITULAR_SELECIONADO) {
+        base += `&titular=${encodeURIComponent(TITULAR_SELECIONADO)}`;
+      }
+      window.location.href = base;
     }
 
     function renderizarPizza(divId, mensagemVaziaId, dimensaoClicada, categorias) {
@@ -268,9 +281,11 @@
     }
 
     async function carregarGrafico(divId, mensagemVaziaId, dimensaoClicada) {
-      const resposta = await fetch(
-        `/notas/resumo/categorias?mes=${encodeURIComponent(MES_SELECIONADO)}&dimensao=${dimensaoClicada}&nivel={{ nivel }}`
-      );
+      let url = `/notas/resumo/categorias?mes=${encodeURIComponent(MES_SELECIONADO)}&dimensao=${dimensaoClicada}&nivel={{ nivel }}`;
+      if (TITULAR_SELECIONADO) {
+        url += `&titular=${encodeURIComponent(TITULAR_SELECIONADO)}`;
+      }
+      const resposta = await fetch(url);
       const corpo = await resposta.json();
       renderizarPizza(divId, mensagemVaziaId, dimensaoClicada, corpo.categorias);
     }

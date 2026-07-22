@@ -18,13 +18,14 @@ def db_path(tmp_path):
     return caminho
 
 
-def _gravar_nota(db_path, data_emissao, valor_total, numero="000000099"):
+def _gravar_nota(db_path, data_emissao, valor_total, numero="000000099", titular=None):
     nota = NotaFiscal(
         canal_origem=CanalOrigem.URL_CHAVE,
         status=StatusNota.COMPLETA if valor_total is not None else StatusNota.PENDENTE_REVISAO,
         chave_acesso=gerar_chave_valida(numero=numero),
         data_emissao=data_emissao,
         valor_total=valor_total,
+        titular=titular,
     )
     storage_db.inserir_nota(nota, db_path=db_path)
     return nota
@@ -311,7 +312,15 @@ from src.models.transacao import Transacao, TipoTransacao  # noqa: E402
 
 
 def _gravar_transacao(
-    db_path, data, valor, natureza="gasto", categoria_id=None, nota_fiscal_id=None, fingerprint=None, descricao_normalizada=None
+    db_path,
+    data,
+    valor,
+    natureza="gasto",
+    categoria_id=None,
+    nota_fiscal_id=None,
+    fingerprint=None,
+    descricao_normalizada=None,
+    titular=None,
 ):
     transacao = Transacao(
         fingerprint=fingerprint or f"fp-{data}-{valor}-{natureza}-{nota_fiscal_id}",
@@ -324,6 +333,7 @@ def _gravar_transacao(
         natureza=natureza,
         categoria_id=categoria_id,
         nota_fiscal_id=nota_fiscal_id,
+        titular=titular,
     )
     transacao_id = storage_db.inserir_transacao(transacao, db_path=db_path)
     return transacao_id
@@ -498,3 +508,81 @@ def test_listar_transacoes_filtra_por_natureza_pendente(db_path):
 
     assert len(resultado) == 1
     assert resultado[0].natureza is None
+
+
+# --- feature 011: filtro por titular ---------------------------------------
+
+
+def test_listar_transacoes_filtra_por_titular(db_path):
+    _gravar_transacao(db_path, "2026-04-01", 1000, fingerprint="fp-marcelo", titular="marcelo")
+    _gravar_transacao(db_path, "2026-04-02", 2000, fingerprint="fp-cristine", titular="cristine")
+
+    resultado = storage_db.listar_transacoes(titular="cristine", db_path=db_path)
+
+    assert len(resultado) == 1
+    assert resultado[0].titular == "cristine"
+
+
+def test_resumo_de_mes_filtra_por_titular_combinando_nota_e_transacao(db_path):
+    _gravar_nota(db_path, "2026-05-05", 1000, numero="500000001", titular="marcelo")
+    _gravar_transacao(db_path, "2026-05-06", 2000, fingerprint="fp-cristine-mai", titular="cristine")
+
+    resumo_cristine = resumo.resumo_de_mes("2026-05", titular="cristine", db_path=db_path)
+    resumo_marcelo = resumo.resumo_de_mes("2026-05", titular="marcelo", db_path=db_path)
+    resumo_consolidado = resumo.resumo_de_mes("2026-05", db_path=db_path)
+
+    assert resumo_cristine.total_gasto == 2000
+    assert resumo_marcelo.total_gasto == 1000
+    assert resumo_consolidado.total_gasto == 3000
+
+
+def test_saldo_do_mes_filtra_por_titular(db_path):
+    _gravar_transacao(db_path, "2026-06-05", 500000, natureza="renda", fingerprint="fp-renda-cristine", titular="cristine")
+    _gravar_transacao(db_path, "2026-06-06", 100000, natureza="gasto", fingerprint="fp-gasto-cristine", titular="cristine")
+    _gravar_transacao(db_path, "2026-06-07", 300000, natureza="renda", fingerprint="fp-renda-marcelo", titular="marcelo")
+
+    saldo_cristine = resumo.saldo_do_mes("2026-06", titular="cristine", db_path=db_path)
+    saldo_consolidado = resumo.saldo_do_mes("2026-06", db_path=db_path)
+
+    assert saldo_cristine.total_entradas == 500000
+    assert saldo_cristine.total_saidas == 100000
+    assert saldo_consolidado.total_entradas == 800000
+
+
+def test_saldo_do_mes_transferencia_entre_titulares_nao_distorce_nenhum_lado(db_path):
+    """Reflete FR-010/SC-003: uma transferencia entre o casal (natureza
+    transferencia_interna nos dois lados) nao pode aparecer no saldo de
+    nenhum titular nem no consolidado."""
+    _gravar_transacao(db_path, "2026-06-10", 60000, natureza="transferencia_interna", fingerprint="fp-transf-saida", titular="cristine")
+    _gravar_transacao(db_path, "2026-06-10", 60000, natureza="transferencia_interna", fingerprint="fp-transf-entrada", titular="marcelo")
+
+    saldo_cristine = resumo.saldo_do_mes("2026-06", titular="cristine", db_path=db_path)
+    saldo_marcelo = resumo.saldo_do_mes("2026-06", titular="marcelo", db_path=db_path)
+    saldo_consolidado = resumo.saldo_do_mes("2026-06", db_path=db_path)
+
+    assert saldo_cristine == resumo.SaldoMes(mes="2026-06", total_entradas=0, total_saidas=0, saldo=0)
+    assert saldo_marcelo == resumo.SaldoMes(mes="2026-06", total_entradas=0, total_saidas=0, saldo=0)
+    assert saldo_consolidado == resumo.SaldoMes(mes="2026-06", total_entradas=0, total_saidas=0, saldo=0)
+
+
+def test_gasto_por_categoria_item_filtra_por_titular(db_path):
+    categoria_id = storage_db.criar_categoria("Alimentação", db_path=db_path)
+    _gravar_transacao(db_path, "2026-07-01", 1000, categoria_id=categoria_id, fingerprint="fp-cat-cristine", titular="cristine")
+    _gravar_transacao(db_path, "2026-07-02", 5000, categoria_id=categoria_id, fingerprint="fp-cat-marcelo", titular="marcelo")
+
+    resultado = resumo.gasto_por_categoria_item("2026-07", titular="cristine", db_path=db_path)
+
+    assert len(resultado) == 1
+    assert resultado[0].total_gasto == 1000
+
+
+def test_gasto_por_estabelecimento_filtra_por_titular(db_path):
+    tipo_id = storage_db.criar_categoria("Supermercado", db_path=db_path)
+    _gravar_nota(db_path, "2026-08-01", 1200, numero="800000001", titular="cristine")
+    nota_marcelo = _gravar_nota(db_path, "2026-08-02", 3400, numero="800000002", titular="marcelo")
+    storage_db.atribuir_categoria_a_nota(nota_marcelo.id, tipo_id, db_path=db_path)
+
+    resultado = resumo.gasto_por_estabelecimento("2026-08", titular="marcelo", db_path=db_path)
+
+    assert len(resultado) == 1
+    assert resultado[0].total_gasto == 3400
