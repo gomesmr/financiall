@@ -64,6 +64,20 @@ def test_importar_historico_extrato_consolida_contas_duplicadas(tmp_path, db_pat
     assert "itau_2486" in contas
 
 
+def test_importar_historico_extrato_marca_titular_marcelo_quando_ausente(tmp_path, db_path):
+    """feature 011: registro.json (script legado) so contem dado do
+    Marcelo -- sem titular explicito no registro, grava titular='marcelo'
+    em vez de deixar nulo (achado na validacao com dado real do Pi)."""
+    caminho = _escrever_registro(tmp_path, _REGISTRO_SINTETICO)
+    importar_historico_extrato(caminho, db_path=db_path)
+
+    conn = storage_db.get_connection(db_path)
+    titulares = {row["titular"] for row in conn.execute("SELECT DISTINCT titular FROM transacao").fetchall()}
+    conn.close()
+
+    assert titulares == {"marcelo"}
+
+
 def test_importar_historico_extrato_e_idempotente(tmp_path, db_path):
     caminho = _escrever_registro(tmp_path, _REGISTRO_SINTETICO)
     primeira = importar_historico_extrato(caminho, db_path=db_path)

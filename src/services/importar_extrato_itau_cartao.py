@@ -103,6 +103,10 @@ def parsear(caminho_arquivo: str) -> list[dict]:
                 "valor_raw": float(valor_bruto),
                 "conta": conta,
                 "fonte": fonte,
+                # Todo cartao Itau importado por este parser e do Marcelo --
+                # titular fixo, mesmo espirito do parser do extrato BB
+                # (feature 011, research.md #7).
+                "titular": "marcelo",
             }
         )
 

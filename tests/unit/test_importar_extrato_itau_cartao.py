@@ -70,6 +70,15 @@ def test_parsear_arquivo_vazio_retorna_lista_vazia(tmp_path):
     assert parsear(caminho) == []
 
 
+def test_parsear_marca_titular_como_marcelo(tmp_path):
+    """feature 011: todo cartao Itau importado por este parser e do
+    Marcelo -- achado na validacao com dado real (sem isso, nenhuma
+    transacao historica dele tinha titular gravado)."""
+    caminho = _criar_fatura_xls(tmp_path, _LINHAS_FATURA_SINTETICA)
+    registros = parsear(caminho)
+    assert all(r["titular"] == "marcelo" for r in registros)
+
+
 # --- integracao com processar_transacoes (reaproveita persistencia da US2) -
 
 
