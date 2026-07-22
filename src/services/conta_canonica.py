@@ -15,6 +15,7 @@ CONTA_CANONICA: dict[str, str] = {
     "Itaú_1035": "itau_1035",
     "Itaú_CC": "itau_cc",
     "Flash": "flash",
+    "BB_Cristine": "bb_cristine_cc",
 }
 
 # Cobre cartoes futuros no formato "Itaú_<4 digitos>" (research.md #10) sem
