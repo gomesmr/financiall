@@ -59,8 +59,19 @@ def _classificar_com_heuristica_estorno(
     """A cascata cache/regra (US1) resolve a maioria; quando nao resolve e
     a transacao e uma entrada de cartao, a natureza mais provavel e
     estorno/credito de uma compra anterior (nunca renda) -- heuristica de
-    conta, nao de descricao, por isso um metodo proprio em vez de 'regra'."""
+    conta, nao de descricao, por isso um metodo proprio em vez de 'regra'.
+
+    Invariante de seguranca (achado com dado real, feature 011 US3): uma
+    entrada nunca e "gasto" de verdade -- dinheiro nao saiu da conta. Uma
+    regra/cache escrita pensando so no caso comum (ex.: "TBI" = aluguel,
+    sempre debito) pode combinar por acidente com uma entrada real (ex.:
+    estorno/correcao pontual do proprio banco no extrato de conta
+    corrente). Nesse caso e mais seguro cair pendente pra revisao manual
+    do que confiar e inflar o gasto do mes com dinheiro que na verdade
+    entrou."""
     natureza, categoria_id, metodo = classificacao_natureza.classificar_natureza(descricao, db_path=db_path)
+    if natureza == "gasto" and tipo == "entrada":
+        return None, None, None
     if natureza is None and tipo == "entrada" and _eh_conta_cartao(conta_canonica):
         return "estorno_credito", None, "heuristica_conta"
     return natureza, categoria_id, metodo

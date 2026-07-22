@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime
+
+import openpyxl
 import pytest
 
 from src.services.importar_extrato_itau_cartao import parsear
@@ -75,6 +78,74 @@ def test_parsear_marca_titular_como_marcelo(tmp_path):
     Marcelo -- achado na validacao com dado real (sem isso, nenhuma
     transacao historica dele tinha titular gravado)."""
     caminho = _criar_fatura_xls(tmp_path, _LINHAS_FATURA_SINTETICA)
+    registros = parsear(caminho)
+    assert all(r["titular"] == "marcelo" for r in registros)
+
+
+# --- feature 011 US3: novo formato de fatura "Fatura Paga" (.xlsx) --------
+# achado real: o Itau passou a exportar tambem nesse layout, com metadados
+# no topo e colunas B=Data/C=Lancamento/D=Parcelamento/E=Valor/G=Titularidade.
+
+
+def _criar_fatura_paga_xlsx(caminho, linhas_lancamento: list[list], nome_arquivo="fatura-paga-final 1035-junho2026.xlsx"):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Fatura 06-26"
+    ws.append([" "])
+    ws.append([])
+    ws.append([None, "Nome", "Marcelo Renato Gomes"])
+    ws.append([None, "Agência", "0300"])
+    ws.append([None, "Conta", "46235-5"])
+    ws.append([])
+    ws.append([None, "Fatura Paga - Junho/2026"])
+    ws.append([None, "Cartão", None, None, None, None, "Valor"])
+    ws.append([None, "Itau Multiplo Platinum Visa - final 1035", None, "Você pagou R$ 732,53 de  ", None, None, 732.53])
+    ws.append([None, "Lançamentos"])
+    ws.append([None, "Data", "Lançamento", "Parcelamento", "Valor", None, "Titularidade"])
+    for linha in linhas_lancamento:
+        ws.append([None] + linha)
+    destino = caminho / nome_arquivo
+    wb.save(str(destino))
+    return str(destino)
+
+
+_LINHAS_FATURA_PAGA_SINTETICA = [
+    [datetime(2026, 6, 1), "Pagamento Efetuado", None, -583.17, None, "Titular"],
+    [datetime(2026, 6, 20), "Amazon Servicos De Vare", None, 0.99, None, "Titular"],
+    [datetime(2026, 6, 19), "Sjx - Comercial Atacad", None, 191.43, None, "Titular"],
+    [None, None, "Subtotal ", None, None, None],
+]
+
+
+def test_parsear_fatura_paga_xlsx_ignora_metadados_e_pagamento_efetuado(tmp_path):
+    caminho = _criar_fatura_paga_xlsx(tmp_path, _LINHAS_FATURA_PAGA_SINTETICA)
+
+    registros = parsear(caminho)
+
+    descricoes = [r["descricao"] for r in registros]
+    assert descricoes == ["Amazon Servicos De Vare", "Sjx - Comercial Atacad"]
+
+
+def test_parsear_fatura_paga_xlsx_preserva_data_iso_e_valor(tmp_path):
+    caminho = _criar_fatura_paga_xlsx(tmp_path, _LINHAS_FATURA_PAGA_SINTETICA)
+
+    registros = parsear(caminho)
+    amazon = next(r for r in registros if r["descricao"] == "Amazon Servicos De Vare")
+
+    assert amazon["data"] == "2026-06-20"
+    assert amazon["valor_raw"] == 0.99
+
+
+def test_parsear_fatura_paga_xlsx_deriva_conta_pelo_nome_do_arquivo(tmp_path):
+    caminho = _criar_fatura_paga_xlsx(
+        tmp_path, _LINHAS_FATURA_PAGA_SINTETICA, nome_arquivo="fatura-paga-final 2486-junho2026.xlsx"
+    )
+    registros = parsear(caminho)
+    assert registros[0]["conta"] == "Itaú_2486"
+
+
+def test_parsear_fatura_paga_xlsx_marca_titular_marcelo(tmp_path):
+    caminho = _criar_fatura_paga_xlsx(tmp_path, _LINHAS_FATURA_PAGA_SINTETICA)
     registros = parsear(caminho)
     assert all(r["titular"] == "marcelo" for r in registros)
 
