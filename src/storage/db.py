@@ -1357,13 +1357,15 @@ def listar_transacoes(
     conta: str | None = None,
     natureza: str | None = None,
     categoria_id: int | None = None,
+    titular: str | None = None,
     db_path: str = DEFAULT_DB_PATH,
 ) -> list[Transacao]:
     """Lista transacoes ordenadas por data desc, id desc -- filtros
-    opcionais por mes (AAAA-MM), conta (ja canonicalizada), natureza e
+    opcionais por mes (AAAA-MM), conta (ja canonicalizada), natureza,
     categoria (evolucao do polimento pos-deploy: visao geral, alem da
     fila de pendentes; `categoria_id` usado para inspecionar o uso de uma
-    categoria antes de exclui-la)."""
+    categoria antes de exclui-la) e titular (feature 011, mesmo padrao de
+    filtro ja usado em listar_notas)."""
     conn = get_connection(db_path)
     try:
         query = "SELECT * FROM transacao"
@@ -1383,6 +1385,9 @@ def listar_transacoes(
         if categoria_id is not None:
             condicoes.append("categoria_id = ?")
             params.append(categoria_id)
+        if titular:
+            condicoes.append("titular = ?")
+            params.append(titular)
         if condicoes:
             query += " WHERE " + " AND ".join(condicoes)
         query += " ORDER BY data DESC, id DESC"

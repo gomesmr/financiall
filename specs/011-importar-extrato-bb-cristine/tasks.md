@@ -134,11 +134,11 @@ conferir que só as transações daquele titular aparecem.
 
 ### Tests for User Story 2
 
-- [ ] T012 [P] [US2] Testes de contrato em `tests/contract/test_api_contract.py`:
+- [x] T012 [P] [US2] Testes de contrato em `tests/contract/test_api_contract.py`:
       `GET /ver/resumo?mes=<m>&titular=cristine` só reflete transações/notas
       dela; `GET /ver/resumo?mes=<m>` (sem `titular`) continua consolidado
       (regressão); `GET /ver/transacoes?titular=marcelo` idem
-- [ ] T013 [P] [US2] Testes unitários em `tests/unit/test_resumo.py`:
+- [x] T013 [P] [US2] Testes unitários em `tests/unit/test_resumo.py`:
       `resumo_de_mes`, `saldo_do_mes`, `gasto_por_categoria_item`,
       `gasto_por_estabelecimento` filtram corretamente quando `titular` é
       informado (cobrindo tanto a origem nota_fiscal quanto transacao) e
@@ -146,27 +146,27 @@ conferir que só as transações daquele titular aparecem.
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] Adicionar parâmetro `titular: str | None = None` a
+- [x] T014 [US2] Adicionar parâmetro `titular: str | None = None` a
       `_query_resumo_por_mes`/`resumo_de_mes`/`gasto_mes_corrente`/
       `historico_meses_anteriores` em `src/services/resumo.py`, filtrando
       por `nota_fiscal.titular` e `transacao.titular` nas duas pontas do
       `UNION ALL`
-- [ ] T015 [US2] Adicionar parâmetro `titular` a `saldo_do_mes` em
+- [x] T015 [US2] Adicionar parâmetro `titular` a `saldo_do_mes` em
       `src/services/resumo.py` (filtra a query de entradas por
       `transacao.titular` e repassa para `resumo_de_mes`)
-- [ ] T016 [US2] Adicionar parâmetro `titular` a `gasto_por_categoria_item`
+- [x] T016 [US2] Adicionar parâmetro `titular` a `gasto_por_categoria_item`
       e `gasto_por_estabelecimento` em `src/services/resumo.py`
-- [ ] T017 [US2] Adicionar parâmetro `titular` a
+- [x] T017 [US2] Adicionar parâmetro `titular` a
       `storage_db.listar_transacoes` (mesmo padrão de `categoria_id` já
       existente)
-- [ ] T018 [US2] `routes_consulta.py::pagina_resumo` lê `titular` de
+- [x] T018 [US2] `routes_consulta.py::pagina_resumo` lê `titular` de
       `request.args` e repassa às funções de `resumo_service`;
       `routes_transacoes.py::pagina_transacoes` idem para
       `listar_transacoes` (depende de T014–T017)
-- [ ] T019 [US2] `resumo.html`: adicionar seletor de titular (Todos /
+- [x] T019 [US2] `resumo.html`: adicionar seletor de titular (Todos /
       Marcelo / Cristine), mesmo padrão de botões/`?titular=` já usado em
       `notas.html`
-- [ ] T020 [US2] `transacoes.html`: mesmo seletor de titular
+- [x] T020 [US2] `transacoes.html`: mesmo seletor de titular
 
 ### Real-Data Validation for User Story 2 (MANDATORY — Constitution Principle V)
 
@@ -182,9 +182,9 @@ conferir que só as transações daquele titular aparecem.
 
 ### Visual Verification for User Story 2 (Constitution Principle VIII)
 
-- [ ] T022 [US2] Nenhum asset de terceiro vendorizado — N/A para checagem
+- [x] T022 [US2] Nenhum asset de terceiro vendorizado — N/A para checagem
       de integridade de formato
-- [ ] T023 [US2] Capturar screenshot via navegador headless de
+- [x] T023 [US2] Capturar screenshot via navegador headless de
       `/ver/resumo` e `/ver/transacoes` em cada estado do seletor de
       titular (Todos/Marcelo/Cristine) e confirmar ausência de erro de
       console, antes de promover para produção

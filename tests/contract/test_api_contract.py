@@ -1157,6 +1157,71 @@ def test_pagina_ver_itens_sem_categoria_id_lista_vazia(client):
     assert "Nenhum item classificado" in resposta.get_data(as_text=True)
 
 
+# --- feature 011: filtro por titular no resumo e nas transacoes ------------
+
+
+def test_pagina_ver_transacoes_filtra_por_titular(client, app_e_db):
+    _, db_path = app_e_db
+    from src.models.transacao import Transacao, TipoTransacao
+    from src.storage import db as storage_db
+
+    for titular, sufixo in (("marcelo", "Marcelo"), ("cristine", "Cristine")):
+        transacao = Transacao(
+            fingerprint=f"fp-titular-{titular}",
+            data="2026-06-01",
+            descricao=f"Transacao de {sufixo}",
+            valor=1000,
+            tipo=TipoTransacao.SAIDA,
+            conta="itau_cc",
+            natureza="gasto",
+            titular=titular,
+        )
+        storage_db.inserir_transacao(transacao, db_path=db_path)
+
+    resposta = client.get("/ver/transacoes?titular=cristine")
+
+    corpo = resposta.get_data(as_text=True)
+    assert resposta.status_code == 200
+    assert "Transacao de Cristine" in corpo
+    assert "Transacao de Marcelo" not in corpo
+
+
+def test_pagina_ver_resumo_filtra_por_titular(client, app_e_db):
+    _, db_path = app_e_db
+    from src.models.transacao import Transacao, TipoTransacao
+    from src.storage import db as storage_db
+
+    for titular, valor in (("marcelo", 100000), ("cristine", 250000)):
+        transacao = Transacao(
+            fingerprint=f"fp-resumo-titular-{titular}",
+            data="2026-06-01",
+            descricao=f"Gasto de {titular}",
+            valor=valor,
+            tipo=TipoTransacao.SAIDA,
+            conta="itau_cc",
+            natureza="gasto",
+            titular=titular,
+        )
+        storage_db.inserir_transacao(transacao, db_path=db_path)
+
+    resposta_cristine = client.get("/ver/resumo?mes=2026-06&titular=cristine")
+    resposta_consolidada = client.get("/ver/resumo?mes=2026-06")
+
+    assert resposta_cristine.status_code == 200
+    corpo_cristine = resposta_cristine.get_data(as_text=True)
+    corpo_consolidado = resposta_consolidada.get_data(as_text=True)
+    assert "R$ 2500.00" in corpo_cristine
+    assert "R$ 3500.00" in corpo_consolidado
+
+
+def test_pagina_ver_resumo_sem_titular_mantem_consolidado(client, app_e_db):
+    """Regressao: sem `titular` na querystring, o comportamento anterior
+    (consolidado do casal) continua identico."""
+    resposta = client.get("/ver/resumo")
+    assert resposta.status_code == 200
+    assert "Saldo do mês" in resposta.get_data(as_text=True)
+
+
 def test_pagina_ver_itens_filtra_por_categoria(client, app_e_db, tmp_path):
     _, db_path = app_e_db
     categoria_id = client.post("/categorias", json={"nome": "Alimentação"}).get_json()["categoria"]["id"]

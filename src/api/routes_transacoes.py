@@ -21,9 +21,10 @@ def pagina_transacoes():
     conta = request.args.get("conta")
     natureza = request.args.get("natureza")
     categoria_id = request.args.get("categoria_id", type=int)
+    titular = request.args.get("titular")
 
     transacoes = storage_db.listar_transacoes(
-        mes=mes, conta=conta, natureza=natureza, categoria_id=categoria_id, db_path=db_path
+        mes=mes, conta=conta, natureza=natureza, categoria_id=categoria_id, titular=titular, db_path=db_path
     )
     contas = storage_db.listar_contas_distintas(db_path=db_path)
     categorias = storage_db.listar_categorias(db_path=db_path)
@@ -45,6 +46,7 @@ def pagina_transacoes():
         natureza_filtro=natureza,
         categoria_filtro=categoria_id,
         categoria_filtro_nome=categoria_filtro_nome,
+        titular_filtro=titular,
         pagina_ativa="transacoes",
     )
 

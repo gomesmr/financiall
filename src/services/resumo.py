@@ -59,10 +59,13 @@ def listar_meses_com_notas(db_path: str = storage_db.DEFAULT_DB_PATH) -> list[st
     return [r.mes for r in _query_resumo_por_mes(db_path)]
 
 
-def resumo_de_mes(mes: str, db_path: str = storage_db.DEFAULT_DB_PATH) -> ResumoMes | None:
+def resumo_de_mes(
+    mes: str, titular: str | None = None, db_path: str = storage_db.DEFAULT_DB_PATH
+) -> ResumoMes | None:
     """Total e quantidade de notas de um mes qualquer (US2) -- None se o mes
-    nao tem nenhuma nota."""
-    for resumo in _query_resumo_por_mes(db_path):
+    nao tem nenhuma nota. `titular` (feature 011) filtra por
+    nota_fiscal.titular/transacao.titular; None mantem o consolidado."""
+    for resumo in _query_resumo_por_mes(db_path, titular=titular):
         if resumo.mes == mes:
             return resumo
     return None
@@ -118,7 +121,7 @@ def agrupar_transacoes_por_mes(transacoes: list) -> list[tuple[str, list]]:
     return grupos
 
 
-def _query_resumo_por_mes(db_path: str) -> list[ResumoMes]:
+def _query_resumo_por_mes(db_path: str, titular: str | None = None) -> list[ResumoMes]:
     """Agrupa por mês e soma o gasto (feature 010, research.md #8): notas
     fiscais que NAO estao reconciliadas com nenhuma transacao (fonte de
     verdade do valor ainda e a propria nota) + transacoes com
@@ -127,7 +130,9 @@ def _query_resumo_por_mes(db_path: str) -> list[ResumoMes]:
     soma, evitando contar a mesma compra duas vezes (FR-015/016). Calculado
     ao vivo a cada chamada, sem tabela de cache. `quantidade_notas` passa a
     contar a quantidade combinada de lancamentos (nota nao reconciliada +
-    transacao de gasto) que compoem o total do mes."""
+    transacao de gasto) que compoem o total do mes. `titular` (feature 011)
+    filtra as duas pontas do UNION por nota_fiscal.titular/transacao.titular;
+    None mantem o consolidado do casal (comportamento anterior)."""
     conn = storage_db.get_connection(db_path)
     try:
         rows = conn.execute(
@@ -138,17 +143,20 @@ def _query_resumo_por_mes(db_path: str) -> list[ResumoMes]:
                     valor_total AS valor
                 FROM nota_fiscal
                 WHERE id NOT IN (SELECT nota_fiscal_id FROM transacao WHERE nota_fiscal_id IS NOT NULL)
+                  AND (? IS NULL OR titular = ?)
                 UNION ALL
                 SELECT substr(data, 1, 7) AS mes, valor
                 FROM transacao
                 WHERE natureza = 'gasto'
+                  AND (? IS NULL OR titular = ?)
             )
             SELECT mes, SUM(valor) AS total_gasto, COUNT(*) AS quantidade_notas
             FROM combinado
             WHERE mes IS NOT NULL
             GROUP BY mes
             ORDER BY mes DESC
-            """
+            """,
+            (titular, titular, titular, titular),
         ).fetchall()
         return [
             ResumoMes(mes=row["mes"], total_gasto=row["total_gasto"], quantidade_notas=row["quantidade_notas"])
@@ -158,48 +166,57 @@ def _query_resumo_por_mes(db_path: str) -> list[ResumoMes]:
         conn.close()
 
 
-def gasto_mes_corrente(db_path: str = storage_db.DEFAULT_DB_PATH) -> ResumoMes | None:
+def gasto_mes_corrente(titular: str | None = None, db_path: str = storage_db.DEFAULT_DB_PATH) -> ResumoMes | None:
     """Total parcial do mês corrente (US7, FR-015). None se não há
     nenhuma nota com data no mês corrente."""
     mes = mes_atual()
-    for resumo in _query_resumo_por_mes(db_path):
+    for resumo in _query_resumo_por_mes(db_path, titular=titular):
         if resumo.mes == mes:
             return resumo
     return None
 
 
-def historico_meses_anteriores(db_path: str = storage_db.DEFAULT_DB_PATH) -> list[ResumoMes]:
+def historico_meses_anteriores(
+    titular: str | None = None, db_path: str = storage_db.DEFAULT_DB_PATH
+) -> list[ResumoMes]:
     """Total por mês para meses anteriores ao corrente (US8, FR-016),
     ordenado do mais recente para o mais antigo."""
     mes = mes_atual()
-    return [resumo for resumo in _query_resumo_por_mes(db_path) if resumo.mes < mes]
+    return [resumo for resumo in _query_resumo_por_mes(db_path, titular=titular) if resumo.mes < mes]
 
 
-def saldo_do_mes(mes: str, db_path: str = storage_db.DEFAULT_DB_PATH) -> SaldoMes:
+def saldo_do_mes(
+    mes: str, titular: str | None = None, db_path: str = storage_db.DEFAULT_DB_PATH
+) -> SaldoMes:
     """Visão de saúde financeira do mês (polimento pós-deploy da feature
     010): entradas = soma de transação com natureza='renda'; saídas =
     o mesmo gasto combinado (transação + nota não reconciliada) que
     `resumo_de_mes` já calcula, reaproveitado aqui sem duplicar a lógica.
     `pagamento_fatura`, `transferencia_interna` e `estorno_credito` ficam
     de fora do saldo de propósito -- são movimentação interna ou correção
-    de um gasto já contado, não entrada/saída real de dinheiro da casa."""
+    de um gasto já contado, não entrada/saída real de dinheiro da casa.
+    `titular` (feature 011) filtra entradas e saídas pelo mesmo titular;
+    uma transferência entre o casal nunca conta aqui (natureza
+    transferencia_interna), então o saldo de cada titular somado bate com o
+    saldo conjunto (SC-003)."""
     conn = storage_db.get_connection(db_path)
     try:
         entradas = conn.execute(
-            "SELECT COALESCE(SUM(valor), 0) FROM transacao WHERE natureza = 'renda' AND substr(data, 1, 7) = ?",
-            (mes,),
+            "SELECT COALESCE(SUM(valor), 0) FROM transacao WHERE natureza = 'renda' "
+            "AND substr(data, 1, 7) = ? AND (? IS NULL OR titular = ?)",
+            (mes, titular, titular),
         ).fetchone()[0]
     finally:
         conn.close()
 
-    resumo_gasto = resumo_de_mes(mes, db_path=db_path)
+    resumo_gasto = resumo_de_mes(mes, titular=titular, db_path=db_path)
     saidas = (resumo_gasto.total_gasto or 0) if resumo_gasto else 0
 
     return SaldoMes(mes=mes, total_entradas=entradas, total_saidas=saidas, saldo=entradas - saidas)
 
 
 def gasto_por_categoria_item(
-    mes: str, nivel: int = 1, db_path: str = storage_db.DEFAULT_DB_PATH
+    mes: str, nivel: int = 1, titular: str | None = None, db_path: str = storage_db.DEFAULT_DB_PATH
 ) -> list[GastoCategoria]:
     """Soma o gasto do mes informado (AAAA-MM) agrupado por categoria de
     consumo, combinando tres fontes sem nunca contar a mesma compra duas
@@ -213,7 +230,9 @@ def gasto_por_categoria_item(
        classificado, usam a categoria da propria transacao.
     3. Transacoes de gasto sem nenhuma nota associada -- somam pela
        categoria da transacao (ou "Sem categoria").
-    Item/transacao com valor nulo nunca contribui para nenhuma soma."""
+    Item/transacao com valor nulo nunca contribui para nenhuma soma.
+    `titular` (feature 011) filtra as tres fontes por
+    nota_fiscal.titular/transacao.titular; None mantem o consolidado."""
     conn = storage_db.get_connection(db_path)
     try:
         linhas_notas = conn.execute(
@@ -229,8 +248,9 @@ def gasto_por_categoria_item(
             WHERE COALESCE(substr(nf.data_emissao, 1, 7), '20' || substr(nf.ano_mes_emissao, 1, 2) || '-' || substr(nf.ano_mes_emissao, 3, 2)) = ?
               AND nf.valor_total IS NOT NULL
               AND nf.id NOT IN (SELECT nota_fiscal_id FROM transacao WHERE nota_fiscal_id IS NOT NULL)
+              AND (? IS NULL OR nf.titular = ?)
             """,
-            (mes,),
+            (mes, titular, titular),
         ).fetchall()
 
         linhas_transacoes_reconciliadas = conn.execute(
@@ -244,8 +264,9 @@ def gasto_por_categoria_item(
             FROM transacao t
             LEFT JOIN item_nota it ON it.nota_fiscal_id = t.nota_fiscal_id
             WHERE substr(t.data, 1, 7) = ? AND t.natureza = 'gasto' AND t.nota_fiscal_id IS NOT NULL
+              AND (? IS NULL OR t.titular = ?)
             """,
-            (mes,),
+            (mes, titular, titular),
         ).fetchall()
 
         linhas_transacoes_sem_nota = conn.execute(
@@ -253,8 +274,9 @@ def gasto_por_categoria_item(
             SELECT categoria_id AS transacao_categoria_id, valor AS transacao_valor
             FROM transacao
             WHERE substr(data, 1, 7) = ? AND natureza = 'gasto' AND nota_fiscal_id IS NULL
+              AND (? IS NULL OR titular = ?)
             """,
-            (mes,),
+            (mes, titular, titular),
         ).fetchall()
     finally:
         conn.close()
@@ -311,7 +333,7 @@ def gasto_por_categoria_item(
 
 
 def gasto_por_estabelecimento(
-    mes: str, nivel: int = 1, db_path: str = storage_db.DEFAULT_DB_PATH
+    mes: str, nivel: int = 1, titular: str | None = None, db_path: str = storage_db.DEFAULT_DB_PATH
 ) -> list[GastoCategoria]:
     """Soma o gasto do mes informado (AAAA-MM) agrupado pelo tipo de
     estabelecimento -- eixo independente da categoria de gasto (US5).
@@ -323,7 +345,9 @@ def gasto_por_estabelecimento(
     de novo aqui -- a nota ja contou. Sem tipo de estabelecimento agrupa
     sob "Sem categoria" (FR-002). nivel 1 resolve subcategoria ->
     categoria-pai; nivel 2 usa a categoria tal como esta atribuida.
-    Ordenado do maior para o menor gasto."""
+    Ordenado do maior para o menor gasto. `titular` (feature 011) filtra as
+    duas fontes por nota_fiscal.titular/transacao.titular; None mantem o
+    consolidado."""
     conn = storage_db.get_connection(db_path)
     try:
         linhas_notas = conn.execute(
@@ -332,8 +356,9 @@ def gasto_por_estabelecimento(
             FROM nota_fiscal
             WHERE COALESCE(substr(nota_fiscal.data_emissao, 1, 7), '20' || substr(nota_fiscal.ano_mes_emissao, 1, 2) || '-' || substr(nota_fiscal.ano_mes_emissao, 3, 2)) = ?
               AND nota_fiscal.valor_total IS NOT NULL
+              AND (? IS NULL OR nota_fiscal.titular = ?)
             """,
-            (mes,),
+            (mes, titular, titular),
         ).fetchall()
 
         linhas_transacoes_sem_nota = conn.execute(
@@ -342,8 +367,9 @@ def gasto_por_estabelecimento(
             FROM transacao t
             LEFT JOIN estabelecimento e ON e.id = t.estabelecimento_id
             WHERE substr(t.data, 1, 7) = ? AND t.natureza = 'gasto' AND t.nota_fiscal_id IS NULL
+              AND (? IS NULL OR t.titular = ?)
             """,
-            (mes,),
+            (mes, titular, titular),
         ).fetchall()
     finally:
         conn.close()
