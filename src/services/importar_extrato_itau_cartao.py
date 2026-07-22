@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import datetime as _datetime_mod
 import os
 import re
 
+import openpyxl
 import xlrd
 
 # Linhas de cabecalho/resumo da fatura que nunca sao lancamento de compra
@@ -59,6 +61,18 @@ def _data_iso(valor_bruto) -> str | None:
 
 
 def parsear(caminho_arquivo: str) -> list[dict]:
+    """Le uma fatura de cartao Itau (.xls legado ou .xlsx 'Fatura Paga',
+    feature 011 US3 -- o Itau passou a exportar tambem nesse segundo
+    formato, achado processando um extrato novo real) e retorna uma lista
+    de registros no mesmo formato aceito por
+    importar_historico_extrato.processar_transacoes. Despacha pelo formato
+    do arquivo; a logica de cada formato fica em funcao propria."""
+    if caminho_arquivo.lower().endswith(".xlsx"):
+        return _parsear_fatura_paga_xlsx(caminho_arquivo)
+    return _parsear_fatura_xls(caminho_arquivo)
+
+
+def _parsear_fatura_xls(caminho_arquivo: str) -> list[dict]:
     """Le uma fatura de cartao Itau em .xls e retorna uma lista de
     registros no mesmo formato aceito por
     importar_historico_extrato.processar_transacoes (data, descricao,
@@ -106,6 +120,56 @@ def parsear(caminho_arquivo: str) -> list[dict]:
                 # Todo cartao Itau importado por este parser e do Marcelo --
                 # titular fixo, mesmo espirito do parser do extrato BB
                 # (feature 011, research.md #7).
+                "titular": "marcelo",
+            }
+        )
+
+    return registros
+
+
+def _parsear_fatura_paga_xlsx(caminho_arquivo: str) -> list[dict]:
+    """Le uma fatura de cartao Itau no formato novo 'Fatura Paga' (.xlsx):
+    metadados no topo (Nome/Agencia/Conta/resumo do cartao), depois uma
+    tabela com colunas Data/Lancamento/Parcelamento/Valor/.../Titularidade.
+    Diferente do .xls legado, a data ja vem como datetime real e o valor
+    ja vem como float (nao precisa de conversao de serial do Excel nem de
+    formato BR de decimal). So a linha com data valida e valor numerico e
+    uma transacao de verdade -- todo o resto (metadados, cabecalho,
+    'Subtotal', texto de rodape) fica sem data valida e cai fora sozinho,
+    sem precisar de lista de exclusao por texto (research.md da feature
+    011, achado processando um extrato real do usuario)."""
+    workbook = openpyxl.load_workbook(caminho_arquivo, data_only=True)
+    planilha = workbook[workbook.sheetnames[0]]
+    conta = _conta_pelo_nome_arquivo(caminho_arquivo)
+    fonte = os.path.basename(caminho_arquivo)
+
+    registros: list[dict] = []
+    for linha in planilha.iter_rows(min_row=1, values_only=True):
+        if len(linha) < 5:
+            continue
+        data_bruta, descricao_bruta, _parcelamento, valor_bruto = linha[1], linha[2], linha[3], linha[4]
+
+        if not isinstance(data_bruta, _datetime_mod.datetime):
+            continue
+        if not isinstance(valor_bruto, (int, float)):
+            continue
+        descricao = str(descricao_bruta).strip() if descricao_bruta else ""
+        if not descricao:
+            continue
+        # Mesmo filtro do .xls legado: o pagamento da fatura ja e contado
+        # do lado da conta corrente (INT ITAU MULT/CLICK) -- incluir aqui
+        # de novo duplicaria o evento (conta diferente, nao deduplica por
+        # fingerprint).
+        if "pagamento efetuado" in descricao.lower():
+            continue
+
+        registros.append(
+            {
+                "data": data_bruta.strftime("%Y-%m-%d"),
+                "descricao": descricao,
+                "valor_raw": float(valor_bruto),
+                "conta": conta,
+                "fonte": fonte,
                 "titular": "marcelo",
             }
         )

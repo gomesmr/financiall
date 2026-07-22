@@ -102,6 +102,34 @@ def test_importar_historico_extrato_classifica_natureza_automaticamente(tmp_path
     assert naturezas["SJX COMERCIAL LTDA"] == "gasto"
 
 
+def test_entrada_nunca_vira_gasto_mesmo_quando_regra_de_descricao_bate(tmp_path, db_path):
+    """feature 011 US3, achado com dado real: a regra semente 'TBI' (=
+    aluguel, sempre debito) combinou por acidente com uma entrada real de
+    conta corrente (estorno/correcao pontual do proprio banco). Uma
+    entrada nunca pode virar natureza='gasto' -- cai pendente em vez de
+    inflar o gasto do mes com dinheiro que na verdade entrou."""
+    registro = {
+        "fp-tbi-entrada": {
+            "data": "2026-06-01",
+            "desc": "TBI 0300.46235-50300.462",
+            "valor": "626.32",  # positivo em conta corrente = entrada
+            "conta": "Itaú_CC",
+            "fonte": "f-tbi",
+        },
+    }
+    caminho = _escrever_registro(tmp_path, registro)
+    importar_historico_extrato(caminho, db_path=db_path)
+
+    conn = storage_db.get_connection(db_path)
+    linha = conn.execute(
+        "SELECT tipo, natureza FROM transacao WHERE descricao = 'TBI 0300.46235-50300.462'"
+    ).fetchone()
+    conn.close()
+
+    assert linha["tipo"] == "entrada"
+    assert linha["natureza"] is None
+
+
 def test_importar_historico_extrato_tipo_derivado_corretamente_por_conta(tmp_path, db_path):
     """Cartao: positivo=saida; conta corrente: negativo=saida,
     positivo=entrada; Flash: 'Deposito' = entrada, resto = saida."""
