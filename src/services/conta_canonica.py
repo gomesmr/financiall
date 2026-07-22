@@ -16,11 +16,19 @@ CONTA_CANONICA: dict[str, str] = {
     "Itaú_CC": "itau_cc",
     "Flash": "flash",
     "BB_Cristine": "bb_cristine_cc",
+    # Encargos gerais da fatura Mercado Pago (juros, multa, IOF) -- nao
+    # atribuiveis a um cartao especifico, feature 012 research.md #5.
+    "MercadoPago": "mercado_pago",
 }
 
 # Cobre cartoes futuros no formato "Itaú_<4 digitos>" (research.md #10) sem
 # precisar de uma entrada nova em CONTA_CANONICA por numero de cartao.
 _RE_CARTAO_GENERICO = re.compile(r"^Itaú_(\d{4})$")
+
+# Mesmo espirito do regex acima, para os cartoes vinculados a fatura
+# Mercado Pago (feature 012 research.md #5) -- um cartao por secao da
+# fatura (titular principal + adicionais), sem hardcodar numero.
+_RE_CARTAO_MERCADO_PAGO = re.compile(r"^MercadoPago_(\d{4})$")
 
 
 def canonicalizar_conta(conta: str | None) -> str:
@@ -34,6 +42,9 @@ def canonicalizar_conta(conta: str | None) -> str:
     match = _RE_CARTAO_GENERICO.match(conta)
     if match:
         return f"itau_{match.group(1)}"
+    match = _RE_CARTAO_MERCADO_PAGO.match(conta)
+    if match:
+        return f"mercado_pago_{match.group(1)}"
     return conta
 
 
