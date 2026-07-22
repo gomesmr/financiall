@@ -167,7 +167,12 @@ def importar_historico_extrato(
             "valor_raw": item.get("valor"),
             "conta": item.get("conta"),
             "fonte": item.get("fonte"),
-            "titular": item.get("titular"),
+            # registro.json (script legado importar_extrato.py) so contem
+            # dado do Marcelo ate hoje -- default "marcelo" quando o registro
+            # nao traz titular explicito, em vez de deixar nulo (feature 011,
+            # achado na validacao com dado real do Pi: sem esse default,
+            # nenhuma transacao historica do Marcelo tinha titular gravado).
+            "titular": item.get("titular") or "marcelo",
         }
         for item in dados.values()
     ]
