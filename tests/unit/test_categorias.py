@@ -361,6 +361,111 @@ def test_excluir_categoria_com_destino_pendente_zera_item_e_remove_cache_regra(d
     assert cache_row is None
 
 
+def _inserir_transacao_com_categoria(db_path, categoria_id, fingerprint="fp-cat-teste") -> int:
+    from src.models.transacao import Transacao, TipoTransacao
+
+    transacao = Transacao(
+        fingerprint=fingerprint,
+        data="2026-06-01",
+        descricao="Transacao Teste",
+        valor=1000,
+        tipo=TipoTransacao.SAIDA,
+        conta="itau_2486",
+        natureza="gasto",
+        metodo_classificacao_natureza="regra",
+        categoria_id=categoria_id,
+    )
+    return storage_db.inserir_transacao(transacao, db_path=db_path)
+
+
+# --- feature 010: exclusao de categoria tambem afeta transacao/ -----------
+# --- estabelecimento/cache-regra de natureza (regressao real no Pi dev) ---
+
+
+def test_calcular_impacto_exclusao_inclui_referencias_da_feature_010(db_path):
+    categoria_id = storage_db.criar_categoria("Contas de consumo", db_path=db_path)
+    transacao_id = _inserir_transacao_com_categoria(db_path, categoria_id)
+    estabelecimento_id = storage_db.obter_ou_criar_estabelecimento_por_descricao("LOJA TESTE", db_path=db_path)
+    storage_db.atribuir_estabelecimento(estabelecimento_id, "Loja Teste", categoria_id, db_path=db_path)
+    conn = storage_db.get_connection(db_path)
+    conn.execute(
+        "INSERT INTO regra_natureza (padrao, natureza, categoria_id, prioridade, ativa) VALUES ('TESTE', 'gasto', ?, 5, 1)",
+        (categoria_id,),
+    )
+    conn.execute(
+        "INSERT INTO cache_descricao_natureza (descricao_normalizada, natureza, categoria_id) VALUES ('TESTE', 'gasto', ?)",
+        (categoria_id,),
+    )
+    conn.commit()
+    conn.close()
+
+    impacto = storage_db.calcular_impacto_exclusao(categoria_id, db_path=db_path)
+
+    assert impacto["quantidade_transacoes"] == 1
+    assert impacto["quantidade_estabelecimentos"] == 1
+    assert impacto["quantidade_regras_natureza"] == 1
+    assert impacto["quantidade_cache_natureza"] == 1
+
+
+def test_excluir_categoria_com_destino_pendente_nao_quebra_com_transacao_vinculada(db_path):
+    """Regressao real: excluir uma categoria referenciada so por
+    transacao/estabelecimento/regra_natureza (sem nenhum item/nota) dava
+    sqlite3.IntegrityError (FOREIGN KEY constraint failed) antes desta
+    correcao, porque excluir_categoria_com_destino nao conhecia essas
+    tabelas novas da feature 010."""
+    categoria_id = storage_db.criar_categoria("Contas de consumo", db_path=db_path)
+    transacao_id = _inserir_transacao_com_categoria(db_path, categoria_id)
+    estabelecimento_id = storage_db.obter_ou_criar_estabelecimento_por_descricao("LOJA TESTE", db_path=db_path)
+    storage_db.atribuir_estabelecimento(estabelecimento_id, "Loja Teste", categoria_id, db_path=db_path)
+    conn = storage_db.get_connection(db_path)
+    conn.execute(
+        "INSERT INTO regra_natureza (padrao, natureza, categoria_id, prioridade, ativa) VALUES ('TESTE', 'gasto', ?, 5, 1)",
+        (categoria_id,),
+    )
+    conn.execute(
+        "INSERT INTO cache_descricao_natureza (descricao_normalizada, natureza, categoria_id) VALUES ('TESTE', 'gasto', ?)",
+        (categoria_id,),
+    )
+    conn.commit()
+    conn.close()
+
+    resultado = storage_db.excluir_categoria_com_destino(categoria_id, "pendente", db_path=db_path)
+
+    assert resultado is True
+    assert storage_db.buscar_categoria_por_id(categoria_id, db_path=db_path) is None
+
+    transacao = storage_db.buscar_transacao_por_id(transacao_id, db_path=db_path)
+    assert transacao.categoria_id is None
+    assert transacao.natureza == "gasto"  # natureza continua sabida -- so a categoria some
+    assert transacao.metodo_classificacao_natureza == "regra"  # metodo da NATUREZA preservado
+
+    estabelecimento = storage_db.buscar_estabelecimento_por_id(estabelecimento_id, db_path=db_path)
+    assert estabelecimento.tipo_categoria_id is None
+
+    conn = storage_db.get_connection(db_path)
+    assert conn.execute("SELECT 1 FROM regra_natureza WHERE padrao = 'TESTE'").fetchone() is None
+    assert conn.execute("SELECT 1 FROM cache_descricao_natureza WHERE descricao_normalizada = 'TESTE'").fetchone() is None
+    conn.close()
+
+
+def test_excluir_categoria_com_destino_substituta_reatribui_transacao_e_estabelecimento(db_path):
+    categoria_antiga = storage_db.criar_categoria("Categoria Antiga", db_path=db_path)
+    categoria_nova = storage_db.criar_categoria("Categoria Nova", db_path=db_path)
+    transacao_id = _inserir_transacao_com_categoria(db_path, categoria_antiga)
+    estabelecimento_id = storage_db.obter_ou_criar_estabelecimento_por_descricao("LOJA TESTE", db_path=db_path)
+    storage_db.atribuir_estabelecimento(estabelecimento_id, "Loja Teste", categoria_antiga, db_path=db_path)
+
+    resultado = storage_db.excluir_categoria_com_destino(
+        categoria_antiga, "substituta", categoria_nova, db_path=db_path
+    )
+
+    assert resultado is True
+    transacao = storage_db.buscar_transacao_por_id(transacao_id, db_path=db_path)
+    assert transacao.categoria_id == categoria_nova
+    estabelecimento = storage_db.buscar_estabelecimento_por_id(estabelecimento_id, db_path=db_path)
+    assert estabelecimento.tipo_categoria_id == categoria_nova
+
+
 def test_editar_categoria_preserva_parent_id_e_nao_gera_historico(db_path):
     """FR-003: renomear uma categoria/subcategoria nao afeta parent_id nem
     gera nenhuma linha em historico_classificacao_item -- e uma operacao

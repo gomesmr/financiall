@@ -93,3 +93,21 @@ def pagina_pendentes():
         evolucao=evolucao,
         pagina_ativa="pendentes",
     )
+
+
+@bp.get("/ver/itens")
+def pagina_itens():
+    """Itens de nota classificados numa categoria (pedido do usuario apos
+    o bug de exclusao da feature 010: poder inspecionar o que esta usando
+    uma categoria antes de excluir/mover)."""
+    db_path = current_app.config["DB_PATH"]
+    categoria_id = request.args.get("categoria_id", type=int)
+    itens = storage_db.listar_itens_por_categoria(categoria_id, db_path=db_path) if categoria_id else []
+    categoria = storage_db.buscar_categoria_por_id(categoria_id, db_path=db_path) if categoria_id else None
+    return render_template(
+        "itens.html",
+        itens=itens,
+        categoria=categoria,
+        categoria_id=categoria_id,
+        pagina_ativa="categorias",
+    )

@@ -12,7 +12,14 @@
   {% else %}
     <div class="card mb-4">
       <div class="card-header pb-0 d-flex justify-content-between align-items-start flex-wrap gap-2">
-        <h5 class="mb-0 fw-bold">{{ nota.emitente_nome or "Emitente não disponível" }}</h5>
+        <div>
+          {% if estabelecimento_reconciliado and estabelecimento_reconciliado.nome_fantasia %}
+          <h5 class="mb-0 fw-bold">{{ estabelecimento_reconciliado.nome_fantasia }}</h5>
+          <p class="text-sm vazio mb-0">Emitente: {{ nota.emitente_nome or "não disponível" }}</p>
+          {% else %}
+          <h5 class="mb-0 fw-bold">{{ nota.emitente_nome or "Emitente não disponível" }}</h5>
+          {% endif %}
+        </div>
         <button class="btn btn-sm btn-outline-danger mb-0" onclick="excluirNota({{ nota.id }})">Excluir</button>
       </div>
       <div class="card-body">
@@ -28,6 +35,41 @@
         <p class="text-sm mb-1">CNPJ do emitente: {{ nota.cnpj_emitente or "não disponível" }}</p>
         <p class="text-sm mb-1">UF: {{ nota.uf or "não disponível" }}</p>
         <p class="text-sm mb-3">Total: {% if nota.valor_total is not none %}R$ {{ "%.2f"|format(nota.valor_total / 100) }}{% else %}não disponível{% endif %}</p>
+
+        <div class="mt-2 mb-3">
+          <label class="mb-1 text-sm fw-bold d-block">Transação de extrato reconciliada:</label>
+          {% if transacao_reconciliada %}
+          <p class="text-sm mb-1">
+            {{ transacao_reconciliada.data | data_br }} — {{ transacao_reconciliada.conta }} —
+            R$ {{ "%.2f"|format(transacao_reconciliada.valor / 100) }}
+          </p>
+          <button type="button" class="btn btn-sm btn-outline-secondary mb-0" onclick="desvincularTransacao({{ transacao_reconciliada.id }})">
+            Desvincular
+          </button>
+
+          {% if estabelecimento_reconciliado %}
+          <div class="mt-2">
+            <label class="mb-1 text-sm fw-bold d-block">Nome fantasia do estabelecimento:</label>
+            {% if estabelecimento_reconciliado.nome_fantasia %}
+            <p class="text-sm mb-1 vazio">Descrição no extrato: {{ transacao_reconciliada.descricao }}</p>
+            {% endif %}
+            <div class="d-flex align-items-center gap-2">
+              <input type="text" class="form-control form-control-sm w-auto" id="input-nome-fantasia-estabelecimento"
+                     style="min-width: 240px;" list="lista-nomes-fantasia-nota"
+                     value="{{ estabelecimento_reconciliado.nome_fantasia or '' }}" placeholder="Nome fantasia" autocomplete="off">
+              <button type="button" class="btn btn-sm btn-outline-primary mb-0" id="btn-salvar-nome-fantasia">Salvar</button>
+            </div>
+            <datalist id="lista-nomes-fantasia-nota">
+              {% for n in nomeados_json %}
+              <option value="{{ n.nome_fantasia }}">
+              {% endfor %}
+            </datalist>
+          </div>
+          {% endif %}
+          {% else %}
+          <span class="vazio">nenhuma transação de extrato vinculada</span>
+          {% endif %}
+        </div>
 
         <div class="mt-2">
           <label class="mb-1 text-sm fw-bold d-block">Tipo de estabelecimento:</label>
@@ -164,6 +206,40 @@
 
     function removerEstabelecimentoDaNota(notaId) {
       salvarEstabelecimentoDaNota(notaId, null);
+    }
+
+    {% if estabelecimento_reconciliado %}
+    document.getElementById("btn-salvar-nome-fantasia").addEventListener("click", async () => {
+      const nomeFantasia = document.getElementById("input-nome-fantasia-estabelecimento").value.trim();
+      if (!nomeFantasia) {
+        alert("Informe um nome fantasia.");
+        return;
+      }
+      const resposta = await fetch(`/estabelecimentos/{{ estabelecimento_reconciliado.id }}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome_fantasia: nomeFantasia }),
+      });
+      const corpo = await resposta.json();
+      if (!resposta.ok) {
+        alert(corpo.erro || "Não foi possível salvar o nome fantasia.");
+        return;
+      }
+      window.location.reload();
+    });
+    {% endif %}
+
+    async function desvincularTransacao(transacaoId) {
+      if (!confirm("Desfazer o vínculo com esta transação de extrato?")) {
+        return;
+      }
+      const resposta = await fetch(`/transacoes/${transacaoId}/nota`, { method: "DELETE" });
+      const corpo = await resposta.json();
+      if (!resposta.ok) {
+        alert(corpo.erro || "Não foi possível desvincular a transação.");
+        return;
+      }
+      window.location.reload();
     }
 
     async function salvarTitular(notaId) {

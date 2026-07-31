@@ -62,6 +62,12 @@ TAXONOMIA_RESERVADA_EXTRATO: list[tuple[str, list[str]]] = [
     ("Serviços e assinaturas", []),
     ("Vestuário", []),
     ("Finanças", ["Tarifas e juros", "Entradas/renda"]),
+    # "Alimentação" ja existe como categoria de topo (criada por
+    # TAXONOMIA_NOTA, subcategorias de item de compra) -- esta subcategoria
+    # nova e para classificacao de TRANSACAO de extrato/fatura (comer fora/
+    # delivery, ex.: iFood), conceito distinto de comprar item pra cozinhar
+    # em casa (achado no dado real processando a fila de pendentes).
+    ("Alimentação", ["Delivery e restaurante"]),
 ]
 
 # Regras-semente (padrao -> categoria/subcategoria) -- inicialmente

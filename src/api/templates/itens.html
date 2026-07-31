@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}financiALL - Itens{% endblock %}
+{% block titulo_pagina %}Itens por categoria{% endblock %}
+{% block content %}
+  <a class="btn btn-sm btn-outline-secondary mb-3" href="/ver/categorias">← Voltar para categorias</a>
+  <div class="card">
+    <div class="card-header pb-0">
+      <h6 class="mb-0">
+        {% if categoria %}Itens em "{{ categoria.nome }}"{% else %}Itens{% endif %}
+        <span class="text-secondary fw-normal">— {{ itens | length }} item(ns)</span>
+      </h6>
+    </div>
+    <div class="card-body px-0 pb-0">
+      {% if itens %}
+      <div class="table-responsive-argon">
+        <table class="table align-items-center mb-0">
+          <thead>
+            <tr>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Data</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Emitente</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Descrição</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Qtd</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in itens %}
+            <tr class="linha-clicavel" onclick="window.location='/ver/notas/{{ item.nota_fiscal_id }}'">
+              <td class="text-sm" style="white-space:nowrap;">{{ item.data_emissao | data_br if item.data_emissao else "—" }}</td>
+              <td class="text-sm">{{ item.emitente_nome or "não disponível" }}</td>
+              <td class="text-sm">{{ item.descricao or "não disponível" }}</td>
+              <td class="text-sm" style="white-space:nowrap;">{{ item.quantidade if item.quantidade is not none else "—" }}</td>
+              <td class="text-sm" style="white-space:nowrap;">{% if item.valor_total_item is not none %}R$ {{ "%.2f"|format(item.valor_total_item / 100) }}{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="vazio px-4 pb-3">Nenhum item classificado nesta categoria.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

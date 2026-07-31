@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import tempfile
 from io import BytesIO
 
 from flask import Blueprint, current_app, jsonify, request
@@ -8,7 +10,8 @@ from PIL import Image as PilImage
 
 from src.models.nota_fiscal import TITULARES_VALIDOS
 from src.services import chave_acesso as chave_acesso_service
-from src.services import exclusao, fila_processamento, importador, qrcode_reader
+from src.services import exclusao, fila_processamento, importador, importar_extrato_upload, qrcode_reader
+from src.services.importar_historico_extrato import processar_transacoes
 from src.storage import db as storage_db
 
 bp = Blueprint("importar", __name__)
@@ -159,6 +162,54 @@ def upload_nota():
             }
         ),
         202,
+    )
+
+
+@bp.post("/extratos/upload")
+def upload_extrato():
+    """Upload de extrato/fatura bancária (feature 013) -- síncrono,
+    diferente de `/notas/upload`: nenhum dos 4 parsers usa OCR, então o
+    processamento inteiro (detecção de formato + parsing + persistência)
+    acontece na própria requisição, sem fila (research.md #4). Detecta o
+    formato automaticamente (research.md #1/#2) e reaproveita
+    `processar_transacoes()` sem alteração -- mesma classificação e
+    reconciliação já usadas pelos scripts CLI (FR-006)."""
+    arquivo = request.files.get("arquivo")
+    if arquivo is None or not arquivo.filename:
+        return jsonify({"erro": "Nenhum arquivo foi enviado."}), 400
+
+    db_path = current_app.config["DB_PATH"]
+
+    with tempfile.TemporaryDirectory() as diretorio_temporario:
+        # Preserva o nome original (nao um nome temporario aleatorio) --
+        # os parsers usam `os.path.basename(caminho)` como "fonte" da
+        # transacao.
+        caminho = os.path.join(diretorio_temporario, os.path.basename(arquivo.filename))
+        arquivo.save(caminho)
+
+        try:
+            formato, registros = importar_extrato_upload.detectar_e_parsear(caminho, arquivo.filename)
+        except importar_extrato_upload.FormatoNaoReconhecidoError as exc:
+            return jsonify({"erro": str(exc)}), 415
+        except Exception as exc:  # arquivo corrompido/ilegivel para o parser do formato detectado (Principio III)
+            return jsonify({"erro": f"Não foi possível interpretar o arquivo: {exc}"}), 422
+
+    resumo = processar_transacoes(registros, db_path=db_path)
+
+    return (
+        jsonify(
+            {
+                "formato_detectado": formato,
+                "importadas": resumo.importadas,
+                "ja_existentes": resumo.ja_existentes,
+                "puladas": resumo.puladas,
+                "classificadas_automaticamente": resumo.classificadas_automaticamente,
+                "pendentes_natureza": resumo.pendentes_natureza,
+                "reconciliadas": resumo.reconciliadas,
+                "ambiguas": resumo.ambiguas,
+            }
+        ),
+        200,
     )
 
 
