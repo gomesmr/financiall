@@ -150,6 +150,48 @@ def test_parsear_fatura_paga_xlsx_marca_titular_marcelo(tmp_path):
     assert all(r["titular"] == "marcelo" for r in registros)
 
 
+# --- formato CSV (data/lancamento/valor) -----------------------------------
+# achado nos extratos historicos anteriores ao financiALL (pasta
+# Financeiro/extrato/ do usuario): faturas tambem exportadas nesse formato
+# simples, data ja em ISO e valor ja float (sem formatacao BR).
+
+
+def _criar_fatura_csv(caminho, linhas: list[str], nome_arquivo="2486-2026-04-fatura.csv"):
+    destino = caminho / nome_arquivo
+    destino.write_text("\n".join(linhas), encoding="utf-8-sig")
+    return str(destino)
+
+
+_LINHAS_FATURA_CSV_SINTETICA = [
+    "data,lançamento,valor",
+    "2026-04-01,MERCADOLIVRE*MUNDOFIT,229.9",
+    "2026-03-31,PAGAMENTO EFETUADO,-4827.52",
+    "2026-03-30,DROGARIA SAO PAULO 247,125.55",
+]
+
+
+def test_parsear_csv_ignora_pagamento_efetuado(tmp_path):
+    caminho = _criar_fatura_csv(tmp_path, _LINHAS_FATURA_CSV_SINTETICA)
+    registros = parsear(caminho)
+    descricoes = [r["descricao"] for r in registros]
+    assert descricoes == ["MERCADOLIVRE*MUNDOFIT", "DROGARIA SAO PAULO 247"]
+
+
+def test_parsear_csv_preserva_data_iso_e_valor_com_sinal(tmp_path):
+    caminho = _criar_fatura_csv(tmp_path, _LINHAS_FATURA_CSV_SINTETICA)
+    registros = parsear(caminho)
+    compra = next(r for r in registros if r["descricao"] == "MERCADOLIVRE*MUNDOFIT")
+    assert compra["data"] == "2026-04-01"
+    assert compra["valor_raw"] == 229.9
+
+
+def test_parsear_csv_deriva_conta_pelo_nome_do_arquivo_e_titular_marcelo(tmp_path):
+    caminho = _criar_fatura_csv(tmp_path, _LINHAS_FATURA_CSV_SINTETICA, nome_arquivo="9073_2026-04-fatura-cartao.csv")
+    registros = parsear(caminho)
+    assert registros[0]["conta"] == "Itaú_9073"
+    assert all(r["titular"] == "marcelo" for r in registros)
+
+
 # --- integracao com processar_transacoes (reaproveita persistencia da US2) -
 
 
