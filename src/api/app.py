@@ -6,6 +6,7 @@ from flask import Flask
 
 from src.api import filters as filtros_jinja
 from src.api.routes_categorias import bp as categorias_bp
+from src.api.routes_compromissos import bp as compromissos_bp
 from src.api.routes_consulta import bp as consulta_bp
 from src.api.routes_estabelecimentos import bp as estabelecimentos_bp
 from src.api.routes_importar import bp as importar_bp
@@ -42,5 +43,6 @@ def create_app(db_path: str | None = None, upload_dir: str | None = None) -> Fla
     app.register_blueprint(itens_bp)
     app.register_blueprint(transacoes_bp)
     app.register_blueprint(estabelecimentos_bp)
+    app.register_blueprint(compromissos_bp)
 
     return app
