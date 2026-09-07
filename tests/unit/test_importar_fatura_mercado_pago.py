@@ -98,6 +98,16 @@ def test_arquivo_sem_emitida_em_levanta_erro():
         parsear_texto("Texto qualquer sem a data de emissão.", fonte="teste.pdf")
 
 
+def test_reconhece_variante_emitido_em():
+    """Achado processando fatura historica de jan/2026 (anterior ao
+    financiALL): o Mercado Pago usava 'Emitido em:' nesse periodo, nao
+    'Emitida em:' como nas faturas mais recentes -- o parser precisa
+    aceitar as duas grafias."""
+    texto = _TEXTO_FATURA_SINTETICA.replace("Emitida em:", "Emitido em:")
+    registros = parsear_texto(texto, fonte="teste.pdf")
+    assert len(registros) > 0
+
+
 def test_titular_sempre_marcelo():
     registros = parsear_texto(_TEXTO_FATURA_SINTETICA, fonte="teste.pdf")
     assert all(r["titular"] == "marcelo" for r in registros)

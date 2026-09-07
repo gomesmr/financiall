@@ -14,7 +14,7 @@ _SECAO_ENCARGOS = "Movimentações na fatura"
 # [************3258]" -- um por titular principal/adicional (research.md #2).
 _RE_CARTAO = re.compile(r"^Cartão\s+\S+\s+\[\*+(\d{4})\]$")
 
-_RE_EMISSAO = re.compile(r"Emitida em:\s*(\d{2})/(\d{2})/(\d{4})")
+_RE_EMISSAO = re.compile(r"Emitid[ao] em:\s*(\d{2})/(\d{2})/(\d{4})")
 
 # Uma linha de lancamento real: "DD/MM <descricao>[ Parcela X de Y] R$
 # valor" (sinal "-" opcional para estorno/credito). Validado contra a
