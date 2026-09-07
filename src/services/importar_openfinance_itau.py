@@ -1,7 +1,18 @@
 from __future__ import annotations
 
+import datetime
 import json
 import os
+
+# Margem entre o inicio da janela pedida e o corte real de filtragem de
+# parcela antiga (ver _parsear_cartoes) -- generosa o bastante pra nao
+# descartar compra legitima perto da borda da janela (o ciclo da fatura do
+# cartao raramente alinha exatamente com a data pedida: uma fatura que
+# fecha poucos dias antes do "from_date" ainda traz compras legitimas de
+# alguns dias antes dele), mas curta o bastante pra pegar o caso real
+# encontrado com dado real (parcela de uma compra de mais de um ano atras
+# reaparecendo com a data de compra original em toda fatura nova).
+_MARGEM_DIAS_JANELA_CARTAO = 40
 
 # A conta corrente reaproveita a mesma grafia do parser manual
 # (importar_extrato_itau_cc.py) para canonicalizar para "itau_cc" -- sem
@@ -29,6 +40,11 @@ def _data_iso(transaction_date_time: str) -> str:
     return transaction_date_time[:10]
 
 
+def _data_corte_parcela_antiga(data_minima: str) -> str:
+    data = datetime.date.fromisoformat(data_minima) - datetime.timedelta(days=_MARGEM_DIAS_JANELA_CARTAO)
+    return data.isoformat()
+
+
 def _parsear_contas(dados_contas: dict, fonte: str) -> list[dict]:
     registros: list[dict] = []
     for conta_info in dados_contas.values():
@@ -50,12 +66,27 @@ def _parsear_contas(dados_contas: dict, fonte: str) -> list[dict]:
     return registros
 
 
-def _parsear_cartoes(dados_cartoes: dict, fonte: str) -> list[dict]:
+def _parsear_cartoes(dados_cartoes: dict, fonte: str, data_minima: str | None) -> list[dict]:
     registros: list[dict] = []
     for cartao_info in dados_cartoes.values():
         for transacao in cartao_info.get("bill_transactions", []):
             descricao = transacao["transactionName"]
             if descricao.strip().lower() in _DESCRICOES_PAGAMENTO_FATURA:
+                continue
+
+            data_iso = _data_iso(transacao["transactionDateTime"])
+            if data_minima and data_iso < _data_corte_parcela_antiga(data_minima):
+                # Parcela em andamento de uma compra antiga (ex.: 16/21):
+                # a API do Open Finance mantem a data da COMPRA ORIGINAL em
+                # transactionDateTime em vez da data desta parcela
+                # especifica -- sem esse filtro, cada parcela mensal futura
+                # criaria uma transacao nova com a mesma data antiga (so a
+                # descricao muda, "16/21" -> "17/21"), empilhando gasto
+                # datado de mais de um ano atras a cada importacao
+                # recorrente. A parcela em si so entra quando cai dentro da
+                # janela pedida (o que nunca acontece pra parcelas de
+                # compras antigas ao Open Finance -- limitacao conhecida,
+                # documentada para o usuario).
                 continue
 
             valor_abs = float(transacao["amount"]["amount"])
@@ -68,7 +99,7 @@ def _parsear_cartoes(dados_cartoes: dict, fonte: str) -> list[dict]:
 
             registros.append(
                 {
-                    "data": _data_iso(transacao["transactionDateTime"]),
+                    "data": data_iso,
                     "descricao": descricao,
                     "valor_raw": valor_raw,
                     "conta": conta,
@@ -92,6 +123,7 @@ def parsear(caminho_arquivo: str) -> list[dict]:
         dados = json.load(arquivo)
 
     fonte = os.path.basename(caminho_arquivo)
+    data_minima = dados.get("from_date")
     registros = _parsear_contas(dados.get("accounts", {}), fonte)
-    registros += _parsear_cartoes(dados.get("credit_cards", {}), fonte)
+    registros += _parsear_cartoes(dados.get("credit_cards", {}), fonte, data_minima)
     return registros
