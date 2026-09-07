@@ -9,19 +9,24 @@ from src.services.importar_historico_extrato import processar_transacoes
 from src.storage import db as storage_db
 
 
+_EXTENSOES_SUPORTADAS = (".xls", ".xlsx", ".csv")
+
+
 def _listar_arquivos_xls(caminho: str) -> list[str]:
     if os.path.isdir(caminho):
         return sorted(
-            os.path.join(caminho, nome) for nome in os.listdir(caminho) if nome.lower().endswith(".xls")
+            os.path.join(caminho, nome)
+            for nome in os.listdir(caminho)
+            if nome.lower().endswith(_EXTENSOES_SUPORTADAS)
         )
     return [caminho]
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Importa fatura(s) de cartão Itaú (.xls) para o financiALL, de forma recorrente."
+        description="Importa fatura(s) de cartão Itaú (.xls/.xlsx/.csv) para o financiALL, de forma recorrente."
     )
-    parser.add_argument("caminho", help="Arquivo .xls ou pasta com faturas")
+    parser.add_argument("caminho", help="Arquivo .xls/.xlsx/.csv ou pasta com faturas")
     parser.add_argument("--db-path", dest="db_path", default=storage_db.DEFAULT_DB_PATH, help="Banco de destino")
     args = parser.parse_args(argv)
 

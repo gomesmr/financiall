@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}financiALL - Parcelas futuras{% endblock %}
+{% block titulo_pagina %}Parcelas futuras{% endblock %}
+{% block content %}
+  <p class="vazio">Compromissos cadastrados manualmente (parcelamentos, financiamentos) e a projeção de quanto vai vencer em cada mês. Diferente das Transações, aqui é o que ainda vai acontecer.</p>
+
+  <div class="card mb-4">
+    <div class="card-header pb-0">
+      <h6>Novo compromisso</h6>
+    </div>
+    <div class="card-body">
+      <form id="form-compromisso" class="row g-2 align-items-end">
+        <div class="col-12 col-md-4">
+          <label class="form-label text-xs mb-1">Descrição</label>
+          <input type="text" class="form-control" id="descricao" placeholder="Ex.: Parcelamento fatura Múltiplo VS" required>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label text-xs mb-1">Valor da parcela (R$)</label>
+          <input type="number" step="0.01" min="0.01" class="form-control" id="valor-parcela" placeholder="1450.65" required>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label text-xs mb-1">Parcela atual / total</label>
+          <div class="d-flex gap-1">
+            <input type="number" min="1" class="form-control" id="parcela-atual" placeholder="1" required>
+            <span class="align-self-center">/</span>
+            <input type="number" min="1" class="form-control" id="total-parcelas" placeholder="4" required>
+          </div>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label text-xs mb-1">Mês da parcela atual</label>
+          <input type="month" class="form-control" id="mes-referencia" required>
+        </div>
+        <div class="col-6 col-md-1">
+          <label class="form-label text-xs mb-1">Titular</label>
+          <select class="form-select" id="titular">
+            <option value="">—</option>
+            <option value="marcelo">Marcelo</option>
+            <option value="cristine">Cristine</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-1">
+          <button type="submit" class="btn bg-gradient-primary mb-0 w-100">Adicionar</button>
+        </div>
+      </form>
+      <div id="mensagem" class="text-sm text-danger mt-2"></div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header pb-0">
+      <h6>Projeção por mês</h6>
+    </div>
+    <div class="card-body px-0 pb-0">
+      {% if projecao %}
+      <div class="table-responsive-argon">
+        <table class="table align-items-center mb-0">
+          <thead>
+            <tr>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Mês</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Total</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Detalhe</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for grupo in projecao %}
+            <tr>
+              <td class="text-sm fw-bold" style="white-space:nowrap;">{{ grupo.mes | mes_extenso_br }}</td>
+              <td class="text-sm fw-bold">R$ {{ "%.2f"|format(grupo.total / 100) }}</td>
+              <td class="text-sm">
+                {% for item in grupo.itens %}
+                {{ item.descricao }} (parcela {{ item.parcela }}) — R$ {{ "%.2f"|format(item.valor / 100) }}{% if not loop.last %}<br>{% endif %}
+                {% endfor %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="vazio px-4 pb-3">Nenhum compromisso cadastrado ainda. Use o formulário acima.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header pb-0">
+      <h6>Compromissos cadastrados</h6>
+    </div>
+    <div class="card-body px-0 pb-0">
+      {% if compromissos %}
+      <div class="table-responsive-argon">
+        <table class="table align-items-center mb-0">
+          <thead>
+            <tr>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Descrição</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Parcela</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Valor</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">A partir de</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Titular</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7" style="width:1%; white-space:nowrap;">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for compromisso in compromissos %}
+            <tr>
+              <td class="text-sm">{{ compromisso.descricao }}{% if compromisso.conta %} <span class="text-secondary">({{ compromisso.conta }})</span>{% endif %}</td>
+              <td class="text-sm">{{ compromisso.parcela_atual }}/{{ compromisso.total_parcelas }}</td>
+              <td class="text-sm">R$ {{ "%.2f"|format(compromisso.valor_parcela / 100) }}</td>
+              <td class="text-sm">{{ compromisso.mes_referencia | mes_ano_br }}</td>
+              <td class="text-sm">{{ compromisso.titular or "—" }}</td>
+              <td style="white-space:nowrap;">
+                <button class="btn btn-sm btn-outline-secondary mb-0" onclick="quitarCompromisso({{ compromisso.id }})">Quitar/cancelar</button>
+                <button class="btn btn-sm btn-outline-danger mb-0" onclick="excluirCompromisso({{ compromisso.id }})">Excluir</button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="vazio px-4 pb-3">Nenhum compromisso cadastrado ainda.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
+{% block extra_scripts %}
+  <script>
+    const mensagem = document.getElementById("mensagem");
+
+    document.getElementById("form-compromisso").addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      const corpo = {
+        descricao: document.getElementById("descricao").value,
+        valor_parcela: parseFloat(document.getElementById("valor-parcela").value),
+        parcela_atual: parseInt(document.getElementById("parcela-atual").value, 10),
+        total_parcelas: parseInt(document.getElementById("total-parcelas").value, 10),
+        mes_referencia: document.getElementById("mes-referencia").value,
+        titular: document.getElementById("titular").value || null,
+      };
+      const resposta = await fetch("/compromissos-futuros", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(corpo),
+      });
+      const resultado = await resposta.json();
+      if (!resposta.ok) {
+        mensagem.textContent = resultado.erro;
+        return;
+      }
+      window.location.reload();
+    });
+
+    async function quitarCompromisso(id) {
+      if (!confirm("Marcar este compromisso como quitado/cancelado? Ele sai da projeção, mas fica no histórico.")) return;
+      const resposta = await fetch(`/compromissos-futuros/${id}/quitar`, { method: "POST" });
+      if (!resposta.ok) {
+        alert((await resposta.json()).erro || "Não foi possível atualizar o compromisso.");
+        return;
+      }
+      window.location.reload();
+    }
+
+    async function excluirCompromisso(id) {
+      if (!confirm("Excluir este compromisso? Use isso só se foi um cadastro errado — se já foi quitado/cancelado, use o botão \"Quitar/cancelar\" em vez de excluir.")) return;
+      const resposta = await fetch(`/compromissos-futuros/${id}`, { method: "DELETE" });
+      if (!resposta.ok) {
+        alert((await resposta.json()).erro || "Não foi possível excluir o compromisso.");
+        return;
+      }
+      window.location.reload();
+    }
+  </script>
+{% endblock %}

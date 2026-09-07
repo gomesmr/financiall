@@ -4,31 +4,30 @@ import argparse
 import os
 import sys
 
-from src.services.importar_fatura_mercado_pago import parsear
+from src.services.importar_extrato_flash import parsear
 from src.services.importar_historico_extrato import processar_transacoes
 from src.storage import db as storage_db
 
 
-def _listar_arquivos_pdf(caminho: str) -> list[str]:
+def _listar_arquivos_csv(caminho: str) -> list[str]:
     if os.path.isdir(caminho):
         return sorted(
-            os.path.join(caminho, nome) for nome in os.listdir(caminho) if nome.lower().endswith(".pdf")
+            os.path.join(caminho, nome) for nome in os.listdir(caminho) if nome.lower().endswith(".csv")
         )
     return [caminho]
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Importa fatura(s) de cartão Mercado Pago (.pdf) para o financiALL, de forma recorrente."
+        description="Importa extrato(s) do Flash (vale-alimentação/refeição, .csv) para o financiALL, de forma recorrente."
     )
-    parser.add_argument("caminho", help="Arquivo .pdf ou pasta com faturas")
+    parser.add_argument("caminho", help="Arquivo .csv ou pasta com extratos")
     parser.add_argument("--db-path", dest="db_path", default=storage_db.DEFAULT_DB_PATH, help="Banco de destino")
-    parser.add_argument("--senha", dest="senha", default=None, help="Senha do PDF, se protegido")
     args = parser.parse_args(argv)
 
     storage_db.init_db(args.db_path)
 
-    arquivos = _listar_arquivos_pdf(args.caminho)
+    arquivos = _listar_arquivos_csv(args.caminho)
     if not arquivos or not os.path.isfile(arquivos[0]):
         print(f"Arquivo não encontrado: {args.caminho}", file=sys.stderr)
         return 1
@@ -36,8 +35,8 @@ def main(argv: list[str] | None = None) -> int:
     resumo_total = None
     for arquivo in arquivos:
         try:
-            registros = parsear(arquivo, senha=args.senha)
-        except Exception as exc:  # arquivo corrompido/formato inesperado (Princípio III)
+            registros = parsear(arquivo)
+        except Exception as exc:  # arquivo corrompido/formato inesperado (Principio III)
             print(f"Não foi possível interpretar o arquivo '{arquivo}': {exc}", file=sys.stderr)
             return 1
 

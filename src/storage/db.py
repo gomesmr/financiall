@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from src.models.categoria import Categoria
+from src.models.compromisso_futuro import CompromissoFuturo
 from src.models.estabelecimento import Estabelecimento
 from src.models.item_nota import ItemNota
 from src.models.nota_fiscal import TITULARES_VALIDOS, CanalOrigem, NotaFiscal, StatusNota
@@ -137,6 +138,23 @@ CREATE TABLE IF NOT EXISTS regra_natureza (
     categoria_id INTEGER REFERENCES categoria(id),
     prioridade INTEGER NOT NULL DEFAULT 0,
     ativa INTEGER NOT NULL DEFAULT 1
+);
+
+-- Parcelamento/divida cadastrada manualmente para projetar quanto vai
+-- vencer nos proximos meses (pedido do usuario apos ver a fatura parcelada
+-- em duas faturas de cartao em 2026-09) -- ver
+-- services/compromissos_futuros.py para a logica de projecao.
+CREATE TABLE IF NOT EXISTS compromisso_futuro (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    descricao TEXT NOT NULL,
+    valor_parcela INTEGER NOT NULL,
+    parcela_atual INTEGER NOT NULL,
+    total_parcelas INTEGER NOT NULL,
+    mes_referencia TEXT NOT NULL,
+    conta TEXT,
+    titular TEXT,
+    ativo INTEGER NOT NULL DEFAULT 1,
+    data_cadastro TEXT NOT NULL
 );
 """
 
@@ -271,6 +289,21 @@ def _row_to_nota(row: sqlite3.Row) -> NotaFiscal:
 
 def _row_to_categoria(row: sqlite3.Row) -> Categoria:
     return Categoria(id=row["id"], nome=row["nome"], parent_id=row["parent_id"])
+
+
+def _row_to_compromisso_futuro(row: sqlite3.Row) -> CompromissoFuturo:
+    return CompromissoFuturo(
+        id=row["id"],
+        descricao=row["descricao"],
+        valor_parcela=row["valor_parcela"],
+        parcela_atual=row["parcela_atual"],
+        total_parcelas=row["total_parcelas"],
+        mes_referencia=row["mes_referencia"],
+        conta=row["conta"],
+        titular=row["titular"],
+        ativo=bool(row["ativo"]),
+        data_cadastro=row["data_cadastro"],
+    )
 
 
 def _row_to_transacao(row: sqlite3.Row) -> Transacao:
@@ -708,6 +741,86 @@ def buscar_categoria_por_id(categoria_id: int, db_path: str = DEFAULT_DB_PATH) -
     try:
         row = conn.execute("SELECT * FROM categoria WHERE id = ?", (categoria_id,)).fetchone()
         return _row_to_categoria(row) if row else None
+    finally:
+        conn.close()
+
+
+def criar_compromisso_futuro(compromisso: CompromissoFuturo, db_path: str = DEFAULT_DB_PATH) -> int:
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.execute(
+            """
+            INSERT INTO compromisso_futuro
+                (descricao, valor_parcela, parcela_atual, total_parcelas, mes_referencia,
+                 conta, titular, ativo, data_cadastro)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                compromisso.descricao,
+                compromisso.valor_parcela,
+                compromisso.parcela_atual,
+                compromisso.total_parcelas,
+                compromisso.mes_referencia,
+                compromisso.conta,
+                compromisso.titular,
+                int(compromisso.ativo),
+                compromisso.data_cadastro,
+            ),
+        )
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()
+
+
+def buscar_compromisso_futuro_por_id(
+    compromisso_id: int, db_path: str = DEFAULT_DB_PATH
+) -> CompromissoFuturo | None:
+    conn = get_connection(db_path)
+    try:
+        row = conn.execute("SELECT * FROM compromisso_futuro WHERE id = ?", (compromisso_id,)).fetchone()
+        return _row_to_compromisso_futuro(row) if row else None
+    finally:
+        conn.close()
+
+
+def listar_compromissos_futuros(
+    apenas_ativos: bool = True, db_path: str = DEFAULT_DB_PATH
+) -> list[CompromissoFuturo]:
+    conn = get_connection(db_path)
+    try:
+        query = "SELECT * FROM compromisso_futuro"
+        if apenas_ativos:
+            query += " WHERE ativo = 1"
+        query += " ORDER BY mes_referencia, descricao"
+        rows = conn.execute(query).fetchall()
+        return [_row_to_compromisso_futuro(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def desativar_compromisso_futuro(compromisso_id: int, db_path: str = DEFAULT_DB_PATH) -> bool:
+    """Marca como inativo (quitado/cancelado) em vez de apagar -- mantem o
+    historico do que foi cadastrado, mesmo espirito de nao perder dado
+    real sem necessidade."""
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.execute("UPDATE compromisso_futuro SET ativo = 0 WHERE id = ?", (compromisso_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def excluir_compromisso_futuro(compromisso_id: int, db_path: str = DEFAULT_DB_PATH) -> bool:
+    """Remove de vez -- para corrigir um cadastro feito por engano (dado
+    errado), diferente de desativar_compromisso_futuro (quitado/
+    cancelado de verdade, mas que aconteceu)."""
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.execute("DELETE FROM compromisso_futuro WHERE id = ?", (compromisso_id,))
+        conn.commit()
+        return cursor.rowcount > 0
     finally:
         conn.close()
 

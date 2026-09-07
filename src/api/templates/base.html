@@ -83,6 +83,14 @@
           </a>
         </li>
         <li class="nav-item">
+          <a class="nav-link text-white {{ 'active bg-primary' if pagina_ativa == 'compromissos_futuros' else '' }}" href="/ver/compromissos-futuros">
+            <div class="icon icon-shape icon-sm border-radius-md text-center me-2 d-flex align-items-center justify-content-center bg-white">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="text-dark" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="1.5"/><path d="M3 9h18M8 3v3M16 3v3"/><path d="M8 14h3M8 17h5"/></svg>
+            </div>
+            <span class="nav-link-text ms-1">Parcelas futuras</span>
+          </a>
+        </li>
+        <li class="nav-item">
           <a class="nav-link text-white {{ 'active bg-primary' if pagina_ativa == 'estabelecimentos_pendentes' else '' }}" href="/ver/estabelecimentos/pendentes">
             <div class="icon icon-shape icon-sm border-radius-md text-center me-2 d-flex align-items-center justify-content-center bg-white">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="text-dark" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg>
