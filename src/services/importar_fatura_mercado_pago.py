@@ -139,13 +139,15 @@ def parsear_texto(texto: str, fonte: str) -> list[dict]:
     return registros
 
 
-def parsear(caminho_arquivo: str) -> list[dict]:
+def parsear(caminho_arquivo: str, senha: str | None = None) -> list[dict]:
     """Le a fatura de cartao Mercado Pago (.pdf, texto nativo selecionavel
     -- research.md #1) e retorna uma lista de registros no mesmo formato
-    aceito por importar_historico_extrato.processar_transacoes."""
+    aceito por importar_historico_extrato.processar_transacoes. `senha` e
+    opcional -- fatura historica achada protegida por senha (achado
+    processando o backlog pre-financiALL)."""
     fonte = os.path.basename(caminho_arquivo)
     try:
-        with pdfplumber.open(caminho_arquivo) as pdf:
+        with pdfplumber.open(caminho_arquivo, password=senha or "") as pdf:
             texto = "\n".join(pagina.extract_text() or "" for pagina in pdf.pages)
     except FaturaInvalidaError:
         raise

@@ -23,6 +23,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("caminho", help="Arquivo .pdf ou pasta com faturas")
     parser.add_argument("--db-path", dest="db_path", default=storage_db.DEFAULT_DB_PATH, help="Banco de destino")
+    parser.add_argument("--senha", dest="senha", default=None, help="Senha do PDF, se protegido")
     args = parser.parse_args(argv)
 
     storage_db.init_db(args.db_path)
@@ -35,7 +36,7 @@ def main(argv: list[str] | None = None) -> int:
     resumo_total = None
     for arquivo in arquivos:
         try:
-            registros = parsear(arquivo)
+            registros = parsear(arquivo, senha=args.senha)
         except Exception as exc:  # arquivo corrompido/formato inesperado (Princípio III)
             print(f"Não foi possível interpretar o arquivo '{arquivo}': {exc}", file=sys.stderr)
             return 1
