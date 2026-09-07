@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import datetime as _datetime_mod
 import os
 import re
@@ -69,6 +70,8 @@ def parsear(caminho_arquivo: str) -> list[dict]:
     do arquivo; a logica de cada formato fica em funcao propria."""
     if caminho_arquivo.lower().endswith(".xlsx"):
         return _parsear_fatura_paga_xlsx(caminho_arquivo)
+    if caminho_arquivo.lower().endswith(".csv"):
+        return _parsear_fatura_csv(caminho_arquivo)
     return _parsear_fatura_xls(caminho_arquivo)
 
 
@@ -123,6 +126,53 @@ def _parsear_fatura_xls(caminho_arquivo: str) -> list[dict]:
                 "titular": "marcelo",
             }
         )
+
+    return registros
+
+
+def _parsear_fatura_csv(caminho_arquivo: str) -> list[dict]:
+    """Le uma fatura de cartao Itau exportada em CSV (colunas
+    data/lancamento/valor -- data ja em ISO, valor ja float, sem formato
+    BR) -- achado nos extratos historicos anteriores ao financiALL
+    (pasta Financeiro/extrato/ do usuario). Mesmos filtros de
+    cabecalho/"pagamento efetuado" dos outros formatos desta fatura."""
+    conta = _conta_pelo_nome_arquivo(caminho_arquivo)
+    fonte = os.path.basename(caminho_arquivo)
+
+    registros: list[dict] = []
+    with open(caminho_arquivo, encoding="utf-8-sig", newline="") as arquivo:
+        leitor = csv.DictReader(arquivo)
+        for linha in leitor:
+            data_bruta = (linha.get("data") or "").strip()
+            descricao = (linha.get("lançamento") or linha.get("lancamento") or "").strip()
+            valor_bruto = (linha.get("valor") or "").strip()
+
+            if not descricao or descricao.lower() in _DESCRICOES_IGNORADAS:
+                continue
+            if "pagamento efetuado" in descricao.lower():
+                continue
+            if not data_bruta or not valor_bruto:
+                continue
+
+            try:
+                valor = float(valor_bruto)
+            except ValueError:
+                continue
+
+            data_iso = _data_iso(data_bruta)
+            if not data_iso:
+                continue
+
+            registros.append(
+                {
+                    "data": data_iso,
+                    "descricao": descricao,
+                    "valor_raw": valor,
+                    "conta": conta,
+                    "fonte": fonte,
+                    "titular": "marcelo",
+                }
+            )
 
     return registros
 
