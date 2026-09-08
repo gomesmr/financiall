@@ -16,7 +16,9 @@ def db_path(tmp_path):
     return caminho
 
 
-def _inserir_transacao(db_path, descricao, descricao_normalizada=None, nota_fiscal_id=None, fingerprint=None) -> int:
+def _inserir_transacao(
+    db_path, descricao, descricao_normalizada=None, nota_fiscal_id=None, fingerprint=None, natureza="gasto"
+) -> int:
     transacao = Transacao(
         fingerprint=fingerprint or f"fp-{descricao}",
         data="2026-06-10",
@@ -25,7 +27,7 @@ def _inserir_transacao(db_path, descricao, descricao_normalizada=None, nota_fisc
         valor=1000,
         tipo=TipoTransacao.SAIDA,
         conta="itau_2486",
-        natureza="gasto",
+        natureza=natureza,
         nota_fiscal_id=nota_fiscal_id,
     )
     return storage_db.inserir_transacao(transacao, db_path=db_path)
@@ -298,6 +300,39 @@ def test_listar_estabelecimentos_pendentes_inclui_exemplo_descricao(db_path):
 
     assert len(pendentes) == 1
     assert pendentes[0]["exemplo_descricao"] == "SJX - Comercial Atacad Sao Paulo Bra"
+
+
+def test_listar_estabelecimentos_pendentes_ignora_estabelecimento_sem_transacao_de_gasto(db_path):
+    """Achado real: resolver_estabelecimento roda pra toda transacao, sem
+    olhar natureza -- um PIX recebido (renda) virava "pendente" igual a
+    uma compra de verdade, e o usuario estranhou ver uma entrada de renda
+    numa fila que ele lia como "despesa nao categorizada". A fila so deve
+    mostrar quem tem pelo menos uma transacao de gasto de verdade."""
+    transacao_renda_id = _inserir_transacao(db_path, "Pix recebido CLIENTE X", natureza="renda")
+    estabelecimento_service.resolver_estabelecimento(transacao_renda_id, db_path=db_path)
+
+    pendentes = storage_db.listar_estabelecimentos_pendentes(db_path=db_path)
+
+    assert pendentes == []
+
+
+def test_listar_estabelecimentos_pendentes_inclui_quando_tem_ao_menos_uma_transacao_de_gasto(db_path):
+    """Mesmo estabelecimento com uma transacao de renda E uma de gasto
+    (ex.: estorno e compra do mesmo lugar) deve aparecer -- so precisa de
+    pelo menos uma transacao de gasto, nao de todas."""
+    id_renda = _inserir_transacao(
+        db_path, "Estorno LOJA MISTA", descricao_normalizada="LOJA MISTA", natureza="renda", fingerprint="fp-a"
+    )
+    id_gasto = _inserir_transacao(
+        db_path, "Compra LOJA MISTA", descricao_normalizada="LOJA MISTA", natureza="gasto", fingerprint="fp-b"
+    )
+    estabelecimento_service.resolver_estabelecimento(id_renda, db_path=db_path)
+    estabelecimento_service.resolver_estabelecimento(id_gasto, db_path=db_path)
+
+    pendentes = storage_db.listar_estabelecimentos_pendentes(db_path=db_path)
+
+    assert len(pendentes) == 1
+    assert pendentes[0]["quantidade_transacoes"] == 2
 
 
 # --- editar so o nome fantasia nao pode apagar o tipo ja atribuido --------
