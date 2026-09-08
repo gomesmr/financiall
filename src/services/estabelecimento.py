@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from src.services.normalizacao import normalizar_chave_estabelecimento
 from src.storage import db as storage_db
 
 # CNPJ (14 digitos) tentado antes de CPF (11 digitos) porque um CNPJ
@@ -68,9 +69,8 @@ def resolver_estabelecimento(transacao_id: int, db_path: str = storage_db.DEFAUL
             # (atribuir_estabelecimento) ou uma faxina pontual.
             candidato_id = None
             if transacao.descricao_normalizada:
-                candidato_id = storage_db.buscar_estabelecimento_id_por_descricao(
-                    transacao.descricao_normalizada, db_path=db_path
-                )
+                chave = normalizar_chave_estabelecimento(transacao.descricao_normalizada)
+                candidato_id = storage_db.buscar_estabelecimento_id_por_descricao(chave, db_path=db_path)
             if candidato_id is not None:
                 novo_id = storage_db.promover_estabelecimento_para_documento(
                     candidato_id, documento, db_path=db_path
@@ -84,9 +84,8 @@ def resolver_estabelecimento(transacao_id: int, db_path: str = storage_db.DEFAUL
         return transacao.estabelecimento_id
 
     if transacao.descricao_normalizada:
-        novo_id = storage_db.obter_ou_criar_estabelecimento_por_descricao(
-            transacao.descricao_normalizada, db_path=db_path
-        )
+        chave = normalizar_chave_estabelecimento(transacao.descricao_normalizada)
+        novo_id = storage_db.obter_ou_criar_estabelecimento_por_descricao(chave, db_path=db_path)
         storage_db.vincular_transacao_a_estabelecimento(transacao_id, novo_id, db_path=db_path)
         return novo_id
 
