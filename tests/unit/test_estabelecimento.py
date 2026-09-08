@@ -101,6 +101,23 @@ def test_resolver_estabelecimento_duas_transacoes_mesma_descricao_compartilham_e
     assert id_1 == id_2
 
 
+def test_resolver_estabelecimento_parcelas_diferentes_da_mesma_compra_compartilham_estabelecimento(db_path):
+    """Achado real: cada parcela de uma compra financiada tem uma
+    descricao_normalizada ligeiramente diferente ("CLARICELL 09/21" vs
+    "CLARICELL PARCELA 12 DE 21") -- sem normalizar_chave_estabelecimento,
+    cada uma criava um estabelecimento pendente separado."""
+    t1 = _inserir_transacao(db_path, "Claricell 09/21", descricao_normalizada="CLARICELL 09/21", fingerprint="fp-1")
+    t2 = _inserir_transacao(
+        db_path, "Claricell Parcela 12 de 21", descricao_normalizada="CLARICELL PARCELA 12 DE 21", fingerprint="fp-2"
+    )
+
+    id_1 = estabelecimento_service.resolver_estabelecimento(t1, db_path=db_path)
+    id_2 = estabelecimento_service.resolver_estabelecimento(t2, db_path=db_path)
+
+    assert id_1 == id_2
+    assert storage_db.buscar_estabelecimento_por_id(id_1, db_path=db_path).descricao_normalizada == "CLARICELL"
+
+
 # --- FR-019: promocao/fusao quando descricao ganha documento depois -----
 
 
