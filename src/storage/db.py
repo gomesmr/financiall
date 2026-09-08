@@ -1919,7 +1919,15 @@ def listar_estabelecimentos_pendentes(db_path: str = DEFAULT_DB_PATH) -> list[di
     um estabelecimento identificado por CNPJ/CPF (research.md #9) -- sem
     ele, a fila so mostrava o documento cru, sem nenhuma pista de qual
     loja e (bug relatado pelo usuario: nao reconhecia uma compra no
-    Varejao porque ela tinha sido resolvida por CNPJ, nao por descricao)."""
+    Varejao porque ela tinha sido resolvida por CNPJ, nao por descricao).
+
+    So mostra estabelecimento com pelo menos uma transacao de natureza
+    'gasto' -- resolver_estabelecimento roda pra toda transacao, sem
+    olhar natureza, entao PIX pra voce mesmo, rendimento, pagamento de
+    fatura etc viravam "pendente" sem nunca precisar de nome_fantasia de
+    verdade (achado real: quase metade da fila nao era gasto nenhum,
+    incluindo um PIX RECEBIDO -- renda -- que o usuario estranhou
+    aparecer numa fila que ele lia como "despesa nao categorizada")."""
     conn = get_connection(db_path)
     try:
         rows = conn.execute(
@@ -1930,6 +1938,7 @@ def listar_estabelecimentos_pendentes(db_path: str = DEFAULT_DB_PATH) -> list[di
             LEFT JOIN transacao t ON t.estabelecimento_id = e.id
             WHERE e.nome_fantasia IS NULL
             GROUP BY e.id
+            HAVING SUM(CASE WHEN t.natureza = 'gasto' THEN 1 ELSE 0 END) > 0
             ORDER BY quantidade_transacoes DESC
             """
         ).fetchall()
