@@ -50,10 +50,12 @@ def consolidar(db_path: str) -> dict:
             nomeados = [m for m in membros if m["nome_fantasia"] is not None]
             sobrevivente = nomeados[0] if nomeados else min(membros, key=lambda m: m["id"])
 
-            conn.execute(
-                "UPDATE estabelecimento SET descricao_normalizada = ? WHERE id = ?",
-                (chave, sobrevivente["id"]),
-            )
+            # apaga os outros membros do grupo ANTES de renomear o
+            # sobrevivente pra chave canonica -- se outro membro ja tivesse
+            # exatamente essa forma (ex.: "CLARICELL" sem sufixo, sem ter
+            # sido escolhido sobrevivente), atualizar o sobrevivente
+            # primeiro colidia por um instante com o indice unico parcial
+            # (achado rodando contra o banco real de producao).
             for membro in membros:
                 if membro["id"] == sobrevivente["id"]:
                     continue
@@ -63,6 +65,10 @@ def consolidar(db_path: str) -> dict:
                 )
                 conn.execute("DELETE FROM estabelecimento WHERE id = ?", (membro["id"],))
                 fundidos += 1
+            conn.execute(
+                "UPDATE estabelecimento SET descricao_normalizada = ? WHERE id = ?",
+                (chave, sobrevivente["id"]),
+            )
             grupos_afetados += 1
 
         conn.commit()
