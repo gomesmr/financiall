@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
+from src.models.log_importacao import LogImportacao
 from src.models.transacao import Transacao, TipoTransacao
 from src.services import classificacao_natureza, estabelecimento as estabelecimento_service, reconciliacao
 from src.services.conta_canonica import canonicalizar_conta
@@ -156,7 +157,37 @@ def processar_transacoes(
         # nota como identidade primaria em vez do fallback por descricao.
         estabelecimento_service.resolver_estabelecimento(transacao_id, db_path=db_path)
 
+    _registrar_log_importacao(registros, resumo, db_path=db_path)
     return resumo
+
+
+def _registrar_log_importacao(
+    registros: list[dict], resumo: ImportarExtratoResumo, db_path: str
+) -> None:
+    """Um evento por chamada concluida de processar_transacoes(), mesmo
+    quando nenhuma transacao e nova (feature 014, research.md #1) --
+    grava so depois do laco principal terminar sem excecao, entao uma
+    falha no meio do processamento nao deixa log parcial/incorreto
+    (research.md #5). Fonte e periodo sao derivados da propria lista de
+    entrada (research.md #2/#3), sem exigir parametro novo na funcao."""
+    fonte = next((r.get("fonte") for r in registros if r.get("fonte")), None)
+    datas = [r["data"] for r in registros if r.get("data")]
+    periodo_inicio = min(datas) if datas else None
+    periodo_fim = max(datas) if datas else None
+
+    log = LogImportacao(
+        fonte=fonte,
+        periodo_inicio=periodo_inicio,
+        periodo_fim=periodo_fim,
+        importadas=resumo.importadas,
+        ja_existentes=resumo.ja_existentes,
+        puladas=resumo.puladas,
+        classificadas_automaticamente=resumo.classificadas_automaticamente,
+        pendentes_natureza=resumo.pendentes_natureza,
+        reconciliadas=resumo.reconciliadas,
+        ambiguas=resumo.ambiguas,
+    )
+    storage_db.inserir_log_importacao(log, db_path=db_path)
 
 
 def importar_historico_extrato(

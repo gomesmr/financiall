@@ -9,6 +9,7 @@ from src.models.categoria import Categoria
 from src.models.compromisso_futuro import CompromissoFuturo
 from src.models.estabelecimento import Estabelecimento
 from src.models.item_nota import ItemNota
+from src.models.log_importacao import LogImportacao
 from src.models.nota_fiscal import TITULARES_VALIDOS, CanalOrigem, NotaFiscal, StatusNota
 from src.models.transacao import NATUREZAS_VALIDAS, NaturezaTransacao, Transacao, TipoTransacao
 
@@ -155,6 +156,25 @@ CREATE TABLE IF NOT EXISTS compromisso_futuro (
     titular TEXT,
     ativo INTEGER NOT NULL DEFAULT 1,
     data_cadastro TEXT NOT NULL
+);
+
+-- Um evento por execucao concluida de processar_transacoes() (feature
+-- 014, data-model.md) -- registro agregado de auditoria, sem relacao
+-- direta com transacao individual. Sem indice unico: duas execucoes da
+-- mesma fonte geram duas linhas distintas, de proposito.
+CREATE TABLE IF NOT EXISTS log_importacao (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    data_hora TEXT NOT NULL,
+    fonte TEXT,
+    periodo_inicio TEXT,
+    periodo_fim TEXT,
+    importadas INTEGER NOT NULL,
+    ja_existentes INTEGER NOT NULL,
+    puladas INTEGER NOT NULL,
+    classificadas_automaticamente INTEGER NOT NULL,
+    pendentes_natureza INTEGER NOT NULL,
+    reconciliadas INTEGER NOT NULL,
+    ambiguas INTEGER NOT NULL
 );
 """
 
@@ -303,6 +323,23 @@ def _row_to_compromisso_futuro(row: sqlite3.Row) -> CompromissoFuturo:
         titular=row["titular"],
         ativo=bool(row["ativo"]),
         data_cadastro=row["data_cadastro"],
+    )
+
+
+def _row_to_log_importacao(row: sqlite3.Row) -> LogImportacao:
+    return LogImportacao(
+        id=row["id"],
+        data_hora=row["data_hora"],
+        fonte=row["fonte"],
+        periodo_inicio=row["periodo_inicio"],
+        periodo_fim=row["periodo_fim"],
+        importadas=row["importadas"],
+        ja_existentes=row["ja_existentes"],
+        puladas=row["puladas"],
+        classificadas_automaticamente=row["classificadas_automaticamente"],
+        pendentes_natureza=row["pendentes_natureza"],
+        reconciliadas=row["reconciliadas"],
+        ambiguas=row["ambiguas"],
     )
 
 
@@ -821,6 +858,53 @@ def excluir_compromisso_futuro(compromisso_id: int, db_path: str = DEFAULT_DB_PA
         cursor = conn.execute("DELETE FROM compromisso_futuro WHERE id = ?", (compromisso_id,))
         conn.commit()
         return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+# --- Repositorio de log de importacoes (feature 014) ---------------------
+
+def inserir_log_importacao(log: LogImportacao, db_path: str = DEFAULT_DB_PATH) -> int:
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.execute(
+            """
+            INSERT INTO log_importacao
+                (data_hora, fonte, periodo_inicio, periodo_fim, importadas,
+                 ja_existentes, puladas, classificadas_automaticamente,
+                 pendentes_natureza, reconciliadas, ambiguas)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                log.data_hora,
+                log.fonte,
+                log.periodo_inicio,
+                log.periodo_fim,
+                log.importadas,
+                log.ja_existentes,
+                log.puladas,
+                log.classificadas_automaticamente,
+                log.pendentes_natureza,
+                log.reconciliadas,
+                log.ambiguas,
+            ),
+        )
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()
+
+
+def listar_logs_importacao(db_path: str = DEFAULT_DB_PATH) -> list[LogImportacao]:
+    """Mais recente primeiro (data-model.md: ORDER BY data_hora DESC, id
+    DESC -- id como desempate para duas execucoes com o mesmo timestamp,
+    ex. um script processando varios arquivos em sequencia rapida)."""
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT * FROM log_importacao ORDER BY data_hora DESC, id DESC"
+        ).fetchall()
+        return [_row_to_log_importacao(row) for row in rows]
     finally:
         conn.close()
 
