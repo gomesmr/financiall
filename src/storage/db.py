@@ -9,6 +9,7 @@ from src.models.categoria import Categoria
 from src.models.compromisso_futuro import CompromissoFuturo
 from src.models.estabelecimento import Estabelecimento
 from src.models.item_nota import ItemNota
+from src.models.log_classificacao_manual import LogClassificacaoManual
 from src.models.log_importacao import LogImportacao
 from src.models.nota_fiscal import TITULARES_VALIDOS, CanalOrigem, NotaFiscal, StatusNota
 from src.models.transacao import NATUREZAS_VALIDAS, NaturezaTransacao, Transacao, TipoTransacao
@@ -176,6 +177,22 @@ CREATE TABLE IF NOT EXISTS log_importacao (
     reconciliadas INTEGER NOT NULL,
     ambiguas INTEGER NOT NULL
 );
+
+-- Um evento por acao de classificacao manual de natureza concluida com
+-- sucesso (feature 015, data-model.md) -- registro agregado de
+-- auditoria, sem relacao direta com transacao individual (uma acao "em
+-- grupo" pode afetar varias). Sem indice unico: uma reclassificacao do
+-- mesmo alvo gera uma nova linha, de proposito.
+CREATE TABLE IF NOT EXISTS log_classificacao_manual (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    data_hora TEXT NOT NULL,
+    metodo TEXT NOT NULL CHECK (metodo IN ('grupo', 'individual')),
+    alvo_descricao_normalizada TEXT,
+    alvo_transacao_id INTEGER,
+    natureza TEXT NOT NULL,
+    categoria_id INTEGER REFERENCES categoria(id),
+    quantidade_afetada INTEGER NOT NULL
+);
 """
 
 
@@ -340,6 +357,19 @@ def _row_to_log_importacao(row: sqlite3.Row) -> LogImportacao:
         pendentes_natureza=row["pendentes_natureza"],
         reconciliadas=row["reconciliadas"],
         ambiguas=row["ambiguas"],
+    )
+
+
+def _row_to_log_classificacao_manual(row: sqlite3.Row) -> LogClassificacaoManual:
+    return LogClassificacaoManual(
+        id=row["id"],
+        data_hora=row["data_hora"],
+        metodo=row["metodo"],
+        alvo_descricao_normalizada=row["alvo_descricao_normalizada"],
+        alvo_transacao_id=row["alvo_transacao_id"],
+        natureza=row["natureza"],
+        categoria_id=row["categoria_id"],
+        quantidade_afetada=row["quantidade_afetada"],
     )
 
 
@@ -905,6 +935,49 @@ def listar_logs_importacao(db_path: str = DEFAULT_DB_PATH) -> list[LogImportacao
             "SELECT * FROM log_importacao ORDER BY data_hora DESC, id DESC"
         ).fetchall()
         return [_row_to_log_importacao(row) for row in rows]
+    finally:
+        conn.close()
+
+
+# --- Repositorio de log de classificacao manual (feature 015) ------------
+
+def inserir_log_classificacao_manual(
+    log: LogClassificacaoManual, db_path: str = DEFAULT_DB_PATH
+) -> int:
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.execute(
+            """
+            INSERT INTO log_classificacao_manual
+                (data_hora, metodo, alvo_descricao_normalizada, alvo_transacao_id,
+                 natureza, categoria_id, quantidade_afetada)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                log.data_hora,
+                log.metodo,
+                log.alvo_descricao_normalizada,
+                log.alvo_transacao_id,
+                log.natureza,
+                log.categoria_id,
+                log.quantidade_afetada,
+            ),
+        )
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()
+
+
+def listar_logs_classificacao_manual(db_path: str = DEFAULT_DB_PATH) -> list[LogClassificacaoManual]:
+    """Mais recente primeiro (data-model.md: ORDER BY data_hora DESC, id
+    DESC -- mesmo padrao de listar_logs_importacao)."""
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT * FROM log_classificacao_manual ORDER BY data_hora DESC, id DESC"
+        ).fetchall()
+        return [_row_to_log_classificacao_manual(row) for row in rows]
     finally:
         conn.close()
 
@@ -1735,6 +1808,18 @@ def classificar_grupo_pendente_natureza(
         classificar_natureza_transacao(
             transacao_id, natureza, categoria_id, "manual", descricao_normalizada, db_path=db_path
         )
+
+    if ids:
+        inserir_log_classificacao_manual(
+            LogClassificacaoManual(
+                metodo="grupo",
+                alvo_descricao_normalizada=descricao_normalizada,
+                natureza=natureza,
+                categoria_id=categoria_id,
+                quantidade_afetada=len(ids),
+            ),
+            db_path=db_path,
+        )
     return len(ids)
 
 
@@ -1762,6 +1847,17 @@ def atribuir_natureza_manual(
 
     classificar_natureza_transacao(
         transacao_id, natureza, categoria_id, "manual", descricao_normalizada, db_path=db_path
+    )
+    inserir_log_classificacao_manual(
+        LogClassificacaoManual(
+            metodo="individual",
+            alvo_descricao_normalizada=descricao_normalizada,
+            alvo_transacao_id=transacao_id,
+            natureza=natureza,
+            categoria_id=categoria_id,
+            quantidade_afetada=1,
+        ),
+        db_path=db_path,
     )
     return True
 
