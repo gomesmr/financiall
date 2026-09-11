@@ -18,6 +18,14 @@
     .table-responsive-argon { overflow-x: auto; }
     #resultado:empty { display: none; }
     .sidenav .icon-shape { width: 34px; height: 34px; }
+    /* A barra de rolagem do menu lateral (plugin Perfect Scrollbar) só
+       aparece com opacidade no hover por padrão -- em telas menores, com
+       9 itens de menu, isso deixa "Estabelecimentos"/"Log de importações"
+       praticamente invisíveis para quem não sabe que precisa rolar
+       dentro do próprio menu. Torna a trilha/polegar sempre visíveis
+       quando há conteúdo escondido, sem depender de hover. */
+    .sidenav .ps__rail-y { opacity: 0.9 !important; background-color: rgba(255, 255, 255, 0.08) !important; }
+    .sidenav .ps__thumb-y { background-color: #8392ab !important; width: 6px !important; }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
