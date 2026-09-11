@@ -223,6 +223,14 @@ gasto de cada um separadamente. Ver
 e [`specs/012-importar-fatura-mercado-pago/contracts/cli.md`](specs/012-importar-fatura-mercado-pago/contracts/cli.md)
 para o contrato completo dos três comandos.
 
+**Consultando o histórico de importações (feature 014)**: toda
+importação (por qualquer caminho — script CLI, upload web ou Open
+Finance) fica registrada em `/ver/log-importacoes`, com fonte, período
+coberto e o resumo da execução, da mais recente para a mais antiga —
+útil pra saber se um extrato específico já foi importado sem precisar
+acessar o servidor. Ver
+[`specs/014-log-importacoes/contracts/api.md`](specs/014-log-importacoes/contracts/api.md).
+
 ## Estrutura do projeto
 
 ```text

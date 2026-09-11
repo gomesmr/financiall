@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}financiALL - Log de importações{% endblock %}
+{% block titulo_pagina %}Log de importações{% endblock %}
+{% block content %}
+  <p class="vazio">Histórico de todas as importações de extrato/fatura/Open Finance já processadas, da mais recente para a mais antiga — para saber quando foi a última importação de cada fonte e o que ela cobriu, sem precisar acessar o servidor.</p>
+
+  <div class="card">
+    <div class="card-header pb-0">
+      <h6>Importações</h6>
+    </div>
+    <div class="card-body px-0 pb-0">
+      {% if logs %}
+      <div class="table-responsive-argon">
+        <table class="table align-items-center mb-0">
+          <thead>
+            <tr>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Data/hora</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Fonte</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Período coberto</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Importadas</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Já existentes</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Puladas</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Classif. automática</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Pendentes natureza</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Reconciliadas</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Ambíguas</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for log in logs %}
+            <tr>
+              <td class="text-sm" style="white-space:nowrap;">{{ log.data_hora[:10] | data_br }} {{ log.data_hora[11:16] }}</td>
+              <td class="text-sm">{{ log.fonte or "—" }}</td>
+              <td class="text-sm" style="white-space:nowrap;">
+                {% if log.periodo_inicio and log.periodo_fim %}
+                {{ log.periodo_inicio | data_br }} – {{ log.periodo_fim | data_br }}
+                {% else %}
+                —
+                {% endif %}
+              </td>
+              <td class="text-sm">{{ log.importadas }}</td>
+              <td class="text-sm">{{ log.ja_existentes }}</td>
+              <td class="text-sm">{{ log.puladas }}</td>
+              <td class="text-sm">{{ log.classificadas_automaticamente }}</td>
+              <td class="text-sm">{{ log.pendentes_natureza }}</td>
+              <td class="text-sm">{{ log.reconciliadas }}</td>
+              <td class="text-sm">{{ log.ambiguas }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="vazio px-4 pb-3">Nenhuma importação registrada ainda.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
