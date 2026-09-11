@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}financiALL - Classificações manuais{% endblock %}
+{% block titulo_pagina %}Classificações manuais{% endblock %}
+{% block content %}
+  <p class="vazio">Histórico de toda classificação manual de natureza feita na fila de pendentes ou numa transação específica, da mais recente para a mais antiga — para saber o que foi classificado, quando e como, sem precisar acessar o servidor.</p>
+
+  <div class="card">
+    <div class="card-header pb-0">
+      <h6>Classificações</h6>
+    </div>
+    <div class="card-body px-0 pb-0">
+      {% if logs %}
+      <div class="table-responsive-argon">
+        <table class="table align-items-center mb-0">
+          <thead>
+            <tr>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Data/hora</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Método</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Alvo</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Natureza</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Categoria</th>
+              <th class="text-uppercase text-xs font-weight-bolder opacity-7">Transações afetadas</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for log in logs %}
+            <tr>
+              <td class="text-sm" style="white-space:nowrap;">{{ log.data_hora[:10] | data_br }} {{ log.data_hora[11:16] }}</td>
+              <td class="text-sm">{{ "Em grupo" if log.metodo == "grupo" else "Individual" }}</td>
+              <td class="text-sm">
+                {% if log.alvo_descricao_normalizada %}{{ log.alvo_descricao_normalizada }}{% endif %}
+                {% if log.metodo == "individual" %}<span class="text-secondary">(#{{ log.alvo_transacao_id }})</span>{% endif %}
+              </td>
+              <td class="text-sm">{{ log.natureza }}</td>
+              <td class="text-sm">{{ categorias_por_id.get(log.categoria_id, "—") if log.categoria_id else "—" }}</td>
+              <td class="text-sm">{{ log.quantidade_afetada }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="vazio px-4 pb-3">Nenhuma classificação manual registrada ainda.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
