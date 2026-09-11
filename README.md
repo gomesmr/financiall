@@ -231,6 +231,14 @@ coberto e o resumo da execução, da mais recente para a mais antiga —
 acessar o servidor. Ver
 [`specs/014-log-importacoes/contracts/api.md`](specs/014-log-importacoes/contracts/api.md).
 
+**Consultando o histórico de classificações manuais (feature 015)**:
+toda classificação manual de natureza (em grupo, pela fila de
+pendentes, ou individual) fica registrada em `/ver/log-classificacoes`,
+com método, alvo, natureza/categoria atribuídas e quantidade de
+transações afetadas, da mais recente para a mais antiga — útil pra
+auditar o que já foi classificado sem precisar acessar o servidor. Ver
+[`specs/015-log-classificacao-manual/contracts/api.md`](specs/015-log-classificacao-manual/contracts/api.md).
+
 ## Estrutura do projeto
 
 ```text

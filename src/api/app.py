@@ -11,6 +11,7 @@ from src.api.routes_consulta import bp as consulta_bp
 from src.api.routes_estabelecimentos import bp as estabelecimentos_bp
 from src.api.routes_importar import bp as importar_bp
 from src.api.routes_itens import bp as itens_bp
+from src.api.routes_log_classificacoes import bp as log_classificacoes_bp
 from src.api.routes_log_importacoes import bp as log_importacoes_bp
 from src.api.routes_transacoes import bp as transacoes_bp
 from src.services import fila_processamento
@@ -46,5 +47,6 @@ def create_app(db_path: str | None = None, upload_dir: str | None = None) -> Fla
     app.register_blueprint(estabelecimentos_bp)
     app.register_blueprint(compromissos_bp)
     app.register_blueprint(log_importacoes_bp)
+    app.register_blueprint(log_classificacoes_bp)
 
     return app
