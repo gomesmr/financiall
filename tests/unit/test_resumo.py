@@ -255,6 +255,99 @@ def test_gasto_por_categoria_item_nivel_1_agrupa_por_categoria_de_topo(db_path):
     assert por_nome_nivel_2 == {"Biscoitos": 1000, "Lanche": 2000}
 
 
+# --- composicao de uma unica nota (grafico de pizza em /ver/notas/<id>) ----
+
+
+def test_composicao_da_nota_separa_por_categoria_do_item(db_path):
+    alimentacao = storage_db.criar_categoria("Alimentação", db_path=db_path)
+    higiene = storage_db.criar_categoria("Higiene pessoal e perfumaria", db_path=db_path)
+    nota = _gravar_nota(db_path, "2025-06-05", 3000, numero="200000001")
+    _gravar_item(db_path, nota.id, 2000, categoria_id=alimentacao)
+    _gravar_item(db_path, nota.id, 1000, categoria_id=higiene)
+    itens = storage_db.listar_itens_por_nota(nota.id, db_path=db_path)
+
+    resultado = resumo.composicao_da_nota(nota, itens, db_path=db_path)
+
+    por_nome = {g.nome: g.total_gasto for g in resultado}
+    assert por_nome == {"Alimentação": 2000, "Higiene pessoal e perfumaria": 1000}
+
+
+def test_composicao_da_nota_fallback_para_categoria_da_nota_sem_item_classificado(db_path):
+    estabelecimento = storage_db.criar_categoria("Supermercado", db_path=db_path)
+    nota = _gravar_nota(db_path, "2025-06-05", 1500, numero="200000002")
+    storage_db.atribuir_categoria_a_nota(nota.id, estabelecimento, db_path=db_path)
+    _gravar_item(db_path, nota.id, 1500, categoria_id=None)  # item ainda pendente
+    nota = storage_db.buscar_nota_por_id(nota.id, db_path=db_path)
+    itens = storage_db.listar_itens_por_nota(nota.id, db_path=db_path)
+
+    resultado = resumo.composicao_da_nota(nota, itens, db_path=db_path)
+
+    assert len(resultado) == 1
+    assert resultado[0].nome == "Supermercado"
+    assert resultado[0].total_gasto == 1500
+
+
+def test_composicao_da_nota_sem_itens_usa_categoria_da_nota(db_path):
+    saude = storage_db.criar_categoria("Saúde", db_path=db_path)
+    nota = _gravar_nota(db_path, "2025-06-05", 800, numero="200000003")
+    storage_db.atribuir_categoria_a_nota(nota.id, saude, db_path=db_path)
+    nota = storage_db.buscar_nota_por_id(nota.id, db_path=db_path)
+
+    resultado = resumo.composicao_da_nota(nota, [], db_path=db_path)
+
+    assert len(resultado) == 1
+    assert resultado[0].nome == "Saúde"
+    assert resultado[0].total_gasto == 800
+
+
+def test_composicao_da_nota_pendente_em_nota_ja_classificada_vira_sem_categoria(db_path):
+    alimentacao = storage_db.criar_categoria("Alimentação", db_path=db_path)
+    estabelecimento = storage_db.criar_categoria("Supermercado", db_path=db_path)
+    nota = _gravar_nota(db_path, "2025-06-05", 2500, numero="200000004")
+    storage_db.atribuir_categoria_a_nota(nota.id, estabelecimento, db_path=db_path)
+    _gravar_item(db_path, nota.id, 1500, categoria_id=alimentacao)
+    _gravar_item(db_path, nota.id, 1000, categoria_id=None)  # pendente
+    itens = storage_db.listar_itens_por_nota(nota.id, db_path=db_path)
+
+    resultado = resumo.composicao_da_nota(nota, itens, db_path=db_path)
+
+    por_nome = {g.nome: g.total_gasto for g in resultado}
+    assert por_nome == {"Alimentação": 1500, "Sem categoria": 1000}
+
+
+def test_composicao_da_nota_exclui_item_com_valor_nulo(db_path):
+    alimentacao = storage_db.criar_categoria("Alimentação", db_path=db_path)
+    nota = _gravar_nota(db_path, "2025-06-05", 1000, numero="200000005")
+    _gravar_item(db_path, nota.id, 1000, categoria_id=alimentacao)
+    _gravar_item(db_path, nota.id, None, categoria_id=alimentacao)
+    itens = storage_db.listar_itens_por_nota(nota.id, db_path=db_path)
+
+    resultado = resumo.composicao_da_nota(nota, itens, db_path=db_path)
+
+    assert len(resultado) == 1
+    assert resultado[0].total_gasto == 1000
+
+
+def test_composicao_da_nota_nivel_1_agrupa_por_categoria_de_topo(db_path):
+    alimentacao = storage_db.criar_categoria("Alimentação", db_path=db_path)
+    biscoitos = storage_db.criar_categoria("Biscoitos", parent_id=alimentacao, db_path=db_path)
+    lanche = storage_db.criar_categoria("Lanche", parent_id=alimentacao, db_path=db_path)
+    nota = _gravar_nota(db_path, "2025-06-05", 3000, numero="200000006")
+    _gravar_item(db_path, nota.id, 1000, categoria_id=biscoitos)
+    _gravar_item(db_path, nota.id, 2000, categoria_id=lanche)
+    itens = storage_db.listar_itens_por_nota(nota.id, db_path=db_path)
+
+    resultado_nivel_1 = resumo.composicao_da_nota(nota, itens, nivel=1, db_path=db_path)
+    resultado_nivel_2 = resumo.composicao_da_nota(nota, itens, nivel=2, db_path=db_path)
+
+    assert len(resultado_nivel_1) == 1
+    assert resultado_nivel_1[0].nome == "Alimentação"
+    assert resultado_nivel_1[0].total_gasto == 3000
+
+    por_nome_nivel_2 = {g.nome: g.total_gasto for g in resultado_nivel_2}
+    assert por_nome_nivel_2 == {"Biscoitos": 1000, "Lanche": 2000}
+
+
 # --- feature 009 (US2): navegacao por mes -----------------------------------
 
 

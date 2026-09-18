@@ -53,6 +53,42 @@ def _bucket_por_nivel(
     return (categoria.id, categoria.nome)
 
 
+def composicao_da_nota(
+    nota, itens: list, nivel: int = 1, db_path: str = storage_db.DEFAULT_DB_PATH
+) -> list[GastoCategoria]:
+    """Composicao de uma unica nota por categoria (nivel 1 ou 2) para o
+    grafico de pizza da pagina de detalhe -- mesma logica de fallback do
+    resumo mensal (US1): item classificado soma por item; sem nenhum item
+    classificado, o valor total da nota cai na categoria da propria nota
+    (ou "Sem categoria")."""
+    categorias_por_id = {c.id: c for c in storage_db.listar_categorias(db_path=db_path)}
+    acumulado: dict[int | None, list] = {}
+
+    def _somar(categoria_id: int | None, valor: int | None) -> None:
+        if valor is None:
+            return
+        bucket_id, nome = _bucket_por_nivel(categoria_id, nivel, categorias_por_id)
+        atual = acumulado.get(bucket_id)
+        if atual is None:
+            acumulado[bucket_id] = [nome, valor]
+        else:
+            atual[1] += valor
+
+    tem_item_classificado = any(item.categoria_id is not None for item in itens)
+    if tem_item_classificado:
+        for item in itens:
+            _somar(item.categoria_id, item.valor_total_item)
+    else:
+        _somar(nota.categoria_id, nota.valor_total)
+
+    resultado = [
+        GastoCategoria(categoria_id=cat_id, nome=nome, total_gasto=total)
+        for cat_id, (nome, total) in acumulado.items()
+    ]
+    resultado.sort(key=lambda g: g.total_gasto, reverse=True)
+    return resultado
+
+
 def listar_meses_com_notas(db_path: str = storage_db.DEFAULT_DB_PATH) -> list[str]:
     """Meses (AAAA-MM) que tem pelo menos uma nota, do mais recente para o
     mais antigo (US2, FR-004) -- base da navegacao por mes do resumo."""
