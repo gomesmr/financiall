@@ -110,6 +110,25 @@
       </div>
     </div>
 
+    <div class="card mb-4">
+      <div class="card-header pb-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h6 class="mb-0">Composição da nota</h6>
+        {% if composicao_nivel1_json %}
+        <div class="btn-group" role="group" aria-label="Nível de detalhe">
+          <button type="button" class="btn btn-sm btn-secondary mb-0" id="btn-composicao-nivel1">Nível 1</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary mb-0" id="btn-composicao-nivel2">Nível 2</button>
+        </div>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        {% if composicao_nivel1_json %}
+        <div id="grafico-composicao-nota" style="max-width: 480px; height: 420px;"></div>
+        {% else %}
+        <p class="vazio mb-0">Nenhum valor classificado para compor o gráfico.</p>
+        {% endif %}
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-header pb-0">
         <h6>Itens</h6>
@@ -176,6 +195,7 @@
 {% endblock %}
 {% block extra_scripts %}
   <script src="{{ url_for('static', filename='classificacao.js') }}"></script>
+  <script src="/static/plotly-basic.min.js"></script>
   <script>
     async function excluirNota(notaId) {
       if (!confirm("Excluir esta nota? Essa ação não pode ser desfeita.")) {
@@ -335,5 +355,107 @@
         });
       }
     });
+
+    {% if composicao_nivel1_json %}
+    // Mesmo grafico de pizza do /ver/resumo (paleta e regra de "Outros"
+    // vindas de research.md #2/#4, feature 005), aqui aplicado a composicao
+    // de uma unica nota, com toggle de nivel 1/2 (US da feature de detalhe).
+    const PALETA_COMPOSICAO = {
+      light: {
+        categorica: ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"],
+        neutro: "#898781",
+        superficie: "#fcfcfb",
+        texto: "#0b0b0b",
+      },
+      dark: {
+        categorica: ["#3987e5", "#199e70", "#c98500", "#008300", "#9085e9", "#e66767", "#d55181", "#d95926"],
+        neutro: "#898781",
+        superficie: "#1a1a19",
+        texto: "#ffffff",
+      },
+    };
+
+    function paletaComposicaoAtual() {
+      const escuro = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      return escuro ? PALETA_COMPOSICAO.dark : PALETA_COMPOSICAO.light;
+    }
+
+    function formatarReaisComposicao(centavos) {
+      return "R$ " + (centavos / 100).toFixed(2);
+    }
+
+    function prepararFatiasComposicao(categorias) {
+      const semCategoria = categorias.find((c) => c.categoria_id === null);
+      const comCategoria = categorias
+        .filter((c) => c.categoria_id !== null)
+        .sort((a, b) => b.total_gasto - a.total_gasto);
+      const principais = comCategoria.slice(0, 8);
+      const cauda = comCategoria.slice(8);
+      const fatias = principais.slice();
+      if (cauda.length > 0) {
+        const totalCauda = cauda.reduce((soma, c) => soma + c.total_gasto, 0);
+        fatias.push({ categoria_id: null, nome: "Outros", total_gasto: totalCauda });
+      }
+      if (semCategoria) {
+        fatias.push(semCategoria);
+      }
+      return fatias;
+    }
+
+    function corDaFatiaComposicao(fatia, paleta) {
+      if (fatia.categoria_id === null) return paleta.neutro;
+      return paleta.categorica[fatia.categoria_id % 8];
+    }
+
+    const COMPOSICAO_POR_NIVEL = {
+      1: {{ composicao_nivel1_json | tojson }},
+      2: {{ composicao_nivel2_json | tojson }},
+    };
+
+    function renderizarComposicaoNota(nivel) {
+      const paleta = paletaComposicaoAtual();
+      const fatias = prepararFatiasComposicao(COMPOSICAO_POR_NIVEL[nivel]);
+      const dados = [
+        {
+          type: "pie",
+          labels: fatias.map((f) => f.nome),
+          values: fatias.map((f) => f.total_gasto),
+          marker: { colors: fatias.map((f) => corDaFatiaComposicao(f, paleta)) },
+          textinfo: "percent",
+          customdata: fatias.map((f) => formatarReaisComposicao(f.total_gasto)),
+          hovertemplate: "%{label}: %{customdata}<extra></extra>",
+        },
+      ];
+      const layout = {
+        showlegend: true,
+        height: 420,
+        paper_bgcolor: paleta.superficie,
+        plot_bgcolor: paleta.superficie,
+        font: { color: paleta.texto, family: "system-ui, -apple-system, 'Segoe UI', sans-serif" },
+        margin: { t: 20, b: 40, l: 40, r: 20 },
+      };
+      const divPizza = document.getElementById("grafico-composicao-nota");
+      if (!divPizza.dataset.renderizado) {
+        Plotly.newPlot("grafico-composicao-nota", dados, layout, { responsive: true, displayModeBar: false });
+        divPizza.dataset.renderizado = "1";
+      } else {
+        Plotly.react("grafico-composicao-nota", dados, layout, { responsive: true, displayModeBar: false });
+      }
+    }
+
+    const botaoComposicaoNivel1 = document.getElementById("btn-composicao-nivel1");
+    const botaoComposicaoNivel2 = document.getElementById("btn-composicao-nivel2");
+    botaoComposicaoNivel1.addEventListener("click", () => {
+      botaoComposicaoNivel1.classList.replace("btn-outline-secondary", "btn-secondary");
+      botaoComposicaoNivel2.classList.replace("btn-secondary", "btn-outline-secondary");
+      renderizarComposicaoNota(1);
+    });
+    botaoComposicaoNivel2.addEventListener("click", () => {
+      botaoComposicaoNivel2.classList.replace("btn-outline-secondary", "btn-secondary");
+      botaoComposicaoNivel1.classList.replace("btn-secondary", "btn-outline-secondary");
+      renderizarComposicaoNota(2);
+    });
+    renderizarComposicaoNota(1);
+    {% endif %}
   </script>
 {% endblock %}

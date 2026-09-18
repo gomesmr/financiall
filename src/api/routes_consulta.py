@@ -73,6 +73,14 @@ def pagina_nota_detalhe(nota_id: int):
     nomeados_json = [
         {"nome_fantasia": n["nome_fantasia"]} for n in storage_db.listar_estabelecimentos_nomeados(db_path=db_path)
     ]
+    composicao_nivel1 = resumo_service.composicao_da_nota(nota, itens, nivel=1, db_path=db_path)
+    composicao_nivel2 = resumo_service.composicao_da_nota(nota, itens, nivel=2, db_path=db_path)
+    composicao_nivel1_json = [
+        {"categoria_id": g.categoria_id, "nome": g.nome, "total_gasto": g.total_gasto} for g in composicao_nivel1
+    ]
+    composicao_nivel2_json = [
+        {"categoria_id": g.categoria_id, "nome": g.nome, "total_gasto": g.total_gasto} for g in composicao_nivel2
+    ]
     return render_template(
         "nota_detalhe.html",
         nota=nota,
@@ -83,6 +91,8 @@ def pagina_nota_detalhe(nota_id: int):
         transacao_reconciliada=transacao_reconciliada,
         estabelecimento_reconciliado=estabelecimento_reconciliado,
         nomeados_json=nomeados_json,
+        composicao_nivel1_json=composicao_nivel1_json,
+        composicao_nivel2_json=composicao_nivel2_json,
         pagina_ativa="notas",
     )
 
