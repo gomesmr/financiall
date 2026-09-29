@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import unicodedata
 from datetime import datetime
 
 import openpyxl
@@ -38,9 +39,12 @@ def _data_iso(valor_bruto: str) -> str | None:
         return None
 
 
-def _valor_float(valor_bruto: str) -> float | None:
+def _valor_float(valor_bruto) -> float | None:
     """Extrato do BB traz o valor como texto em formato BR (milhar com
-    ponto, decimal com virgula, ex.: '-1.234,56')."""
+    ponto, decimal com virgula, ex.: '-1.234,56'). Celula ja numerica e
+    aceita como esta -- tratar como texto BR apagaria o ponto decimal."""
+    if isinstance(valor_bruto, (int, float)):
+        return float(valor_bruto)
     texto = str(valor_bruto).strip().replace(".", "").replace(",", ".")
     if not texto:
         return None
@@ -48,6 +52,21 @@ def _valor_float(valor_bruto: str) -> float | None:
         return float(texto)
     except ValueError:
         return None
+
+
+def _aplicar_tipo_lancamento(valor: float, tipo_lancamento) -> float:
+    """A coluna 'Tipo Lancamento' (Entrada/Saida) e quem manda no sinal
+    quando vem preenchida. Extratos a partir de jun/2026 chegaram com o
+    valor sem sinal nas saidas e foram gravados 100% como entrada (achado com
+    dado real em 2026-09-29); os anteriores traziam os dois coerentes. Sem
+    tipo reconhecivel (linha de saldo, celula em branco), vale o sinal do
+    proprio valor."""
+    tipo = unicodedata.normalize("NFKD", str(tipo_lancamento or "")).encode("ascii", "ignore").decode().strip().lower()
+    if tipo.startswith("saida"):
+        return -abs(valor)
+    if tipo.startswith("entrada"):
+        return abs(valor)
+    return valor
 
 
 def _descricao(lancamento: str, detalhes: str) -> str:
@@ -92,9 +111,10 @@ def parsear(caminho_arquivo: str) -> list[dict]:
         if not data_iso:
             continue
 
-        valor = _valor_float(valor_bruto) if valor_bruto else None
+        valor = _valor_float(valor_bruto) if valor_bruto not in (None, "") else None
         if valor is None:
             continue
+        valor = _aplicar_tipo_lancamento(valor, linha[5] if len(linha) > 5 else None)
 
         descricao = _descricao(lancamento_texto, str(detalhes).strip() if detalhes else "")
         if not descricao:
