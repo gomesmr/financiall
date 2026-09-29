@@ -4,6 +4,7 @@ from flask import Blueprint, current_app, jsonify, render_template, request
 
 from src.models.transacao import NATUREZAS_VALIDAS
 from src.services import estabelecimento as estabelecimento_service
+from src.services import reconciliacao
 from src.services import resumo as resumo_service
 from src.storage import db as storage_db
 
@@ -77,6 +78,10 @@ def classificar_grupo_pendente_natureza():
     quantidade = storage_db.classificar_grupo_pendente_natureza(
         descricao_normalizada, natureza, categoria_id, db_path=db_path
     )
+    if natureza == "gasto":
+        reconciliacao.reconciliar_gastos_sem_nota(
+            storage_db.listar_gastos_sem_nota_por_descricao(descricao_normalizada, db_path=db_path), db_path=db_path
+        )
     return (
         jsonify({"mensagem": f"{quantidade} transação(ões) classificada(s).", "quantidade_afetada": quantidade}),
         200,
@@ -101,6 +106,8 @@ def atribuir_natureza_transacao(transacao_id: int):
     if resultado is False:
         return jsonify({"erro": "Natureza inválida."}), 422
 
+    if natureza == "gasto":
+        reconciliacao.reconciliar_gastos_sem_nota([transacao_id], db_path=db_path)
     return jsonify({"mensagem": "Natureza da transação atualizada com sucesso."}), 200
 
 

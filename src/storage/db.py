@@ -1919,6 +1919,75 @@ def reconciliar_transacao(transacao_id: int, janela_dias: int, db_path: str = DE
     return "sem_candidato"
 
 
+def marcar_gasto_por_nota_fiscal(transacao_id: int, db_path: str = DEFAULT_DB_PATH) -> bool:
+    """Transacao pendente de natureza que acabou de reconciliar com uma nota
+    fiscal vira 'gasto' -- nota fiscal e comprovante de compra. A categoria
+    vem da nota (quando ela tem uma). metodo_classificacao_natureza fica
+    NULL: o CHECK da coluna nao tem um valor proprio pra essa origem, e
+    reaproveitar 'regra'/'cache' mentiria sobre o motivo. Nao mexe em
+    transacao ja classificada nem faz upsert de cache (evidencia e da
+    transacao, nao da descricao). Retorna True se atualizou."""
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.execute(
+            """
+            UPDATE transacao
+            SET natureza = 'gasto',
+                categoria_id = COALESCE(
+                    categoria_id,
+                    (SELECT nf.categoria_id FROM nota_fiscal nf WHERE nf.id = transacao.nota_fiscal_id)
+                )
+            WHERE id = ? AND natureza IS NULL AND tipo = 'saida' AND nota_fiscal_id IS NOT NULL
+            """,
+            (transacao_id,),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def listar_gastos_sem_nota_por_descricao(descricao_normalizada: str, db_path: str = DEFAULT_DB_PATH) -> list[int]:
+    """Ids de gastos (saida) ainda sem nota fiscal vinculada com a mesma
+    descricao_normalizada -- alvo da reconciliacao disparada depois de uma
+    classificacao manual em grupo."""
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT id FROM transacao WHERE descricao_normalizada = ? AND natureza = 'gasto' "
+            "AND tipo = 'saida' AND nota_fiscal_id IS NULL",
+            (descricao_normalizada,),
+        ).fetchall()
+        return [row["id"] for row in rows]
+    finally:
+        conn.close()
+
+
+def buscar_candidatas_duplicata(
+    conta: str, valor: int, tipo: str, data_iso: str, janela_dias: int, db_path: str = DEFAULT_DB_PATH
+) -> list[dict]:
+    """Transacoes ja gravadas com mesma conta, valor e tipo e data a ate
+    `janela_dias` de distancia -- candidatas a ser a mesma transacao vinda
+    de outra fonte com data/descricao levemente diferentes (o fingerprint
+    exato nao pega). Ordenadas da data mais proxima para a mais distante.
+    Quem decide se e duplicata de fato e o chamador (compatibilidade de
+    descricao)."""
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            """
+            SELECT id, data, descricao FROM transacao
+            WHERE conta = ? AND valor = ? AND tipo = ?
+              AND abs(julianday(data) - julianday(?)) <= ?
+            ORDER BY abs(julianday(data) - julianday(?)), id
+            """,
+            (conta, valor, tipo, data_iso, janela_dias, data_iso),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
 def listar_reconciliacoes_pendentes(db_path: str = DEFAULT_DB_PATH) -> list[dict]:
     """Fila de casos ambiguos (US3, FR-013) -- recalculada ao vivo (mesmo
     espirito de research.md #8: sem estado persistido de 'ambiguo')."""
