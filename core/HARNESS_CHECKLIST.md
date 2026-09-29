@@ -77,4 +77,4 @@ updated: 2026-07-03
 *Vendorizado para `finall/` em 2026-07-13, via ritual de bootstrap (ver `IMPLEMENT.md` deste projeto). Contador e data de revisão reiniciados para o clock deste projeto.*
 *Revisado: 2026-07-13*
 *Revisor: Marcelo Gomes + agente*
-*Sessões desde última revisão: 0*
+*Sessões desde última revisão: 2*
