@@ -115,3 +115,37 @@ def test_fonte_e_o_nome_do_arquivo(arquivo_extrato):
     )
     registros = parsear(caminho)
     assert registros[0]["fonte"] == "Extrato conta corrente - 012026.xlsx"
+
+
+def test_tipo_lancamento_define_o_sinal_quando_valor_vem_sem_sinal(arquivo_extrato):
+    """Layout a partir de jun/2026: saida chega com valor positivo e so a
+    coluna 'Tipo Lancamento' diz a direcao."""
+    caminho = arquivo_extrato(
+        [
+            ["01/07/2026", "Pix - Enviado", "01/07 10:00 FULANO DE TAL", "1", "250,00", "Saída"],
+            ["02/07/2026", "Compra com Cartão", "02/07 12:00 PADARIA TESTE", "2", "7,95", "Saída"],
+            ["31/07/2026", "Recebimento de Proventos", "ORGAO PAGADOR TESTE", "3", "4.000,00", "Entrada"],
+        ]
+    )
+    valores = [r["valor_raw"] for r in parsear(caminho)]
+    assert valores == [-250.0, -7.95, 4000.0]
+
+
+def test_tipo_lancamento_prevalece_sobre_sinal_divergente(arquivo_extrato):
+    caminho = arquivo_extrato([["01/07/2026", "Estorno", "", "1", "-59,50", "Entrada"]])
+    assert parsear(caminho)[0]["valor_raw"] == 59.5
+
+
+def test_sem_tipo_lancamento_vale_o_sinal_do_valor(arquivo_extrato):
+    caminho = arquivo_extrato(
+        [
+            ["01/07/2026", "Tarifa Pacote de Serviços", "", "1", "-18,40", " "],
+            ["02/07/2026", "Pix - Recebido", "", "2", "100,00", None],
+        ]
+    )
+    assert [r["valor_raw"] for r in parsear(caminho)] == [-18.4, 100.0]
+
+
+def test_valor_em_celula_numerica_nao_perde_o_decimal(arquivo_extrato):
+    caminho = arquivo_extrato([["01/07/2026", "Compra com Cartão", "LOJA", "1", 150.77, "Saída"]])
+    assert parsear(caminho)[0]["valor_raw"] == -150.77
