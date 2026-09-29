@@ -55,5 +55,42 @@ acumuladas por uso — SSH ao Raspberry Pi, venv, pytest) — já existia, é ge
 Claude Code, não pelo `AGENTS.md`. `.specify/memory/constitution.md` — não editado diretamente,
 só referenciado; edição correta é via `/speckit.constitution`.
 
+### 2026-09-29 — Revisão manual de pendências de set/2026 e limpeza de duplicatas em produção
+
+A pedido do usuário, as transações de set/2026 sem natureza foram classificadas direto no banco de
+produção via `storage_db.atribuir_natureza_manual` (mesmo caminho da rota da UI, então gera
+`log_classificacao_manual` e atualiza o cache por descrição). Parcelas de refinanciamento de
+fatura foram classificadas como `pagamento_fatura` (não `gasto`), para não contar duas vezes
+compras antigas já contadas como gasto.
+
+Com confirmação explícita do usuário para cada lista, 11 duplicatas foram apagadas por `DELETE`
+direto (o app não tem exclusão de transação). Backups em `/tmp/` no Pi antes de cada etapa.
+
+Achados que viram trabalho de código (1 e 2 implementados na branch
+`feat/mcl-dedup-e-reconciliacao-pendentes`; 3 fica para um ciclo spec-kit próprio, porque mexe no
+modelo de dados):
+1. **Dedup falha com data ±1 dia** entre upload de extrato e Open Finance, e com espaçamento
+   diferente na descrição de cartão (`DL*99` vs `DL          *99`); também duplicou depósitos da
+   Flash entre `flash.txt` e os CSVs.
+2. **Reconciliação com nota fiscal só roda no import quando a natureza já é `gasto`.** Transação
+   que entra pendente nunca é cruzada com NF, nem depois de classificada manualmente.
+3. **Parcela de cartão fica com a data da compra original**, o que infla o mês da compra e
+   esvazia os seguintes.
+
+Decisões da correção:
+- **Dedup aproximado** (`src/services/duplicata_transacao.py`): mesma conta, valor e tipo, data a
+  ±1 dia e descrição compatível (igual sem espaços, ignorando `(estorno)` e o sufixo DD/MM igual à
+  própria data; ou uma prefixo da outra quando nenhuma tem sufixo de parcela). Transações gravadas
+  na mesma importação nunca são candidatas, e cada transação existente absorve um só registro,
+  com o casamento por fingerprint exato reservado antes. Validado em modo leitura contra o banco
+  real: a regra reencontra exatamente as 11 duplicatas apagadas à mão, e aponta 0 dos 47 pares
+  parecidos restantes (todos parcelas distintas).
+- **Saída pendente que reconcilia com NF vira `gasto`** com a categoria da nota.
+  `metodo_classificacao_natureza` fica NULL: o CHECK da coluna não tem valor para essa origem, e
+  alterar CHECK no SQLite exige reconstruir a tabela em produção. Não faz upsert de cache (a
+  evidência é da transação, não da descrição).
+- **Classificação manual como gasto** (individual ou em grupo) dispara a reconciliação dos gastos
+  sem nota, na camada de rota (a camada de storage não conhece o serviço de reconciliação).
+
 ---
 *Criado: 2026-07-13*

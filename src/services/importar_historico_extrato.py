@@ -5,7 +5,12 @@ from dataclasses import dataclass
 
 from src.models.log_importacao import LogImportacao
 from src.models.transacao import Transacao, TipoTransacao
-from src.services import classificacao_natureza, estabelecimento as estabelecimento_service, reconciliacao
+from src.services import (
+    classificacao_natureza,
+    duplicata_transacao,
+    estabelecimento as estabelecimento_service,
+    reconciliacao,
+)
 from src.services.conta_canonica import canonicalizar_conta
 from src.services.fingerprint_transacao import calcular_fingerprint
 from src.services.normalizacao import normalizar_descricao
@@ -81,6 +86,35 @@ def _classificar_com_heuristica_estorno(
     return natureza, categoria_id, metodo
 
 
+def _preparar_registro(registro: dict) -> dict | None:
+    """Valida o registro bruto e deriva conta canonica, valor em centavos,
+    tipo e fingerprint. None quando falta campo obrigatorio ou o valor nao
+    e numerico (registro pulado)."""
+    data_iso = registro.get("data")
+    descricao = registro.get("descricao")
+    valor_raw = registro.get("valor_raw")
+    conta_raw = registro.get("conta")
+
+    if not data_iso or not descricao or valor_raw in (None, "") or not conta_raw:
+        return None
+
+    try:
+        valor_float = float(valor_raw)
+    except (TypeError, ValueError):
+        return None
+
+    conta_canonica = canonicalizar_conta(conta_raw)
+    valor_centavos, tipo = _interpretar_valor_e_tipo(conta_canonica, valor_float, descricao)
+    return {
+        "data": data_iso,
+        "descricao": descricao,
+        "conta": conta_canonica,
+        "valor": valor_centavos,
+        "tipo": tipo,
+        "fingerprint": calcular_fingerprint(data_iso, descricao, valor_centavos, conta_canonica),
+    }
+
+
 def processar_transacoes(
     registros: list[dict], db_path: str = storage_db.DEFAULT_DB_PATH
 ) -> ImportarExtratoResumo:
@@ -92,27 +126,40 @@ def processar_transacoes(
     original), "fonte", "titular"}."""
     resumo = ImportarExtratoResumo()
 
-    for registro in registros:
-        data_iso = registro.get("data")
-        descricao = registro.get("descricao")
-        valor_raw = registro.get("valor_raw")
-        conta_raw = registro.get("conta")
+    preparados = [_preparar_registro(registro) for registro in registros]
 
-        if not data_iso or not descricao or valor_raw in (None, "") or not conta_raw:
+    # Transacoes ja gravadas que casam por fingerprint exato com algum
+    # registro deste lote ficam reservadas pra ele antes de qualquer busca
+    # aproximada -- senao um registro vizinho (mesma compra repetida no dia
+    # seguinte) poderia "roubar" o casamento e ser descartado por engano.
+    reservadas: set[int] = set()
+    for preparado in preparados:
+        if preparado is not None:
+            existente = storage_db.buscar_transacao_por_fingerprint(preparado["fingerprint"], db_path=db_path)
+            if existente is not None:
+                reservadas.add(existente.id)
+
+    for registro, preparado in zip(registros, preparados):
+        if preparado is None:
             resumo.puladas += 1
             continue
 
-        try:
-            valor_float = float(valor_raw)
-        except (TypeError, ValueError):
-            resumo.puladas += 1
-            continue
-
-        conta_canonica = canonicalizar_conta(conta_raw)
-        valor_centavos, tipo = _interpretar_valor_e_tipo(conta_canonica, valor_float, descricao)
-        fingerprint = calcular_fingerprint(data_iso, descricao, valor_centavos, conta_canonica)
+        data_iso = preparado["data"]
+        descricao = preparado["descricao"]
+        conta_canonica = preparado["conta"]
+        valor_centavos = preparado["valor"]
+        tipo = preparado["tipo"]
+        fingerprint = preparado["fingerprint"]
 
         ja_existia = storage_db.buscar_transacao_por_fingerprint(fingerprint, db_path=db_path) is not None
+        if not ja_existia:
+            duplicata_id = duplicata_transacao.buscar_duplicata_aproximada(
+                conta_canonica, valor_centavos, tipo, data_iso, descricao, ignorar_ids=reservadas, db_path=db_path
+            )
+            if duplicata_id is not None:
+                reservadas.add(duplicata_id)
+                resumo.ja_existentes += 1
+                continue
 
         descricao_normalizada = normalizar_descricao(descricao) or None
         natureza, categoria_id, metodo = _classificar_com_heuristica_estorno(
@@ -134,23 +181,31 @@ def processar_transacoes(
             fonte=registro.get("fonte"),
         )
         transacao_id = storage_db.inserir_transacao(transacao, db_path=db_path)
+        reservadas.add(transacao_id)
 
         if ja_existia:
             resumo.ja_existentes += 1
             continue
 
         resumo.importadas += 1
+
+        # Saida ainda sem natureza tambem tenta reconciliar: se bater com uma
+        # nota fiscal, e compra -- vira gasto com a categoria da nota em vez
+        # de cair na fila de pendentes (ex.: debito no supermercado com NFC-e
+        # ja cadastrada).
+        if natureza == "gasto" or (natureza is None and tipo == "saida"):
+            resultado = reconciliacao.tentar_reconciliar(transacao_id, conta_canonica, db_path=db_path)
+            if resultado == "reconciliada":
+                resumo.reconciliadas += 1
+                if natureza is None and storage_db.marcar_gasto_por_nota_fiscal(transacao_id, db_path=db_path):
+                    natureza = "gasto"
+            elif resultado == "ambigua":
+                resumo.ambiguas += 1
+
         if natureza is not None:
             resumo.classificadas_automaticamente += 1
         else:
             resumo.pendentes_natureza += 1
-
-        if natureza == "gasto":
-            resultado = reconciliacao.tentar_reconciliar(transacao_id, conta_canonica, db_path=db_path)
-            if resultado == "reconciliada":
-                resumo.reconciliadas += 1
-            elif resultado == "ambigua":
-                resumo.ambiguas += 1
 
         # Resolve estabelecimento depois da reconciliacao (US5, research.md
         # #9) -- assim, quando a transacao reconciliou, ja usa o CNPJ da
