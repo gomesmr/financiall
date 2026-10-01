@@ -100,3 +100,58 @@ def test_arquivo_novo_com_sobreposicao_parcial_so_importa_o_delta(tmp_path, db_p
     total = conn.execute("SELECT COUNT(*) FROM transacao").fetchone()[0]
     conn.close()
     assert total == 4
+
+
+_LINHAS_COM_IDENTICAS = [
+    ["08/09/2026", "Compra com Cartão", "08/09 13:24 99 TECNOLOGIA*99* PO", "148298", "-9,20", "Saída"],
+    ["08/09/2026", "Compra com Cartão", "08/09 22:03 99 TECNOLOGIA*99* PO", "379393", "-9,20", "Saída"],
+    ["30/09/2026", "Pix-Envio devolvido", "30/09 17:12 FARMACIA X", "301712350822842", "199,11", "Entrada"],
+    ["30/09/2026", "Pix - Enviado", "30/09 17:07 FARMACIA X", "93007", "-199,11", "Saída"],
+    ["30/09/2026", "Pix - Enviado", "30/09 17:26 FARMACIA X", "93008", "-199,11", "Saída"],
+]
+
+
+def test_transacoes_identicas_no_mesmo_dia_sao_todas_importadas(tmp_path, db_path):
+    """Duas corridas iguais no mesmo dia, ou Pix enviado, devolvido e
+    reenviado com o mesmo valor: o parser tira o horario da descricao, e
+    antes a 2a era descartada como duplicata da 1a."""
+    caminho = _criar_extrato_bb(tmp_path, "Extrato conta corrente - 092026.xlsx", _LINHAS_COM_IDENTICAS)
+
+    registros = parsear(caminho)
+    resumo = processar_transacoes(registros, db_path=db_path)
+
+    assert resumo.importadas == 5
+    assert resumo.ja_existentes == 0
+
+    conn = storage_db.get_connection(db_path)
+    try:
+        saldo = conn.execute(
+            "SELECT SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE -valor END) FROM transacao"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert saldo == -(920 + 920 + 19911)
+
+
+def test_reimportar_arquivo_com_identicas_nao_duplica(tmp_path, db_path):
+    caminho = _criar_extrato_bb(tmp_path, "Extrato conta corrente - 092026.xlsx", _LINHAS_COM_IDENTICAS)
+
+    registros = parsear(caminho)
+    processar_transacoes(registros, db_path=db_path)
+    resumo2 = processar_transacoes(registros, db_path=db_path)
+
+    assert resumo2.importadas == 0
+    assert resumo2.ja_existentes == 5
+
+
+def test_identica_que_faltava_entra_ao_reimportar_depois_da_correcao(tmp_path, db_path):
+    """Banco com so a 1a de duas transacoes identicas (gravado antes da
+    correcao): reimportar o arquivo traz so a que faltava."""
+    caminho = _criar_extrato_bb(tmp_path, "Extrato conta corrente - 092026.xlsx", _LINHAS_COM_IDENTICAS)
+    registros = parsear(caminho)
+    processar_transacoes([registros[0], registros[2], registros[3]], db_path=db_path)
+
+    resumo = processar_transacoes(registros, db_path=db_path)
+
+    assert resumo.importadas == 2
+    assert resumo.ja_existentes == 3

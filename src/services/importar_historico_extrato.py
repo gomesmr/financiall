@@ -115,6 +115,24 @@ def _preparar_registro(registro: dict) -> dict | None:
     }
 
 
+def _numerar_ocorrencias_identicas(preparados: list[dict | None]) -> None:
+    """Registros com o mesmo fingerprint dentro do mesmo arquivo sao
+    transacoes distintas (o extrato nao lista a mesma linha duas vezes) --
+    a 2a, 3a... ganham fingerprint proprio pela ordem em que aparecem, o
+    que mantem a reimportacao do mesmo arquivo idempotente. Achado com
+    dado real em 2026-10-01 (extrato BB de set/2026)."""
+    vistos: dict[str, int] = {}
+    for preparado in preparados:
+        if preparado is None:
+            continue
+        base = preparado["fingerprint"]
+        vistos[base] = vistos.get(base, 0) + 1
+        if vistos[base] > 1:
+            preparado["fingerprint"] = calcular_fingerprint(
+                preparado["data"], preparado["descricao"], preparado["valor"], preparado["conta"], vistos[base]
+            )
+
+
 def processar_transacoes(
     registros: list[dict], db_path: str = storage_db.DEFAULT_DB_PATH
 ) -> ImportarExtratoResumo:
@@ -127,6 +145,7 @@ def processar_transacoes(
     resumo = ImportarExtratoResumo()
 
     preparados = [_preparar_registro(registro) for registro in registros]
+    _numerar_ocorrencias_identicas(preparados)
 
     # Transacoes ja gravadas que casam por fingerprint exato com algum
     # registro deste lote ficam reservadas pra ele antes de qualquer busca
