@@ -92,5 +92,38 @@ Decisões da correção:
 - **Classificação manual como gasto** (individual ou em grupo) dispara a reconciliação dos gastos
   sem nota, na camada de rota (a camada de storage não conhece o serviço de reconciliação).
 
+### 2026-09-29 — Extratos BB de jun–ago gravados 100% como entrada
+
+Os extratos BB de jun, jul e ago/2026, enviados pela web, foram gravados com todas as 191
+transações como `entrada`. O parser só olhava o sinal da coluna Valor, e nesse layout as saídas
+vêm sem "−". Correção no parser (#50/#51): a coluna "Tipo Lançamento" manda no sinal quando vem
+preenchida. Nos 7 extratos reais de jan–mai, o resultado é idêntico ao do parser antigo.
+
+Os dados já gravados não puderam ser reimportados: o upload web grava o arquivo em
+`tempfile.TemporaryDirectory` e apaga depois de processar, então `data/uploads/` só guarda fotos de
+NF. O usuário autorizou explicitamente acessar a pasta, mas os arquivos não existiam mais.
+Correção feita no banco, com backup: a direção foi deduzida pela descrição (Pix Enviado, Compra
+com Cartão, Pgto, Tarifa… = saída; Recebido, Proventos, Cashback, Estorno, Devolvido = entrada) e,
+no "BB Rende Fácil", pelo saldo líquido do dia (aplica quando sobra, resgata quando falta). A regra
+acertou 341 de 345 nos extratos com direção conhecida. Depois, reclassificação via
+`_classificar_com_heuristica_estorno` (preserva a invariante entrada ≠ gasto): 106 viraram gasto
+e a fila caiu de 327 para 221.
+
+Pendência: vale guardar o arquivo original do upload (fora do git), pra permitir reprocessamento
+quando um parser for corrigido.
+
+### 2026-10-01 — Transações idênticas no mesmo arquivo eram descartadas como duplicata
+
+Ao importar o extrato BB de set/2026, 2 de 74 lançamentos sumiram: duas corridas iguais no mesmo
+dia e um Pix enviado, devolvido e reenviado com o mesmo valor. O parser BB tira o horário da
+descrição, então as duas linhas geravam o mesmo fingerprint (data|descrição|valor|conta) e a 2ª
+virava "já existente". Vale pra qualquer importador que passa por `processar_transacoes()`.
+
+Correção: dentro de um mesmo lote, a 2ª, 3ª… ocorrência do mesmo fingerprint ganha
+`calcular_fingerprint(..., ocorrencia=N)`. A 1ª mantém a fórmula original, então nada já gravado
+muda de fingerprint, a reimportação do mesmo arquivo continua idempotente e reimportar um arquivo
+antigo traz só a ocorrência que faltava. Alternativa descartada: manter o horário na descrição do
+BB, o que mudaria o fingerprint de todo o histórico já importado.
+
 ---
 *Criado: 2026-07-13*
